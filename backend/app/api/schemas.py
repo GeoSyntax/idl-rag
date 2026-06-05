@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -162,6 +162,7 @@ class ChatRequest(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=20)
     generate_pro_file: bool = False
     attached_file_content: str | None = None
+    input_artifact_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
 class Citation(BaseModel):
@@ -209,9 +210,11 @@ class ChatArtifact(BaseModel):
     media_type: str
     size: int
     download_url: str
-    kind: Literal["pro", "idl_output", "idl_log"] | None = None
+    kind: Literal["pro", "idl_output", "idl_log", "gee_data", "gee_preview"] | None = None
     previewable: bool = False
     run_id: str | None = None
+    input_artifact_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ChatMessageResponse(BaseModel):
@@ -235,6 +238,7 @@ class ChatResponse(BaseModel):
 class IdlRunRequest(BaseModel):
     entrypoint: str | None = Field(default=None, min_length=1, max_length=80)
     timeout_seconds: int | None = Field(default=None, ge=1, le=600)
+    input_artifact_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
 class IdlRunResponse(BaseModel):
@@ -247,6 +251,34 @@ class IdlRunResponse(BaseModel):
     timed_out: bool
     duration_ms: int
     artifacts: list[ChatArtifact]
+
+
+class GeeStatusResponse(BaseModel):
+    enabled: bool
+    initialized: bool
+    project: str | None = None
+    auth_mode: str | None = None
+    has_credentials: bool = False
+    message: str = ""
+
+
+class GeeFetchRequest(BaseModel):
+    session_id: int | None = None
+    dataset_id: str = Field(min_length=1, max_length=200)
+    start_date: str | None = Field(default=None, max_length=20)
+    end_date: str | None = Field(default=None, max_length=20)
+    bbox: list[float] = Field(min_length=4, max_length=4)
+    bands: list[str] = Field(default_factory=list, max_length=12)
+    scale: int = Field(default=30, ge=1, le=10000)
+    crs: str = Field(default="EPSG:4326", min_length=1, max_length=40)
+    composite: Literal["median", "mean", "first"] = "median"
+    label: str | None = Field(default=None, max_length=80)
+
+
+class GeeFetchResponse(BaseModel):
+    session_id: int
+    message: ChatMessageResponse
+    artifact: ChatArtifact
 
 
 class ChatSessionResponse(BaseModel):
@@ -308,6 +340,9 @@ class DashboardSummaryResponse(BaseModel):
     stale_document_count: int = 0
     failed_document_count: int
     fallback_document_count: int = 0
+    chunk_count: int = 0
+    avg_chunks_per_document: float | None = None
+    avg_index_job_seconds: float | None = None
     queued_index_job_count: int = 0
     processing_index_job_count: int = 0
     failed_index_job_count: int = 0
@@ -316,3 +351,12 @@ class DashboardSummaryResponse(BaseModel):
     embedding_fallback_active: bool = False
     embedding_last_error: str | None = None
     chat_session_count: int
+    chat_request_count: int = 0
+    chat_latency_p95_ms: float | None = None
+    chat_latency_p99_ms: float | None = None
+    chat_first_token_count: int = 0
+    chat_first_token_p95_ms: float | None = None
+    chat_first_token_p99_ms: float | None = None
+    latest_eval_hit_rate: float | None = None
+    latest_eval_top_k: int | None = None
+    latest_eval_strategy: str | None = None

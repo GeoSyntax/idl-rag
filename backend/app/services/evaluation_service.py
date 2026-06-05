@@ -38,6 +38,11 @@ class EvaluationService:
             for report in runner.run_all(categories, top_k=top_k, limit=limit, strategy=strategy)
         ]
         summary = runner.summary(reports)
+        summary["top_k"] = top_k
+        summary["strategy_count"] = len(target_strategies)
+        comparison = self._rerank_comparison(summary.get("by_strategy", {}))
+        if comparison:
+            summary["rerank_comparison"] = comparison
         payload = {
             "knowledge_base_id": knowledge_base_id,
             "categories": categories,
@@ -152,6 +157,20 @@ class EvaluationService:
     def _normalize_strategies(strategies: list[str] | None) -> list[str]:
         normalized = list(dict.fromkeys((strategy or "").strip().lower() for strategy in strategies or [] if strategy and strategy.strip()))
         return normalized or ["hybrid_rrf_no_rerank", "hybrid_rrf"]
+
+    @staticmethod
+    def _rerank_comparison(by_strategy: dict[str, Any]) -> dict[str, float] | None:
+        baseline = by_strategy.get("hybrid_rrf_no_rerank")
+        rerank = by_strategy.get("hybrid_rrf")
+        if not isinstance(baseline, dict) or not isinstance(rerank, dict):
+            return None
+        result: dict[str, float] = {}
+        for key in ("hit_rate", "precision_at_k", "recall_at_k", "mrr", "latency_ms"):
+            baseline_value = baseline.get(key)
+            rerank_value = rerank.get(key)
+            if isinstance(baseline_value, int | float) and isinstance(rerank_value, int | float):
+                result[f"{key}_delta"] = float(rerank_value) - float(baseline_value)
+        return result or None
 
     def _save_report(
         self,

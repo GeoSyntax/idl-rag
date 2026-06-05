@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { api } from '../../api/client'
 import type { EvaluationReport, KnowledgeBase, SystemSettingsPayload, SystemSettingsResponse } from '../../api/types'
+import { DisplayEmpty, MetricSummary } from '../../components/DisplayPrimitives'
 
 type SettingsPageProps = {
   settings?: SystemSettingsResponse
@@ -432,6 +433,17 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
             loading={reportsQuery.isLoading}
             dataSource={reports}
             pagination={{ pageSize: 6 }}
+            scroll={{ x: 860 }}
+            locale={{
+              emptyText: (
+                <DisplayEmpty
+                  compact
+                  illustration="report"
+                  title="暂无评测报告"
+                  description="运行本地评测或 LangSmith 评测后，报告会显示在这里。"
+                />
+              ),
+            }}
             columns={[
               {
                 title: '类型',
@@ -500,11 +512,21 @@ function ReportDetailDrawer({
   const cases = Array.isArray(reportJson.reports) ? reportJson.reports.slice(0, 20) : []
 
   return (
-    <Drawer title="评测报告详情" open={open} onClose={onClose} width={760}>
+    <Drawer title="评测报告详情" open={open} onClose={onClose} width="min(100vw, 760px)">
       {loading || !report ? (
         <div className="status-text">正在读取报告...</div>
       ) : (
         <div className="settings-report-detail">
+          <MetricSummary
+            items={[
+              { label: 'total', value: formatReportValue(summary.total ?? summary.total_cases ?? '-') },
+              { label: 'top k', value: formatReportValue(summary.top_k ?? '-') },
+              { label: 'pass rate', value: formatReportValue(summary.pass_rate ?? '-') },
+              { label: 'hit rate', value: formatReportValue(summary.hit_rate ?? '-') },
+              { label: 'rerank Δhit', value: formatDelta(summary.rerank_comparison, 'hit_rate_delta') },
+              { label: 'latency', value: typeof summary.latency_ms === 'number' ? formatLatency(summary.latency_ms) : '-' },
+            ]}
+          />
           <div className="citation-detail-list">
             <div className="citation-detail-row">
               <span className="citation-detail-label">类型</span>
@@ -531,6 +553,7 @@ function ReportDetailDrawer({
               pagination={false}
               rowKey="key"
               dataSource={metricRows}
+              scroll={{ x: 360 }}
               columns={[
                 { title: 'Metric', dataIndex: 'key' },
                 { title: 'Value', render: (_, row) => formatReportValue(row.value) },
@@ -549,6 +572,7 @@ function ReportDetailDrawer({
                 pagination={false}
                 rowKey={(row, index) => `${String(row.test_case_id ?? row.id ?? 'case')}-${index}`}
                 dataSource={cases}
+                scroll={{ x: 560 }}
                 columns={[
                   { title: 'Case', render: (_, row) => String(row.test_case_id ?? row.id ?? '-') },
                   { title: 'Category', render: (_, row) => String(row.category ?? '-') },
@@ -578,6 +602,7 @@ function MetricTable({ title, rows }: { title: string; rows: StrategyMetricRow[]
         pagination={false}
         rowKey="name"
         dataSource={rows}
+        scroll={{ x: 560 }}
         columns={[
           { title: 'Name', dataIndex: 'name' },
           { title: 'Total', dataIndex: 'total', width: 70 },
@@ -623,6 +648,18 @@ function formatNumber(value: number | undefined): string {
 
 function formatLatency(value: number | undefined): string {
   return typeof value === 'number' ? `${value.toFixed(0)}ms` : '-'
+}
+
+function formatDelta(source: unknown, key: string): string {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    return '-'
+  }
+  const value = (source as Record<string, unknown>)[key]
+  if (typeof value !== 'number') {
+    return '-'
+  }
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value.toFixed(4)}`
 }
 
 function formatReportValue(value: unknown): string {

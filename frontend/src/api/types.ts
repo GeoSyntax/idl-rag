@@ -208,9 +208,11 @@ export type ChatArtifact = {
   media_type: string
   size: number
   download_url: string
-  kind?: 'pro' | 'idl_output' | 'idl_log' | null
+  kind?: 'pro' | 'idl_output' | 'idl_log' | 'gee_data' | 'gee_preview' | null
   previewable?: boolean
   run_id?: string | null
+  input_artifact_ids?: string[]
+  metadata?: Record<string, unknown>
 }
 
 export type ChatMessage = {
@@ -229,9 +231,38 @@ export type ChatResponse = {
   messages: ChatMessage[]
 }
 
+export type GeeStatusResponse = {
+  enabled: boolean
+  initialized: boolean
+  project?: string | null
+  auth_mode?: string | null
+  has_credentials: boolean
+  message: string
+}
+
+export type GeeFetchRequest = {
+  session_id?: number | null
+  dataset_id: string
+  start_date?: string | null
+  end_date?: string | null
+  bbox: number[]
+  bands?: string[]
+  scale?: number
+  crs?: string
+  composite?: 'median' | 'mean' | 'first'
+  label?: string | null
+}
+
+export type GeeFetchResponse = {
+  session_id: number
+  message: ChatMessage
+  artifact: ChatArtifact
+}
+
 export type IdlRunRequest = {
   entrypoint?: string
   timeout_seconds?: number
+  input_artifact_ids?: string[]
 }
 
 export type IdlRunResponse = {
@@ -262,6 +293,9 @@ export type DashboardSummary = {
   stale_document_count: number
   failed_document_count: number
   fallback_document_count: number
+  chunk_count: number
+  avg_chunks_per_document: number | null
+  avg_index_job_seconds: number | null
   queued_index_job_count: number
   processing_index_job_count: number
   failed_index_job_count: number
@@ -270,6 +304,15 @@ export type DashboardSummary = {
   embedding_fallback_active: boolean
   embedding_last_error: string | null
   chat_session_count: number
+  chat_request_count: number
+  chat_latency_p95_ms: number | null
+  chat_latency_p99_ms: number | null
+  chat_first_token_count: number
+  chat_first_token_p95_ms: number | null
+  chat_first_token_p99_ms: number | null
+  latest_eval_hit_rate: number | null
+  latest_eval_top_k: number | null
+  latest_eval_strategy: string | null
 }
 
 export type StreamEvent =
