@@ -1,0 +1,298 @@
+import { QueryClient, useQuery } from '@tanstack/react-query'
+import { App as AntApp, Spin } from 'antd'
+import { useEffect, useState } from 'react'
+
+import { api, clearAccessToken, hasStoredAccessToken, onUnauthorized, saveAccessToken } from './api/client'
+import type { AuthUser, DocumentItem, ImportResult, KnowledgeBase, LoginResponse, SystemSettingsResponse } from './api/types'
+import { AppLayout } from './components/AppLayout'
+import { AuthPage } from './pages/Auth'
+import { ChatPage } from './pages/Chat'
+import { DashboardPage } from './pages/Dashboard'
+import { DocumentsPage } from './pages/Documents'
+import { KnowledgeBasesPage } from './pages/KnowledgeBases'
+import { RetrievalLabPage } from './pages/RetrievalLab'
+import { SettingsPage } from './pages/Settings'
+import { UsersPage } from './pages/Users'
+
+type PageKey = 'dashboard' | 'knowledge-bases' | 'documents' | 'chat' | 'retrieval-lab' | 'settings' | 'users'
+
+const pageTitles: Record<PageKey, string> = {
+  dashboard: '概览',
+  'knowledge-bases': '知识库',
+  documents: '文档',
+  chat: '对话',
+  'retrieval-lab': '检索测试',
+  settings: '设置',
+  users: '用户',
+}
+
+export const queryClient = new QueryClient()
+
+export default function App() {
+  const [activePage, setActivePage] = useState<PageKey>('dashboard')
+  const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<number>()
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
+  const isAuthenticated = currentUser !== null
+  const isAdmin = currentUser?.role === 'admin'
+
+  useEffect(() => {
+    let active = true
+
+    const restoreSession = async () => {
+      if (!hasStoredAccessToken()) {
+        if (active) {
+          setCurrentUser(null)
+          setAuthLoading(false)
+        }
+        return
+      }
+      try {
+        const user = await api.getCurrentUser()
+        if (active) {
+          setCurrentUser(user)
+        }
+      } catch {
+        if (active) {
+          setCurrentUser(null)
+        }
+      } finally {
+        if (active) {
+          setAuthLoading(false)
+        }
+      }
+    }
+
+    void restoreSession()
+    const unsubscribe = onUnauthorized(() => {
+      if (!active) {
+        return
+      }
+      queryClient.clear()
+      setCurrentUser(null)
+      setSelectedKnowledgeBaseId(undefined)
+      setActivePage('dashboard')
+      setAuthLoading(false)
+    })
+
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isAdmin && (activePage === 'settings' || activePage === 'users')) {
+      setActivePage('dashboard')
+    }
+  }, [activePage, isAdmin])
+
+  const dashboardQuery = useQuery({
+    queryKey: ['dashboard-summary', currentUser?.id],
+    queryFn: api.getDashboardSummary,
+    enabled: isAuthenticated,
+  })
+  const settingsQuery = useQuery({
+    queryKey: ['settings', currentUser?.id],
+    queryFn: api.getSettings,
+    enabled: isAdmin,
+  })
+  const usersQuery = useQuery({
+    queryKey: ['users', currentUser?.id],
+    queryFn: api.listUsers,
+    enabled: isAdmin,
+  })
+  const knowledgeBasesQuery = useQuery({
+    queryKey: ['knowledge-bases', currentUser?.id],
+    queryFn: api.listKnowledgeBases,
+    enabled: isAuthenticated,
+  })
+  const documentsQuery = useQuery({
+    queryKey: ['documents', currentUser?.id, selectedKnowledgeBaseId],
+    queryFn: () => api.listDocuments(selectedKnowledgeBaseId as number),
+    enabled: isAuthenticated && Boolean(selectedKnowledgeBaseId),
+    refetchInterval: (query) => {
+      const documents = (query.state.data ?? []) as DocumentItem[]
+      return documents.some((document) => document.status === 'queued' || document.status === 'processing') ? 1500 : false
+    },
+  })
+
+  useEffect(() => {
+    const items = knowledgeBasesQuery.data ?? []
+    if (!items.length) {
+      setSelectedKnowledgeBaseId(undefined)
+      return
+    }
+    if (!selectedKnowledgeBaseId || !items.some((item) => item.id === selectedKnowledgeBaseId)) {
+      setSelectedKnowledgeBaseId(items[0].id)
+    }
+  }, [knowledgeBasesQuery.data, selectedKnowledgeBaseId])
+
+  const documents = selectedKnowledgeBaseId ? documentsQuery.data ?? [] : []
+
+  const refreshSummary = () => {
+    if (isAuthenticated) {
+      void dashboardQuery.refetch()
+    }
+  }
+
+  const refreshKnowledgeBases = async () => {
+    const result = await knowledgeBasesQuery.refetch()
+    return result.data ?? []
+  }
+
+  const refreshDocuments = () => {
+    if (selectedKnowledgeBaseId) {
+      void documentsQuery.refetch()
+    }
+  }
+
+  const refreshUsers = () => {
+    if (isAdmin) {
+      void usersQuery.refetch()
+    }
+  }
+
+  const handleAuthenticated = (value: LoginResponse) => {
+    saveAccessToken(value.access_token)
+    queryClient.clear()
+    setCurrentUser(value.user)
+    setSelectedKnowledgeBaseId(undefined)
+    setActivePage('dashboard')
+    setAuthLoading(false)
+  }
+
+  const handleLogout = () => {
+    clearAccessToken(false)
+    queryClient.clear()
+    setCurrentUser(null)
+    setSelectedKnowledgeBaseId(undefined)
+    setActivePage('dashboard')
+    setAuthLoading(false)
+  }
+
+  const handleSettingsSaved = (value: SystemSettingsResponse) => {
+    queryClient.setQueryData(['settings', currentUser?.id], value)
+    refreshDocuments()
+    refreshSummary()
+  }
+
+  const handleKnowledgeBaseCreated = async (item: KnowledgeBase) => {
+    setSelectedKnowledgeBaseId(item.id)
+    await refreshKnowledgeBases()
+    refreshSummary()
+    setActivePage('documents')
+  }
+
+  const handleKnowledgeBaseDeleted = async (id: number) => {
+    const items = await refreshKnowledgeBases()
+    refreshSummary()
+    if (selectedKnowledgeBaseId === id) {
+      setSelectedKnowledgeBaseId(items[0]?.id)
+    }
+  }
+
+  const handleImported = (_result: ImportResult) => {
+    refreshDocuments()
+    refreshSummary()
+  }
+
+  const handleDocumentsChanged = () => {
+    refreshDocuments()
+    refreshSummary()
+  }
+
+  const handleDocumentDeleted = (_documentId: number) => {
+    refreshDocuments()
+    refreshSummary()
+  }
+
+  if (authLoading) {
+    return (
+      <AntApp>
+        <div className="app-loading">
+          <Spin />
+        </div>
+      </AntApp>
+    )
+  }
+
+  if (!currentUser) {
+    return (
+      <AntApp>
+        <AuthPage onAuthenticated={handleAuthenticated} />
+      </AntApp>
+    )
+  }
+
+  const content = (() => {
+    switch (activePage) {
+      case 'dashboard':
+        return <DashboardPage summary={dashboardQuery.data} loading={dashboardQuery.isLoading} />
+      case 'knowledge-bases':
+        return (
+          <KnowledgeBasesPage
+            items={knowledgeBasesQuery.data ?? []}
+            loading={knowledgeBasesQuery.isLoading}
+            selectedKnowledgeBaseId={selectedKnowledgeBaseId}
+            onCreated={handleKnowledgeBaseCreated}
+            onDeleted={handleKnowledgeBaseDeleted}
+            onUpdated={() => void refreshKnowledgeBases()}
+            onSelect={(id) => setSelectedKnowledgeBaseId(id)}
+          />
+        )
+      case 'documents':
+        return (
+          <DocumentsPage
+            knowledgeBaseId={selectedKnowledgeBaseId}
+            documents={documents}
+            loading={documentsQuery.isLoading}
+            onImported={handleImported}
+            onChanged={handleDocumentsChanged}
+            onDeleted={handleDocumentDeleted}
+          />
+        )
+      case 'chat':
+        return <ChatPage knowledgeBases={knowledgeBasesQuery.data ?? []} initialKnowledgeBaseId={selectedKnowledgeBaseId} />
+      case 'retrieval-lab':
+        return <RetrievalLabPage knowledgeBases={knowledgeBasesQuery.data ?? []} initialKnowledgeBaseId={selectedKnowledgeBaseId} />
+      case 'settings':
+        return (
+          <SettingsPage
+            settings={settingsQuery.data}
+            loading={settingsQuery.isLoading}
+            knowledgeBases={knowledgeBasesQuery.data ?? []}
+            onSaved={handleSettingsSaved}
+          />
+        )
+      case 'users':
+        return (
+          <UsersPage
+            items={usersQuery.data ?? []}
+            loading={usersQuery.isLoading}
+            currentUserId={currentUser.id}
+            onChanged={refreshUsers}
+          />
+        )
+      default:
+        return <Spin />
+    }
+  })()
+
+  return (
+    <AntApp>
+      <AppLayout
+        title={pageTitles[activePage]}
+        activeKey={activePage}
+        onNavigate={(key) => setActivePage(key as PageKey)}
+        onLogout={handleLogout}
+        currentUser={currentUser}
+        showUsers={isAdmin}
+        showSettings={isAdmin}
+      >
+        {content}
+      </AppLayout>
+    </AntApp>
+  )
+}
