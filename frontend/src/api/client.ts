@@ -5,6 +5,9 @@ import type {
   ChatResponse,
   ChatSession,
   DashboardSummary,
+  GeeFetchRequest,
+  GeeFetchResponse,
+  GeeStatusResponse,
   IdlRunRequest,
   IdlRunResponse,
   DocumentChunk,
@@ -189,6 +192,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  getGeeStatus: () => request<GeeStatusResponse>('/chat/gee/status'),
+  fetchGeeData: (payload: GeeFetchRequest) =>
+    request<GeeFetchResponse>('/chat/gee/fetch', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   runLocalEvaluation: (payload: EvaluationRunRequest) =>
     request<EvaluationReport>('/evaluation/local', {
       method: 'POST',
@@ -214,6 +223,7 @@ export const api = {
     top_k?: number
     generate_pro_file?: boolean
     attached_file_content?: string
+    input_artifact_ids?: string[]
   }) =>
     request<ChatResponse>('/chat/ask', {
       method: 'POST',
@@ -271,6 +281,7 @@ export const api = {
       strategy?: string
       top_k?: number
       attached_file_content?: string
+      input_artifact_ids?: string[]
     },
     callbacks: {
       onToken: (content: string) => void
@@ -339,6 +350,7 @@ export const api = {
       strategy?: string
       top_k?: number
       attached_file_content?: string
+      input_artifact_ids?: string[]
     },
     callbacks: {
       onStep: (step: AgentStreamEvent) => void

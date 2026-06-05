@@ -19,6 +19,7 @@ dependencies = [
   "cryptography>=43.0.0",
   "jieba>=0.42.1",
   "langsmith>=0.2.0",
+  "earthengine-api>=1.0.0",
 ]
 
 [dependency-groups]

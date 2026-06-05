@@ -32,8 +32,10 @@ class IdlExecutionService:
         owner_user_id: int,
         entrypoint: str | None = None,
         timeout_seconds: int | None = None,
+        input_artifact_ids: list[str] | None = None,
     ) -> IdlRunResponse:
         settings = get_app_settings()
+        source_artifact = self.agent_service.get_artifact_metadata(db, session_id, artifact_id, owner_user_id)
         source_path, file_name, _media_type = self.agent_service.get_artifact_file(
             db, session_id, artifact_id, owner_user_id
         )
@@ -45,7 +47,16 @@ class IdlExecutionService:
         run_id = uuid4().hex
         run_dir = settings.chat_artifacts_dir / f"user-{owner_user_id}" / f"session-{session_id}" / "runs" / run_id
         outputs_dir = run_dir / "outputs"
+        inputs_dir = run_dir / "inputs"
         outputs_dir.mkdir(parents=True, exist_ok=True)
+        inputs_dir.mkdir(parents=True, exist_ok=True)
+        self._stage_input_artifacts(
+            db,
+            session_id,
+            owner_user_id,
+            inputs_dir,
+            list(source_artifact.get("input_artifact_ids") or []) + list(input_artifact_ids or []),
+        )
         run_source = run_dir / "source.pro"
         runner_path = run_dir / "__idlrag_runner.pro"
         shutil.copy2(source_path, run_source)
@@ -132,6 +143,53 @@ class IdlExecutionService:
                 "",
             ]
         )
+
+    def _stage_input_artifacts(
+        self,
+        db: Session,
+        session_id: int,
+        owner_user_id: int,
+        inputs_dir: Path,
+        artifact_ids: list[str],
+    ) -> None:
+        settings = get_app_settings()
+        allowed_suffixes = {
+            item.strip().lower()
+            for item in settings.idl_run_allowed_input_suffixes.split(",")
+            if item.strip()
+        }
+        max_size = settings.idl_run_max_input_file_mb * 1024 * 1024
+        seen: set[str] = set()
+        staged_count = 0
+        for artifact_id in artifact_ids:
+            value = str(artifact_id or "").strip()
+            if not value or value in seen:
+                continue
+            if staged_count >= settings.idl_run_max_input_files:
+                raise ValueError("IDL 输入文件数量超过限制。")
+            source_path, file_name, _media_type = self.agent_service.get_artifact_file(
+                db, session_id, value, owner_user_id
+            )
+            resolved = source_path.resolve()
+            sandbox = settings.chat_artifacts_dir.resolve()
+            if source_path.is_symlink() or not resolved.is_relative_to(sandbox):
+                raise ValueError("IDL 输入附件路径不合法。")
+            if resolved.suffix.lower() not in allowed_suffixes:
+                raise ValueError(f"IDL 输入文件格式不支持：{resolved.suffix}")
+            if resolved.stat().st_size > max_size:
+                raise ValueError("IDL 输入文件超过大小限制。")
+            target_name = self._safe_input_file_name(file_name)
+            target_path = inputs_dir / target_name
+            if target_path.exists():
+                target_path = inputs_dir / f"{value[:8]}_{target_name}"
+            shutil.copy2(resolved, target_path)
+            seen.add(value)
+            staged_count += 1
+
+    def _safe_input_file_name(self, file_name: str) -> str:
+        name = Path(file_name).name.strip()
+        normalized = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")
+        return normalized[:120] or "input.dat"
 
     def _collect_output_artifacts(self, run_dir: Path, run_id: str, session_id: int) -> list[dict[str, str | int | bool]]:
         settings = get_app_settings()

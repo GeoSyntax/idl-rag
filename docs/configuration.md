@@ -36,6 +36,21 @@ All backend variables use the `IDLRAG_` prefix and are loaded by `backend/app/co
 | `IDLRAG_IDL_RUN_MAX_OUTPUT_FILES` | Maximum previewable output files collected from one IDL run directory. |
 | `IDLRAG_IDL_RUN_MAX_OUTPUT_FILE_MB` | Maximum size for one collected IDL output file. |
 | `IDLRAG_IDL_RUN_ALLOWED_OUTPUT_SUFFIXES` | Comma-separated image suffixes collected from IDL run output. |
+| `IDLRAG_IDL_RUN_ALLOWED_INPUT_SUFFIXES` | Comma-separated data suffixes that may be staged into an IDL run as inputs. |
+| `IDLRAG_IDL_RUN_MAX_INPUT_FILES` | Maximum number of input artifacts staged into one IDL run. |
+| `IDLRAG_IDL_RUN_MAX_INPUT_FILE_MB` | Maximum size for one staged IDL input artifact. |
+| `IDLRAG_GEE_ENABLED` | Enables Google Earth Engine data acquisition routes. Keep false until local credentials are configured. |
+| `IDLRAG_GEE_PROJECT` | Google Cloud project used for Earth Engine initialization. |
+| `IDLRAG_GEE_AUTH_MODE` | GEE auth mode: `service_account` or `adc`. |
+| `IDLRAG_GEE_SERVICE_ACCOUNT_EMAIL` | Service account email for GEE service-account auth. Do not commit real values. |
+| `IDLRAG_GEE_SERVICE_ACCOUNT_KEY_JSON` | Service account key JSON for GEE service-account auth. Do not commit real values. |
+| `IDLRAG_GEE_ALLOWED_DATASETS` | Comma-separated allowlist of GEE datasets exposed to the structured fetch form. |
+| `IDLRAG_GEE_MAX_DOWNLOAD_MB` | Maximum direct-download result size for one GEE fetch. |
+| `IDLRAG_GEE_DOWNLOAD_TIMEOUT_SECONDS` | Timeout for one GEE direct-download request. |
+| `IDLRAG_GEE_MAX_BBOX_DEGREES` | Maximum width/height in degrees for one GEE bbox request. |
+| `IDLRAG_GEE_MAX_BANDS` | Maximum number of selected bands in one GEE request. |
+| `IDLRAG_GEE_MIN_SCALE` | Minimum allowed GEE download scale. |
+| `IDLRAG_GEE_MAX_SCALE` | Maximum allowed GEE download scale. |
 | `IDLRAG_DEFAULT_PROVIDER_NAME` | Default provider label shown in settings. |
 | `IDLRAG_DEFAULT_API_BASE_URL` | Default OpenAI-compatible API base URL. |
 | `IDLRAG_DEFAULT_CHAT_MODEL` | Default chat model name. |
@@ -72,10 +87,89 @@ data/generated/chat/user-{user_id}/session-{session_id}/runs/{run_id}/
   __idlrag_runner.pro
   stdout.log
   stderr.log
+  inputs/
   outputs/
 ```
 
-Only image files written under `outputs/` with suffixes from `IDLRAG_IDL_RUN_ALLOWED_OUTPUT_SUFFIXES` are returned to the frontend as previewable `idl_output` artifacts. The route never accepts arbitrary shell commands or arbitrary local file paths.
+Only image files written under `outputs/` with suffixes from `IDLRAG_IDL_RUN_ALLOWED_OUTPUT_SUFFIXES` are returned to the frontend as previewable `idl_output` artifacts. Selected GEE/data artifacts are copied into `inputs/` before execution and should be referenced from generated IDL code as `../inputs/<file>`. The route never accepts arbitrary shell commands or arbitrary local file paths.
+
+## Google Earth Engine data acquisition
+
+GEE support is disabled by default. When enabled, Chat can fetch small bounded datasets through structured parameters and save them under:
+
+```text
+data/generated/chat/user-{user_id}/session-{session_id}/gee/{artifact_id}/
+```
+
+The first version uses direct downloads for small rasters. It does not accept arbitrary Earth Engine Python/JavaScript code and does not run long-lived Drive or Cloud Storage export jobs. Use `IDLRAG_GEE_ALLOWED_DATASETS`, bbox limits, band limits, scale limits, timeouts and download-size limits to keep the integration bounded.
+
+### Prerequisites
+
+1. Use a Google account that has access to Google Earth Engine.
+2. Create or choose a Google Cloud Project.
+3. Enable the Google Earth Engine API for that project in Google Cloud Console.
+4. Keep the Project ID, not the numeric project number. It is used by `ee.Initialize(project=...)`.
+
+If the API is not enabled, Earth Engine initialization fails with a message similar to:
+
+```text
+Google Earth Engine API has not been used in project <project-id> before or it is disabled.
+```
+
+### Local ADC authentication
+
+For local development, ADC is usually the simplest option because it uses a browser login and stores the local Earth Engine token outside the repository.
+
+Authenticate once:
+
+```powershell
+uv run --project backend python -c "import ee; ee.Authenticate(auth_mode='localhost')"
+```
+
+Then set:
+
+```text
+IDLRAG_GEE_ENABLED=true
+IDLRAG_GEE_AUTH_MODE=adc
+IDLRAG_GEE_PROJECT=your-google-cloud-project-id
+```
+
+Do not commit the generated local credential files. They are user-local auth state, not project source code.
+
+### Service account authentication
+
+Use service-account auth for a controlled backend deployment. The service account must have access to the Earth Engine-enabled project.
+
+```text
+IDLRAG_GEE_ENABLED=true
+IDLRAG_GEE_AUTH_MODE=service_account
+IDLRAG_GEE_PROJECT=your-google-cloud-project-id
+IDLRAG_GEE_SERVICE_ACCOUNT_EMAIL=service-account-name@project-id.iam.gserviceaccount.com
+IDLRAG_GEE_SERVICE_ACCOUNT_KEY_JSON={...}
+```
+
+Never commit `IDLRAG_GEE_SERVICE_ACCOUNT_KEY_JSON`, key files, token files, or downloaded GEE artifacts.
+
+### Smoke test
+
+After authentication and project configuration, test a small SRTM download before using the Chat UI:
+
+```powershell
+$env:PYTHONPATH='backend'
+$env:IDLRAG_GEE_ENABLED='true'
+$env:IDLRAG_GEE_AUTH_MODE='adc'
+$env:IDLRAG_GEE_PROJECT='your-google-cloud-project-id'
+uv run --project backend python -c "import ee, httpx; ee.Initialize(project='$env:IDLRAG_GEE_PROJECT'); region=ee.Geometry.Rectangle([116.30,39.85,116.31,39.86]); image=ee.Image('CGIAR/SRTM90_V4').select(['elevation']).clip(region); url=image.getDownloadURL({'name':'idlrag_gee_smoke','scale':90,'crs':'EPSG:4326','region':region,'format':'GEO_TIFF'}); r=httpx.get(url, timeout=120, follow_redirects=True); r.raise_for_status(); print({'bytes': len(r.content), 'content_type': r.headers.get('content-type')})"
+```
+
+A successful result prints a non-zero byte count. In the Chat UI, the expected flow is:
+
+1. Click the GEE data button in Chat.
+2. Choose an allowed dataset, bbox, bands, scale and CRS.
+3. Fetch data; the result becomes a `gee_data` artifact in the current session.
+4. Use the artifact as an IDL input.
+5. Generate a `.pro` file from retrieved documentation and the selected input artifact.
+6. Click “运行 IDL”; the backend stages the GEE file under `runs/{run_id}/inputs/` and collects images from `outputs/`.
 
 ## Runtime provider settings
 

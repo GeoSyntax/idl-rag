@@ -1,4 +1,4 @@
-import { Button, Select, Segmented, Tag, Upload, message, Tooltip } from 'antd'
+import { Button, Drawer, Form, Input, InputNumber, Select, Segmented, Space, Tag, Upload, message, Tooltip } from 'antd'
 import {
   UploadOutlined,
   CloseCircleFilled,
@@ -9,11 +9,13 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
+  CloudDownloadOutlined,
 } from '@ant-design/icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api/client'
-import type { AgentStreamEvent, ChatArtifact, ChatMessage, ChatSession, KnowledgeBase } from '../../api/types'
+import type { AgentStreamEvent, ChatArtifact, ChatMessage, ChatSession, GeeFetchRequest, KnowledgeBase } from '../../api/types'
+import { DisplayEmpty, InlineIllustration } from '../../components/DisplayPrimitives'
 import { KnowledgeStatusBar, MessageList } from './components'
 import { useKnowledgeStatus } from './hooks'
 import type { AgentStepItem, AttachedFile } from './types'
@@ -21,6 +23,18 @@ import type { AgentStepItem, AttachedFile } from './types'
 type ChatPageProps = {
   knowledgeBases: KnowledgeBase[]
   initialKnowledgeBaseId?: number
+}
+
+type GeeFetchFormValues = {
+  dataset_id: string
+  start_date?: string
+  end_date?: string
+  bbox: string
+  bands?: string
+  scale?: number
+  crs?: string
+  composite?: 'median' | 'mean' | 'first'
+  label?: string
 }
 
 export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPageProps) {
@@ -37,6 +51,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   const [fixTarget, setFixTarget] = useState<{ artifactId: string; fileName: string } | null>(null)
   const [generateProFile, setGenerateProFile] = useState(false)
   const [runningArtifactId, setRunningArtifactId] = useState<string | null>(null)
+  const [geeDrawerOpen, setGeeDrawerOpen] = useState(false)
+  const [fetchingGee, setFetchingGee] = useState(false)
+  const [selectedInputArtifacts, setSelectedInputArtifacts] = useState<ChatArtifact[]>([])
+  const [geeForm] = Form.useForm<GeeFetchFormValues>()
 
   const [selectedKBIds, setSelectedKBIds] = useState<number[]>([])
   const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null)
@@ -92,6 +110,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
     setGenerateProFile(false)
     setInputValue('')
     setAttachedFile(null)
+    setSelectedInputArtifacts([])
   }, [selectedKBIds.join(',')])
 
   useEffect(() => {
@@ -115,6 +134,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
     setGenerateProFile(false)
     setInputValue('')
     setAttachedFile(null)
+    setSelectedInputArtifacts([])
   }
 
   const handleLoadSession = async (targetSessionId: number) => {
@@ -131,6 +151,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
       setFixTarget(null)
       setGenerateProFile(false)
       setAttachedFile(null)
+      setSelectedInputArtifacts([])
       setInputValue('')
       setSelectedKBIds(session?.knowledge_base_id ? [session.knowledge_base_id] : [])
     } catch (err) {
@@ -224,6 +245,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
     setAgentSteps([])
     stepIdRef.current = 0
     setInputValue('')
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+    }
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -285,6 +309,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
           top_k: selectedRetrievalConfig?.topK,
           generate_pro_file: generateProFile,
           attached_file_content: fileContent || undefined,
+          input_artifact_ids: selectedInputArtifacts.map((artifact) => artifact.id),
         },
         {
           onToken: (content: string) => setStreamingContent((prev) => prev + content),
@@ -311,6 +336,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
           top_k: selectedRetrievalConfig?.topK,
           generate_pro_file: generateProFile,
           attached_file_content: fileContent || undefined,
+          input_artifact_ids: selectedInputArtifacts.map((artifact) => artifact.id),
         },
         {
           onStep: (event: AgentStreamEvent) => {
@@ -367,6 +393,53 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
     inputRef.current?.focus()
   }
 
+  const useArtifactAsInput = (artifact: ChatArtifact) => {
+    setSelectedInputArtifacts((prev) => {
+      if (prev.some((item) => item.id === artifact.id)) return prev
+      return [...prev, artifact]
+    })
+    messageApi.success('已加入 IDL 输入数据')
+  }
+
+  const removeInputArtifact = (artifactId: string) => {
+    setSelectedInputArtifacts((prev) => prev.filter((item) => item.id !== artifactId))
+  }
+
+  const fetchGeeData = async (values: GeeFetchFormValues) => {
+    const bbox = values.bbox.split(',').map((item) => Number(item.trim()))
+    if (bbox.length !== 4 || bbox.some((value) => !Number.isFinite(value))) {
+      messageApi.error('bbox 需要填写 4 个逗号分隔的数字')
+      return
+    }
+    const bands = values.bands?.split(',').map((item) => item.trim()).filter(Boolean) ?? []
+    const payload: GeeFetchRequest = {
+      session_id: sessionId,
+      dataset_id: values.dataset_id.trim(),
+      start_date: values.start_date?.trim() || null,
+      end_date: values.end_date?.trim() || null,
+      bbox,
+      bands,
+      scale: values.scale ?? 30,
+      crs: values.crs?.trim() || 'EPSG:4326',
+      composite: values.composite ?? 'median',
+      label: values.label?.trim() || null,
+    }
+    setFetchingGee(true)
+    try {
+      const response = await api.fetchGeeData(payload)
+      setSessionId(response.session_id)
+      setMessages((prev) => [...prev, response.message])
+      setSelectedInputArtifacts((prev) => prev.some((item) => item.id === response.artifact.id) ? prev : [...prev, response.artifact])
+      setGeeDrawerOpen(false)
+      void refreshSessions()
+      messageApi.success('GEE 数据已获取')
+    } catch (err) {
+      messageApi.error((err as Error).message || 'GEE 数据获取失败')
+    } finally {
+      setFetchingGee(false)
+    }
+  }
+
   const runArtifactWithIdl = async (artifact: ChatArtifact) => {
     if (!sessionId) {
       messageApi.warning('请先选择或创建会话。')
@@ -374,7 +447,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
     }
     setRunningArtifactId(artifact.id)
     try {
-      const response = await api.runChatArtifactWithIdl(sessionId, artifact.id)
+      const response = await api.runChatArtifactWithIdl(sessionId, artifact.id, {
+        input_artifact_ids: selectedInputArtifacts.map((item) => item.id),
+      })
       setMessages((prev) => [...prev, response.message])
       messageApi.success(response.timed_out ? 'IDL 运行已超时，日志已返回' : 'IDL 运行完成')
     } catch (err) {
@@ -481,6 +556,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
           <Tooltip title="删除会话">
             <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeleteSession} disabled={!sessionId} />
           </Tooltip>
+          <Tooltip title="获取 GEE 数据">
+            <Button size="small" type="text" icon={<CloudDownloadOutlined />} onClick={() => setGeeDrawerOpen(true)} />
+          </Tooltip>
           <Tooltip title={generateProFile ? '已开启 .pro 文件生成' : '生成 .pro 文件'}>
             <Button
               size="small"
@@ -491,6 +569,80 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
           </Tooltip>
         </div>
       </div>
+
+      <Drawer title="GEE 数据" open={geeDrawerOpen} onClose={() => setGeeDrawerOpen(false)} width="min(100vw, 480px)">
+        <div className="drawer-intro">
+          <InlineIllustration kind="map" size={40} />
+          <div>
+            <div className="drawer-intro-title">结构化获取 GEE 数据</div>
+            <div className="drawer-intro-text">填写数据集、范围和波段，下载结果会作为 Chat artifact 保存。</div>
+          </div>
+        </div>
+        <Form
+          form={geeForm}
+          layout="vertical"
+          initialValues={{
+            dataset_id: 'CGIAR/SRTM90_V4',
+            bbox: '116.30,39.85,116.45,39.98',
+            bands: 'elevation',
+            scale: 90,
+            crs: 'EPSG:4326',
+            composite: 'median',
+          }}
+          onFinish={fetchGeeData}
+        >
+          <Form.Item label="数据集" name="dataset_id" rules={[{ required: true, message: '请输入 GEE 数据集 ID' }]}>
+            <Select
+              showSearch
+              options={[
+                { label: 'SRTM elevation', value: 'CGIAR/SRTM90_V4' },
+                { label: 'Sentinel-2 SR', value: 'COPERNICUS/S2_SR_HARMONIZED' },
+                { label: 'Landsat 8 L2', value: 'LANDSAT/LC08/C02/T1_L2' },
+              ]}
+            />
+          </Form.Item>
+          <div className="grid-two">
+            <Form.Item label="开始日期" name="start_date">
+              <Input placeholder="YYYY-MM-DD" />
+            </Form.Item>
+            <Form.Item label="结束日期" name="end_date">
+              <Input placeholder="YYYY-MM-DD" />
+            </Form.Item>
+          </div>
+          <Form.Item label="bbox" name="bbox" rules={[{ required: true, message: '请输入 bbox' }]}>
+            <Input placeholder="minLon,minLat,maxLon,maxLat" />
+          </Form.Item>
+          <div className="grid-two">
+            <Form.Item label="bands" name="bands">
+              <Input placeholder="B4,B3,B2" />
+            </Form.Item>
+            <Form.Item label="scale" name="scale">
+              <InputNumber min={1} max={10000} style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
+          <div className="grid-two">
+            <Form.Item label="CRS" name="crs">
+              <Input placeholder="EPSG:4326" />
+            </Form.Item>
+            <Form.Item label="合成" name="composite">
+              <Select
+                options={[
+                  { label: 'median', value: 'median' },
+                  { label: 'mean', value: 'mean' },
+                  { label: 'first', value: 'first' },
+                ]}
+              />
+            </Form.Item>
+          </div>
+          <Form.Item label="文件标签" name="label">
+            <Input placeholder="可选，例如 beijing_srtm" />
+          </Form.Item>
+          <Space className="form-actions">
+            <Button type="primary" htmlType="submit" loading={fetchingGee}>获取数据</Button>
+            <Button onClick={() => setGeeDrawerOpen(false)}>取消</Button>
+          </Space>
+        </Form>
+      </Drawer>
 
       <KnowledgeStatusBar
         loading={documentsLoading}
@@ -503,19 +655,23 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
       <div className="chat-messages">
         {!hasMessages ? (
           <div className="chat-empty">
-            <div className="chat-empty-title">开始提问</div>
-            <div className="chat-empty-text">选择知识库后，可以直接询问 ENVI/IDL 文档、函数、代码片段或处理流程。</div>
-            <div className="chat-empty-hints">
-              <button className="chat-hint-btn" onClick={() => setInputValue('ENVI 如何打开栅格数据？')}>
-                ENVI 如何打开栅格数据？
-              </button>
-              <button className="chat-hint-btn" onClick={() => setInputValue('帮我生成一个读取影像并打印尺寸的 .pro 示例')}>
-                帮我生成一个读取影像的 .pro 示例
-              </button>
-              <button className="chat-hint-btn" onClick={() => setInputValue('IDL 中 FILEPATH 函数怎么用？')}>
-                IDL 中 FILEPATH 函数怎么用？
-              </button>
-            </div>
+            <DisplayEmpty
+              illustration="chat"
+              title="开始提问"
+              description="选择知识库后，可以直接询问 ENVI/IDL 文档、函数、代码片段或处理流程。"
+            >
+              <div className="chat-empty-hints">
+                <button className="chat-hint-btn" onClick={() => setInputValue('ENVI 如何打开栅格数据？')}>
+                  ENVI 如何打开栅格数据？
+                </button>
+                <button className="chat-hint-btn" onClick={() => setInputValue('帮我生成一个读取影像并打印尺寸的 .pro 示例')}>
+                  帮我生成一个读取影像的 .pro 示例
+                </button>
+                <button className="chat-hint-btn" onClick={() => setInputValue('IDL 中 FILEPATH 函数怎么用？')}>
+                  IDL 中 FILEPATH 函数怎么用？
+                </button>
+              </div>
+            </DisplayEmpty>
           </div>
         ) : (
           <MessageList
@@ -527,6 +683,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
             onDownloadArtifact={downloadArtifact}
             onStartFix={startFixMode}
             onRunArtifact={runArtifactWithIdl}
+            onUseArtifactAsInput={useArtifactAsInput}
             runningArtifactId={runningArtifactId}
           />
         )}
@@ -545,6 +702,16 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
             <PaperClipOutlined />
             <span>{attachedFile.name}</span>
             <CloseCircleFilled onClick={() => setAttachedFile(null)} style={{ cursor: 'pointer', color: '#999' }} />
+          </div>
+        )}
+        {selectedInputArtifacts.length > 0 && (
+          <div className="chat-input-artifacts">
+            <span>IDL 输入数据</span>
+            {selectedInputArtifacts.map((artifact) => (
+              <Tag key={artifact.id} closable onClose={() => removeInputArtifact(artifact.id)}>
+                {artifact.file_name}
+              </Tag>
+            ))}
           </div>
         )}
         <div className="chat-input-row">

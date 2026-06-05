@@ -17,7 +17,7 @@ This document defines what can be committed to GitHub and what must remain local
 
 - `.env`
 - `.env.*` except `.env.example`
-- Real API keys, rerank keys, LangSmith keys or auth secrets
+- Real API keys, rerank keys, LangSmith keys, GEE service account keys or auth secrets
 - `.claude/settings.local.json`
 - Local MCP/browser automation state such as `.omc/` and `.playwright-mcp/`
 
@@ -29,6 +29,7 @@ This document defines what can be committed to GitHub and what must remain local
 - `data/indexes/`
 - `data/logs/`
 - `data/generated/`
+- GEE downloaded artifacts under `data/generated/chat/**/gee/`
 - IDL local run logs and output images under `data/generated/chat/**/runs/`
 - `data/parsed/`
 - `data/cache/`
@@ -71,6 +72,10 @@ Runtime provider keys are encrypted before storage, but `data/app.db` can still 
 - Encrypted provider keys.
 
 For that reason the database is treated as private runtime state and is never uploaded to GitHub.
+
+## GEE and local execution boundary
+
+GEE integration only accepts structured dataset, bbox, band, scale and date parameters. It must not accept arbitrary Earth Engine Python/JavaScript code from users or the model. Local IDL execution remains user-triggered and only runs chat `.pro` artifacts owned by the current user.
 
 ## Publishing checklist
 

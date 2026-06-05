@@ -17,6 +17,7 @@ The project is not meant to be a generic chat UI. It focuses on three practical 
 | Retrieval debugging workbench | RetrievalLab compares strategies and exposes candidate chunks, scores, metadata, and raw JSON. |
 | Evaluation support | Supports local golden QA, strategy comparison, hit rate, MRR, latency, and LangSmith-related evaluation settings. |
 | Code assistance | Agent mode supports symbol search, context reading, call-relationship analysis, and `.pro` file generation. |
+| GEE data acquisition | Chat can fetch small bounded Google Earth Engine datasets through structured parameters and save them as local session artifacts. |
 | Local IDL execution | Generated or saved chat `.pro` artifacts can be run by user action; the backend invokes local IDL through `idlde.exe -batch` and returns a run summary, logs, and output image previews. |
 
 ## Screenshots
@@ -50,7 +51,7 @@ See the full showcase in [`docs/project-showcase.en-US.md`](./docs/project-showc
 | Document ingestion | Upload files, import from local paths, deduplicate with SHA256, retry failed jobs, rebuild indexes, and track status. |
 | IDL chunking | Chunk normal text by paragraphs and IDL code around procedure/function symbol boundaries. |
 | Hybrid retrieval | SQLite FTS5 keyword retrieval, LanceDB vector retrieval, RRF fusion, and optional rerank. |
-| Chat Q&A | Streaming answers, citations, retrieval strategy display, Agent mode, `.pro` file generation, local IDL execution, and image result display. |
+| Chat Q&A | Streaming answers, citations, retrieval strategy display, Agent mode, GEE data acquisition, `.pro` file generation, local IDL execution, and image result display. |
 | Retrieval testing | Compare strategies and inspect candidate chunks, scores, metadata, match info, and raw JSON. |
 | Evaluation | Local golden QA, strategy comparison, hit rate, precision, recall, MRR, and latency statistics. |
 | Settings | Model providers, API keys, chat model, embedding model, rerank model, and LangSmith configuration. |
@@ -189,6 +190,22 @@ VITE_API_BASE_URL=http://127.0.0.1:8000/api
 
 For Windows IDL 8.8, set `IDLRAG_IDL_EXECUTABLE` to the Workbench launcher, for example `D:\envi5.6\ENVI56\IDL88\bin\bin.x86_64\idlde.exe`. The backend runs `idlde.exe -batch <runner.pro>` and does not use `idl.exe -e`.
 
+To use GEE data acquisition, first enable the Earth Engine API on a Google Cloud project, then configure the Project ID and auth mode. For local development, ADC browser authentication is usually simplest:
+
+```powershell
+uv run --project backend python -c "import ee; ee.Authenticate(auth_mode='localhost')"
+```
+
+Then enable GEE in `.env`:
+
+```text
+IDLRAG_GEE_ENABLED=true
+IDLRAG_GEE_AUTH_MODE=adc
+IDLRAG_GEE_PROJECT=your-google-cloud-project-id
+```
+
+If the Earth Engine API is not enabled, initialization reports that `earthengine.googleapis.com` has not been used or is disabled for the project. See the full setup and smoke test in [`docs/configuration.md`](./docs/configuration.md#google-earth-engine-data-acquisition).
+
 ### 2. Install Backend Dependencies
 
 ```powershell
@@ -233,10 +250,12 @@ http://127.0.0.1:5173
 4. Upload or import public or sanitized ENVI/IDL documents.
 5. Wait until the document status becomes `ready`.
 6. Open the chat page, select a knowledge base, and ask a question.
-7. Inspect citation sources, retrieval strategy, and line ranges in the answer.
-8. If the answer generated a `.pro` file, click “运行 IDL” to inspect execution logs and output image previews.
-9. Open the retrieval test page and compare candidate results from different strategies.
-10. Review local evaluation reports in the settings page.
+7. Optional: after configuring GEE, click the GEE data button to fetch a small bounded remote-sensing dataset as an IDL input artifact.
+8. Enable `.pro` file generation so the Agent can generate an IDL script from retrieved documentation and selected input data.
+9. Click “运行 IDL” to inspect the run summary, stdout/stderr logs, and output image previews.
+10. Inspect citation sources, retrieval strategy, and line ranges in the answer.
+11. Open the retrieval test page and compare candidate results from different strategies.
+12. Review local evaluation reports in the settings page.
 
 More detailed demo steps are available in [`docs/demo.md`](./docs/demo.md).
 

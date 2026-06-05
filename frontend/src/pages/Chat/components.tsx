@@ -5,6 +5,7 @@ import type { RefObject } from 'react'
 
 import { api } from '../../api/client'
 import type { ChatArtifact, ChatMessage, Citation } from '../../api/types'
+import { DisplayPlaceholder, FileTypeBadge, MetricSummary } from '../../components/DisplayPrimitives'
 import type { AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
 
 export function KnowledgeStatusBar({
@@ -52,6 +53,7 @@ export function MessageList({
   onDownloadArtifact,
   onStartFix,
   onRunArtifact,
+  onUseArtifactAsInput,
   runningArtifactId,
 }: {
   messages: ChatMessage[]
@@ -62,6 +64,7 @@ export function MessageList({
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
+  onUseArtifactAsInput: ArtifactAction
   runningArtifactId: string | null
 }) {
   return (
@@ -73,6 +76,7 @@ export function MessageList({
           onDownloadArtifact={onDownloadArtifact}
           onStartFix={onStartFix}
           onRunArtifact={onRunArtifact}
+          onUseArtifactAsInput={onUseArtifactAsInput}
           runningArtifactId={runningArtifactId}
         />
       ))}
@@ -110,12 +114,14 @@ function MessageBubble({
   onDownloadArtifact,
   onStartFix,
   onRunArtifact,
+  onUseArtifactAsInput,
   runningArtifactId,
 }: {
   message: ChatMessage
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
+  onUseArtifactAsInput: ArtifactAction
   runningArtifactId: string | null
 }) {
   const isUser = message.role === 'user'
@@ -143,6 +149,7 @@ function MessageBubble({
                 onDownloadArtifact={onDownloadArtifact}
                 onStartFix={onStartFix}
                 onRunArtifact={onRunArtifact}
+                onUseArtifactAsInput={onUseArtifactAsInput}
                 running={runningArtifactId === artifact.id}
               />
             ))}
@@ -188,20 +195,14 @@ function IdlRunResult({ content, artifactCount }: { content: string; artifactCou
         {ok ? <CheckCircleOutlined /> : timedOut ? <ClockCircleOutlined /> : <CloseCircleOutlined />}
         <span>IDL 运行{result.status}</span>
       </div>
-      <div className="idl-run-grid">
-        <div>
-          <span>退出码</span>
-          <strong>{result.exitCode}</strong>
-        </div>
-        <div>
-          <span>耗时</span>
-          <strong>{formatDuration(result.durationMs)}</strong>
-        </div>
-        <div>
-          <span>输出图片</span>
-          <strong>{artifactCount || Number(result.outputFiles) || 0}</strong>
-        </div>
-      </div>
+      <MetricSummary
+        className="idl-run-grid"
+        items={[
+          { label: '退出码', value: result.exitCode, tone: ok ? 'success' : timedOut ? 'warning' : 'danger' },
+          { label: '耗时', value: formatDuration(result.durationMs) },
+          { label: '输出图片', value: artifactCount || Number(result.outputFiles) || 0 },
+        ]}
+      />
       {logItems.length > 0 ? <Collapse className="idl-run-collapse" size="small" items={logItems} /> : null}
     </div>
   )
@@ -238,21 +239,36 @@ function formatDuration(value: string): string {
   return `${(ms / 1000).toFixed(1)} s`
 }
 
+function getArtifactBadgeLabel(artifact: ChatArtifact): string {
+  const fileName = artifact.file_name.toLowerCase()
+  if (artifact.kind === 'gee_data') return 'GEE'
+  if (artifact.kind === 'gee_preview' || artifact.media_type.startsWith('image/')) return 'IMG'
+  if (artifact.kind === 'idl_output') return 'OUT'
+  if (artifact.kind === 'idl_log') return 'LOG'
+  if (artifact.kind === 'pro' || fileName.endsWith('.pro')) return 'PRO'
+  const suffix = fileName.split('.').pop()
+  return suffix ? suffix.slice(0, 4).toUpperCase() : 'FILE'
+}
+
 function ArtifactItem({
   artifact,
   onDownloadArtifact,
   onStartFix,
   onRunArtifact,
+  onUseArtifactAsInput,
   running,
 }: {
   artifact: ChatArtifact
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
+  onUseArtifactAsInput: ArtifactAction
   running: boolean
 }) {
   const canRun = artifact.kind === 'pro' || artifact.file_name.toLowerCase().endsWith('.pro')
+  const canUseAsInput = artifact.kind === 'gee_data'
   const canPreview = artifact.previewable || artifact.media_type.startsWith('image/')
+  const badgeLabel = getArtifactBadgeLabel(artifact)
 
   if (canPreview) {
     return <ArtifactImagePreview artifact={artifact} onDownloadArtifact={onDownloadArtifact} />
@@ -260,12 +276,18 @@ function ArtifactItem({
 
   return (
     <div className="chat-artifact">
+      <FileTypeBadge label={badgeLabel} />
       <FileTextOutlined />
       <span className="chat-artifact-name">{artifact.file_name}</span>
       <span className="chat-artifact-size">{formatBytes(artifact.size)}</span>
       {canRun ? (
         <Button size="small" type="link" icon={<PlayCircleOutlined />} loading={running} onClick={() => onRunArtifact(artifact)}>
           运行 IDL
+        </Button>
+      ) : null}
+      {canUseAsInput ? (
+        <Button size="small" type="link" onClick={() => onUseArtifactAsInput(artifact)}>
+          作为 IDL 输入
         </Button>
       ) : null}
       <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
@@ -322,7 +344,7 @@ function ArtifactImagePreview({
           <img className="chat-artifact-image-thumb" src={objectUrl} alt={artifact.file_name} />
         </button>
       ) : (
-        <div className="chat-artifact-image-placeholder">{loadError || '正在加载图片...'}</div>
+        <DisplayPlaceholder kind="image" text={loadError || '正在加载图片...'} />
       )}
       <div className="chat-artifact-actions">
         <Button size="small" type="link" disabled={!objectUrl} onClick={() => setPreviewOpen(true)}>
@@ -332,7 +354,7 @@ function ArtifactImagePreview({
           下载
         </Button>
       </div>
-      <Drawer title={artifact.file_name} open={previewOpen} onClose={() => setPreviewOpen(false)} width={720}>
+      <Drawer title={artifact.file_name} open={previewOpen} onClose={() => setPreviewOpen(false)} width="min(100vw, 720px)">
         {objectUrl ? <img className="chat-artifact-image-full" src={objectUrl} alt={artifact.file_name} /> : null}
       </Drawer>
     </div>
@@ -423,7 +445,7 @@ function CitationDrawer({ citation, onClose }: { citation: Citation | null; onCl
   ]
 
   return (
-    <Drawer title="来源详情" open={Boolean(citation)} onClose={onClose} width={560}>
+    <Drawer title="来源详情" open={Boolean(citation)} onClose={onClose} width="min(100vw, 560px)">
       <div className="citation-detail-stack">
         <div className="citation-detail-list">
           {details.map(([label, value]) => (

@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -13,6 +14,9 @@ from app.api.schemas import (
     ChatResponse,
     ChatSessionRenameRequest,
     ChatSessionResponse,
+    GeeFetchRequest,
+    GeeFetchResponse,
+    GeeStatusResponse,
     IdlRunRequest,
     IdlRunResponse,
     RetrievalDebugRequest,
@@ -22,11 +26,14 @@ from app.core.config import get_app_settings
 from app.db.database import get_db
 from app.db.models import ChatSession, KnowledgeBase, User
 from app.services.agent_service import AgentService
+from app.services.gee_service import GeeService
 from app.services.idl_execution_service import IdlExecutionService
 from app.services.retrieve_service import RetrievalService
+from app.services.runtime_metrics import runtime_metrics
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 service = AgentService()
+gee_service = GeeService()
 idl_execution_service = IdlExecutionService()
 retrieval_service = RetrievalService()
 
@@ -44,6 +51,27 @@ def _validate_artifact_path(storage_path: str) -> Path:
     if not resolved.is_relative_to(sandbox):
         raise HTTPException(status_code=403, detail="访问被拒绝。")
     return resolved
+
+
+@router.get("/gee/status", response_model=GeeStatusResponse)
+def gee_status(
+    current_user: User = Depends(get_current_user),
+) -> GeeStatusResponse:
+    return gee_service.status()
+
+
+@router.post("/gee/fetch", response_model=GeeFetchResponse)
+def fetch_gee_data(
+    payload: GeeFetchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> GeeFetchResponse:
+    try:
+        return gee_service.fetch_data(db, payload, current_user.id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "不存在" in message else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
 
 
 @router.post("/retrieve-debug", response_model=RetrievalDebugResponse)
@@ -77,10 +105,16 @@ def ask_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ChatResponse:
+    started_at = time.perf_counter()
     try:
-        return service.answer(db, payload, current_user.id)
+        response = service.answer(db, payload, current_user.id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    runtime_metrics.record_chat_request(
+        current_user.id,
+        latency_ms=(time.perf_counter() - started_at) * 1000,
+    )
+    return response
 
 
 @router.post("/ask-stream")
@@ -91,12 +125,22 @@ async def ask_question_stream(
 ) -> StreamingResponse:
     """真异步 SSE 流式端点 — 使用 AsyncClient 避免阻塞事件循环。"""
     async def event_generator():
+        started_at = time.perf_counter()
+        first_token_ms: float | None = None
         try:
             async for token in service.answer_stream_async(db, payload, current_user.id):
+                if token.get("type") == "token" and first_token_ms is None:
+                    first_token_ms = (time.perf_counter() - started_at) * 1000
                 yield f"data: {json.dumps(token, ensure_ascii=False)}\n\n"
         except ValueError as exc:
             error_event = {"type": "error", "message": str(exc)}
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+        finally:
+            runtime_metrics.record_chat_request(
+                current_user.id,
+                latency_ms=(time.perf_counter() - started_at) * 1000,
+                first_token_ms=first_token_ms,
+            )
 
     return StreamingResponse(
         event_generator(),
@@ -117,12 +161,22 @@ async def agent_stream(
 ) -> StreamingResponse:
     """Agent 模式 SSE 端点 — 支持任务拆解、工具调用、多轮迭代。"""
     async def event_generator():
+        started_at = time.perf_counter()
+        first_token_ms: float | None = None
         try:
             async for event in service.agent_answer_stream_async(db, payload, current_user.id):
+                if event.get("type") == "token" and first_token_ms is None:
+                    first_token_ms = (time.perf_counter() - started_at) * 1000
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except ValueError as exc:
             error_event = {"type": "error", "message": str(exc)}
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+        finally:
+            runtime_metrics.record_chat_request(
+                current_user.id,
+                latency_ms=(time.perf_counter() - started_at) * 1000,
+                first_token_ms=first_token_ms,
+            )
 
     return StreamingResponse(
         event_generator(),
@@ -179,6 +233,7 @@ def run_artifact_with_idl(
             current_user.id,
             entrypoint=request.entrypoint,
             timeout_seconds=request.timeout_seconds,
+            input_artifact_ids=request.input_artifact_ids,
         )
     except ValueError as exc:
         message = str(exc)

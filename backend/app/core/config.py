@@ -43,6 +43,21 @@ class AppSettings(BaseSettings):
     idl_run_max_output_files: int = 12
     idl_run_max_output_file_mb: int = 20
     idl_run_allowed_output_suffixes: str = ".png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif"
+    idl_run_allowed_input_suffixes: str = ".tif,.tiff,.dat,.sav,.csv,.json,.geojson"
+    idl_run_max_input_files: int = 8
+    idl_run_max_input_file_mb: int = 200
+    gee_enabled: bool = False
+    gee_project: str = ""
+    gee_auth_mode: str = "service_account"
+    gee_service_account_email: str = ""
+    gee_service_account_key_json: str = ""
+    gee_allowed_datasets: str = "COPERNICUS/S2_SR_HARMONIZED,LANDSAT/LC08/C02/T1_L2,CGIAR/SRTM90_V4"
+    gee_max_download_mb: int = 100
+    gee_download_timeout_seconds: int = 120
+    gee_max_bbox_degrees: float = 5.0
+    gee_max_bands: int = 12
+    gee_min_scale: int = 1
+    gee_max_scale: int = 10000
 
     model_config = SettingsConfigDict(env_prefix="IDLRAG_", extra="ignore")
 

@@ -87,6 +87,8 @@ class AgentService:
     def answer(self, db: Session, payload: ChatRequest, owner_user_id: int) -> ChatResponse:
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
+        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
@@ -104,8 +106,14 @@ class AgentService:
 
         artifacts_json: list[dict[str, str | int]] = []
         if payload.generate_pro_file:
-            code = self.llm_service.generate_pro_file(db, payload.question, citations, recent_messages)
-            artifact = self._save_pro_artifact(session.id, owner_user_id, payload.question, code)
+            code = self.llm_service.generate_pro_file(db, generation_question, citations, recent_messages)
+            artifact = self._save_pro_artifact(
+                session.id,
+                owner_user_id,
+                payload.question,
+                code,
+                input_artifact_ids=[item["id"] for item in input_artifacts],
+            )
             artifacts_json.append(artifact)
             answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
         else:
@@ -158,6 +166,8 @@ class AgentService:
         # Phase 1: 准备工作（同步，快速）
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
+        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
@@ -176,7 +186,7 @@ class AgentService:
         if payload.generate_pro_file:
             # .pro 文件生成：也走流式，让用户实时看到代码生成过程
             full_code: list[str] = []
-            for token in self.llm_service.generate_answer_stream(db, payload.question, citations, recent_messages):
+            for token in self.llm_service.generate_answer_stream(db, generation_question, citations, recent_messages):
                 full_code.append(token)
                 yield {"type": "token", "content": token}
             code = "".join(full_code)
@@ -185,9 +195,15 @@ class AgentService:
             if not code.strip() or not any(
                 keyword in code.lower() for keyword in ("pro ", "function ", "compile_opt")
             ):
-                code = self.llm_service.generate_pro_file(db, payload.question, citations, recent_messages)
+                code = self.llm_service.generate_pro_file(db, generation_question, citations, recent_messages)
 
-            artifact = self._save_pro_artifact(session.id, owner_user_id, payload.question, code)
+            artifact = self._save_pro_artifact(
+                session.id,
+                owner_user_id,
+                payload.question,
+                code,
+                input_artifact_ids=[item["id"] for item in input_artifacts],
+            )
             answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
             artifacts_json: list[dict[str, str | int]] = [artifact]
         else:
@@ -229,6 +245,8 @@ class AgentService:
         """真异步流式回答 — 使用 AsyncClient 避免阻塞事件循环。"""
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
+        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
@@ -247,7 +265,7 @@ class AgentService:
         if payload.generate_pro_file:
             full_code: list[str] = []
             async for token in self.llm_service.generate_answer_stream_async(
-                db, payload.question, citations, recent_messages,
+                db, generation_question, citations, recent_messages,
             ):
                 full_code.append(token)
                 yield {"type": "token", "content": token}
@@ -255,8 +273,14 @@ class AgentService:
             if not code.strip() or not any(
                 keyword in code.lower() for keyword in ("pro ", "function ", "compile_opt")
             ):
-                code = self.llm_service.generate_pro_file(db, payload.question, citations, recent_messages)
-            artifact = self._save_pro_artifact(session.id, owner_user_id, payload.question, code)
+                code = self.llm_service.generate_pro_file(db, generation_question, citations, recent_messages)
+            artifact = self._save_pro_artifact(
+                session.id,
+                owner_user_id,
+                payload.question,
+                code,
+                input_artifact_ids=[item["id"] for item in input_artifacts],
+            )
             answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
             artifacts_json: list[dict[str, str | int]] = [artifact]
         else:
@@ -298,6 +322,8 @@ class AgentService:
         """Agent 模式流式回答 — ReAct 循环，支持任务拆解和工具调用。"""
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
+        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
@@ -346,7 +372,8 @@ class AgentService:
             )
 
         dialogue = self._build_dialogue(recent_messages)
-        user_content = f"近期对话：\n{dialogue}\n\n用户问题：{payload.question}"
+        user_question = generation_question if payload.generate_pro_file else payload.question
+        user_content = f"近期对话：\n{dialogue}\n\n用户问题：{user_question}"
         if fix_context:
             user_content += fix_context
         if file_context:
@@ -397,7 +424,13 @@ class AgentService:
                 # 检查回答中是否包含代码块，自动保存为 artifact
                 code = self._extract_code_block(answer)
                 if code and (payload.generate_pro_file or fix_intent):
-                    artifact = self._save_pro_artifact(session.id, owner_user_id, payload.question, code)
+                    artifact = self._save_pro_artifact(
+                        session.id,
+                        owner_user_id,
+                        payload.question,
+                        code,
+                        input_artifact_ids=[item["id"] for item in input_artifacts],
+                    )
                     artifacts_json.append(artifact)
                     answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
                     full_answer_parts = [answer]
@@ -833,6 +866,25 @@ class AgentService:
         artifact_id: str,
         owner_user_id: int,
     ) -> tuple[Path, str, str]:
+        artifact = self.get_artifact_metadata(db, session_id, artifact_id, owner_user_id)
+        storage_path = artifact.get("storage_path")
+        if not storage_path:
+            raise ValueError("附件不存在。")
+        file_path = Path(str(storage_path)).resolve()
+        sandbox = get_app_settings().chat_artifacts_dir.resolve()
+        if not file_path.is_relative_to(sandbox) or not file_path.is_file():
+            raise ValueError("附件不存在。")
+        file_name = str(artifact.get("file_name") or "generated.pro")
+        media_type = str(artifact.get("media_type") or _ARTIFACT_MEDIA_TYPE)
+        return file_path, file_name, media_type
+
+    def get_artifact_metadata(
+        self,
+        db: Session,
+        session_id: int,
+        artifact_id: str,
+        owner_user_id: int,
+    ) -> dict:
         self._get_owned_session(db, session_id, owner_user_id)
         messages = (
             db.query(ChatMessage)
@@ -842,20 +894,8 @@ class AgentService:
         )
         for message in messages:
             for artifact in message.artifacts_json or []:
-                if not isinstance(artifact, dict):
-                    continue
-                if artifact.get("id") != artifact_id:
-                    continue
-                storage_path = artifact.get("storage_path")
-                if not storage_path:
-                    break
-                file_path = Path(str(storage_path)).resolve()
-                sandbox = get_app_settings().chat_artifacts_dir.resolve()
-                if not file_path.is_relative_to(sandbox) or not file_path.is_file():
-                    break
-                file_name = str(artifact.get("file_name") or "generated.pro")
-                media_type = str(artifact.get("media_type") or _ARTIFACT_MEDIA_TYPE)
-                return file_path, file_name, media_type
+                if isinstance(artifact, dict) and artifact.get("id") == artifact_id:
+                    return artifact
         raise ValueError("附件不存在。")
 
     def _get_or_create_session(self, db: Session, payload: ChatRequest, owner_user_id: int) -> ChatSession:
@@ -885,6 +925,60 @@ class AgentService:
             raise ValueError("会话不存在。")
         return session
 
+    def _resolve_input_artifacts(
+        self,
+        db: Session,
+        session_id: int,
+        artifact_ids: list[str],
+        owner_user_id: int,
+    ) -> list[dict]:
+        resolved: list[dict] = []
+        seen: set[str] = set()
+        for artifact_id in artifact_ids:
+            value = str(artifact_id or "").strip()
+            if not value or value in seen:
+                continue
+            artifact = self.get_artifact_metadata(db, session_id, value, owner_user_id)
+            file_path, file_name, _media_type = self.get_artifact_file(db, session_id, value, owner_user_id)
+            metadata = dict(artifact.get("metadata") or {})
+            metadata.setdefault("idl_input_path", f"../inputs/{file_name}")
+            resolved.append(
+                {
+                    "id": value,
+                    "file_name": file_name,
+                    "path": file_path,
+                    "kind": artifact.get("kind"),
+                    "metadata": metadata,
+                }
+            )
+            seen.add(value)
+        return resolved
+
+    def _append_input_artifact_context(self, question: str, input_artifacts: list[dict]) -> str:
+        if not input_artifacts:
+            return question
+        lines = []
+        for artifact in input_artifacts:
+            metadata = artifact.get("metadata") or {}
+            lines.extend(
+                [
+                    f"- artifact_id: {artifact['id']}",
+                    f"  file_name: {artifact['file_name']}",
+                    f"  idl_input_path: {metadata.get('idl_input_path')}",
+                    f"  kind: {artifact.get('kind') or 'data'}",
+                ]
+            )
+            for key in ("dataset_id", "bands", "scale", "crs", "bbox"):
+                if key in metadata:
+                    lines.append(f"  {key}: {metadata[key]}")
+        artifact_context = self._wrap_untrusted_context("gee_artifacts", "\n".join(lines))
+        return (
+            f"{question}\n\n"
+            "用户选择了以下数据附件作为 IDL 输入。生成 .pro 时必须使用 idl_input_path 中的相对路径读取数据，"
+            "不能使用绝对路径；输出图片写到当前工作目录。\n"
+            f"{artifact_context}"
+        )
+
     def _get_recent_messages(self, db: Session, session_id: int, before_message_id: int, limit: int = 6) -> list[ChatMessage]:
         messages = (
             db.query(ChatMessage)
@@ -902,7 +996,8 @@ class AgentService:
         owner_user_id: int,
         question: str,
         code: str,
-    ) -> dict[str, str | int]:
+        input_artifact_ids: list[str] | None = None,
+    ) -> dict:
         artifact_id = uuid4().hex
         program_name = self._detect_program_name(question, code)
         file_name = f"{program_name}.pro"
@@ -910,6 +1005,7 @@ class AgentService:
         artifact_dir.mkdir(parents=True, exist_ok=True)
         file_path = artifact_dir / f"{artifact_id}_{file_name}"
         file_path.write_text(code.rstrip() + "\n", encoding="utf-8", newline="\n")
+        dependency_ids = list(dict.fromkeys(input_artifact_ids or []))
         return {
             "id": artifact_id,
             "file_name": file_name,
@@ -918,6 +1014,8 @@ class AgentService:
             "storage_path": file_path.as_posix(),
             "kind": "pro",
             "previewable": False,
+            "input_artifact_ids": dependency_ids,
+            "metadata": {"uses_gee_data": bool(dependency_ids)},
         }
 
     def _detect_program_name(self, question: str, code: str) -> str:
@@ -971,4 +1069,6 @@ class AgentService:
             kind=artifact.get("kind"),
             previewable=bool(artifact.get("previewable")),
             run_id=artifact.get("run_id"),
+            input_artifact_ids=list(artifact.get("input_artifact_ids") or []),
+            metadata=dict(artifact.get("metadata") or {}),
         )

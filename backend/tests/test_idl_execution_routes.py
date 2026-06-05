@@ -290,3 +290,82 @@ def test_run_idl_output_download_enforces_owner(monkeypatch, tmp_path: Path) -> 
     assert owner_download.status_code == 200
     assert owner_download.content.startswith(b"\x89PNG")
     assert other_download.status_code == 404
+
+
+def test_run_idl_stages_input_artifacts(monkeypatch, tmp_path: Path) -> None:
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.core.config import get_app_settings
+    from app.db.database import get_session_factory
+    from app.db.models import ChatMessage, ChatSession
+    from app.main import create_app
+    from app.services import idl_execution_service
+
+    def fake_run(args, cwd, stdout, stderr, timeout, shell):
+        run_dir = Path(cwd)
+        staged_input = run_dir / "inputs" / "srtm.tif"
+        assert staged_input.is_file()
+        assert staged_input.read_bytes() == b"gee-data"
+        (run_dir / "outputs" / "result.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(idl_execution_service.subprocess, "run", fake_run)
+
+    with TestClient(create_app()) as client:
+        owner = _register(client, "owner")
+        owner_id = owner["user"]["id"]
+        db = get_session_factory()()
+        try:
+            session = ChatSession(owner_user_id=owner_id, title="GEE IDL")
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+            artifact_dir = get_app_settings().chat_artifacts_dir / f"user-{owner_id}" / f"session-{session.id}"
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+            gee_id = "b" * 32
+            gee_path = artifact_dir / f"{gee_id}_srtm.tif"
+            gee_path.write_bytes(b"gee-data")
+            pro_id = "c" * 32
+            pro_path = artifact_dir / f"{pro_id}_read_srtm.pro"
+            pro_path.write_text("pro read_srtm\n  compile_opt idl2\nend\n", encoding="utf-8")
+            db.add(
+                ChatMessage(
+                    session_id=session.id,
+                    role="assistant",
+                    content="artifacts",
+                    citations_json=[],
+                    artifacts_json=[
+                        {
+                            "id": gee_id,
+                            "file_name": "srtm.tif",
+                            "media_type": "image/tiff",
+                            "size": gee_path.stat().st_size,
+                            "storage_path": gee_path.as_posix(),
+                            "kind": "gee_data",
+                            "previewable": False,
+                        },
+                        {
+                            "id": pro_id,
+                            "file_name": "read_srtm.pro",
+                            "media_type": "text/plain",
+                            "size": pro_path.stat().st_size,
+                            "storage_path": pro_path.as_posix(),
+                            "kind": "pro",
+                            "previewable": False,
+                            "input_artifact_ids": [gee_id],
+                        },
+                    ],
+                )
+            )
+            db.commit()
+            session_id = session.id
+        finally:
+            db.close()
+        response = client.post(
+            f"/api/chat/sessions/{session_id}/artifacts/{pro_id}/run-idl",
+            json={},
+            headers=_auth_headers(owner["access_token"]),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["artifacts"][0]["file_name"] == "result.png"
