@@ -12,9 +12,9 @@ IDL RAG Panel 是一个面向 ENVI/IDL 资料与代码场景的私有 RAG Web �
 - IDL/ENVI 专用分块：普通文本按段落分块，IDL 代码按 procedure/function 等符号边界分块。
 - SQLite FTS5 关键词检索、LanceDB 向量检索、Hybrid RRF 融合和可选 rerank。
 - 默认检索策略为 `hybrid_rrf_no_rerank`，用于在当前 benchmark 结果下获得更稳定的速度和效果平衡。
-- Chat 页面展示回答、引用来源、retrieval policy 和生成的 `.pro` artifact。
-- RetrievalLab 页面用于对比策略、查看候选 chunk、score、metadata 和 raw JSON。
-- Settings 页面支持模型配置、连接测试、本地评测和 LangSmith 相关评测配置。
+- 对话页面展示回答、引用来源、检索策略和生成的 `.pro` 文件。
+- 检索测试页面用于对比策略、查看候选 chunk、分数、元数据和原始 JSON。
+- 设置页面支持模型配置、连接测试、本地评测和 LangSmith 相关评测配置。
 - 运行时敏感 key 通过设置服务加密存储；本地数据库仍属于运行数据，不应提交。
 
 ## 技术栈
@@ -45,19 +45,19 @@ IDL RAG Panel 是一个面向 ENVI/IDL 资料与代码场景的私有 RAG Web �
 idl-rag/
   backend/
     app/
-      api/              # FastAPI routes and dependencies
-      core/             # config, auth token, password and secret helpers
-      db/               # SQLAlchemy models and SQLite/FTS initialization
-      services/         # ingest, retrieval, embedding, LLM, agent, eval
-      main.py           # FastAPI app and index worker lifecycle
-    tests/              # backend tests and golden eval data
+      api/              # FastAPI 路由与依赖
+      core/             # 配置、认证 token、密码与密钥工具
+      db/               # SQLAlchemy 模型与 SQLite/FTS 初始化
+      services/         # 入库、检索、向量、模型、Agent、评测服务
+      main.py           # FastAPI 应用与索引 worker 生命周期
+    tests/              # 后端测试与 golden eval 数据
     pyproject.toml
 
   frontend/
     src/
-      api/              # API client and types
-      pages/            # Dashboard, KnowledgeBases, Documents, Chat, RetrievalLab, Settings
-      styles/           # app-level CSS
+      api/              # API 客户端与类型
+      pages/            # 概览、知识库、文档、对话、检索测试、设置
+      styles/           # 应用级样式
       App.tsx
       main.tsx
     package.json
@@ -68,23 +68,23 @@ idl-rag/
     demo.md
     security-and-data-control.md
 
-  .env.example          # public template only, no real secrets
-  .gitignore            # excludes local data, secrets, caches and build output
+  .env.example          # 公开配置模板，不包含真实密钥
+  .gitignore            # 排除本地数据、密钥、缓存和构建产物
 ```
 
-Runtime data is generated under `data/` by default. `data/app.db`, `data/indexes/`, `data/logs/`, `data/generated/`, `data/parsed/` and source documents are local artifacts and are intentionally excluded from Git.
+默认运行数据生成在 `data/` 目录下。`data/app.db`、`data/indexes/`、`data/logs/`、`data/generated/`、`data/parsed/` 和源文档都属于本地运行产物，已被排除在 Git 之外。
 
-## Quick start
+## 快速开始
 
-### 1. Prepare environment variables
+### 1. 准备环境变量
 
-Copy the template and fill local-only values:
+复制模板并填写本地专用配置：
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-For local development, the most important values are:
+本地开发最重要的配置如下：
 
 ```text
 IDLRAG_AUTH_SECRET=replace-with-a-long-random-secret
@@ -92,132 +92,132 @@ IDLRAG_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
-Do not commit `.env`.
+不要提交 `.env`。
 
-### 2. Install backend dependencies
+### 2. 安装后端依赖
 
 ```powershell
 uv sync --project backend
 ```
 
-### 3. Start backend
+### 3. 启动后端
 
 ```powershell
 uv run --project backend uvicorn app.main:app --app-dir backend --reload
 ```
 
-Default backend URL:
+默认后端地址：
 
 ```text
 http://127.0.0.1:8000
 ```
 
-### 4. Install frontend dependencies
+### 4. 安装前端依赖
 
 ```powershell
 npm install --prefix frontend
 ```
 
-### 5. Start frontend
+### 5. 启动前端
 
 ```powershell
 npm run dev --prefix frontend
 ```
 
-Default frontend URL:
+默认前端地址：
 
 ```text
 http://127.0.0.1:5173
 ```
 
-## Demo flow
+## 演示流程
 
-1. Open the frontend and register or log in.
-2. Open Settings and configure an OpenAI-compatible provider, chat model and embedding model.
-3. Create a knowledge base.
-4. Upload or import ENVI/IDL documents.
-5. Wait until documents become `ready`.
-6. Open Chat, select a knowledge base, ask an ENVI/IDL question and inspect citations.
-7. Use RetrievalLab to compare retrieval strategies and inspect candidate chunks.
-8. Use Settings evaluation reports to compare strategy performance.
-9. Before publishing, run `git status` and verify that local DBs, keys, logs, indexes and private documents are not staged.
+1. 打开前端页面并注册或登录。
+2. 进入设置页面，配置 OpenAI 兼容模型服务、对话模型和向量模型。
+3. 创建知识库。
+4. 上传或导入 ENVI/IDL 文档。
+5. 等待文档状态变为 `ready`。
+6. 进入对话页面，选择知识库，提出 ENVI/IDL 问题并查看引用。
+7. 使用检索测试页面对比检索策略并检查候选文本块。
+8. 使用设置页面的评测报告对比策略效果。
+9. 发布前运行 `git status`，确认本地数据库、key、日志、索引和私有文档没有进入暂存区。
 
-Detailed demo steps are in [`docs/demo.md`](./docs/demo.md).
+详细演示步骤见 [`docs/demo.md`](./docs/demo.md)。
 
-## Project showcase
+## 项目展示文档
 
-The default project showcase is Chinese: [`docs/project-showcase.md`](./docs/project-showcase.md). Separate language versions are also available: [中文](./docs/project-showcase.zh-CN.md) / [English](./docs/project-showcase.en-US.md).
+默认项目展示文档为中文：[`docs/project-showcase.md`](./docs/project-showcase.md)。独立语言版本包括：[中文](./docs/project-showcase.zh-CN.md) / [English](./docs/project-showcase.en-US.md)。
 
-Key screenshots:
+主要截图：
 
-- [Dashboard](./docs/assets/screenshots/dashboard.png)
-- [Knowledge Bases](./docs/assets/screenshots/knowledge-bases.png)
-- [Documents](./docs/assets/screenshots/documents.png)
-- [Chat](./docs/assets/screenshots/chat.png)
-- [RetrievalLab](./docs/assets/screenshots/retrieval-lab.png)
-- [Settings](./docs/assets/screenshots/settings.png)
+- [概览页](./docs/assets/screenshots/dashboard.png)
+- [知识库页](./docs/assets/screenshots/knowledge-bases.png)
+- [文档页](./docs/assets/screenshots/documents.png)
+- [对话页](./docs/assets/screenshots/chat.png)
+- [检索测试页](./docs/assets/screenshots/retrieval-lab.png)
+- [设置页](./docs/assets/screenshots/settings.png)
 
-## Configuration and key handling
+## 配置与密钥处理
 
-The backend reads environment defaults through `backend/app/core/config.py`. Runtime model settings and provider keys are managed by `backend/app/services/settings_service.py`; sensitive values such as `api_key`, `rerank_api_key` and `langsmith_api_key` are encrypted through helpers in `backend/app/core/security.py` before being stored in the local database.
+后端通过 `backend/app/core/config.py` 读取环境变量默认值。运行时模型设置和服务密钥由 `backend/app/services/settings_service.py` 管理；`api_key`、`rerank_api_key` 和 `langsmith_api_key` 等敏感值会通过 `backend/app/core/security.py` 中的工具加密后存入本地数据库。
 
-This encryption protects values at rest in local runtime storage, but `data/app.db` is still local application data and must not be uploaded to GitHub.
+该加密用于保护本地运行存储中的敏感值，但 `data/app.db` 仍然属于本地应用数据，不应上传到 GitHub。
 
-Configuration details are in [`docs/configuration.md`](./docs/configuration.md). Security and data-control rules are in [`docs/security-and-data-control.md`](./docs/security-and-data-control.md).
+配置细节见 [`docs/configuration.md`](./docs/configuration.md)。安全与数据控制规则见 [`docs/security-and-data-control.md`](./docs/security-and-data-control.md)。
 
-## Architecture
+## 架构说明
 
-The system is a local-first RAG workbench:
+系统是一个本地优先的 RAG 工作台：
 
 ```mermaid
 flowchart LR
-  UI[React + Ant Design frontend] --> API[FastAPI backend]
+  UI[React + Ant Design 前端] --> API[FastAPI 后端]
   API --> DB[(SQLite + SQLAlchemy)]
   API --> FTS[(SQLite FTS5)]
-  API --> VEC[(LanceDB vectors)]
-  API --> FS[Local runtime files]
-  API --> LLM[OpenAI-compatible LLM / embedding providers]
+  API --> VEC[(LanceDB 向量索引)]
+  API --> FS[本地运行文件]
+  API --> LLM[OpenAI 兼容模型服务 / 向量模型]
 ```
 
-Full architecture diagrams are in [`ARCHITECTURE.md`](./ARCHITECTURE.md) and [`docs/architecture.md`](./docs/architecture.md).
+完整架构图见 [`ARCHITECTURE.md`](./ARCHITECTURE.md) 和 [`docs/architecture.md`](./docs/architecture.md)。
 
-## Verification
+## 验证命令
 
-Run focused backend tests:
+运行后端重点测试：
 
 ```powershell
 uv run --project backend pytest backend/tests/test_retrieval_strategies.py backend/tests/test_agent_service.py
 uv run --project backend pytest backend/tests/test_eval_golden_qa.py backend/tests/test_eval_metrics.py backend/tests/test_evaluation_api.py
 ```
 
-Build frontend:
+构建前端：
 
 ```powershell
 npm run build --prefix frontend
 ```
 
-## GitHub publishing rules
+## GitHub 发布规则
 
-Safe default upload set:
+默认可以上传：
 
-- Root docs and `docs/`.
-- `.gitignore` and `.env.example`.
-- `backend/app/`, `backend/tests/`, `backend/scripts/`, backend package files and lock files.
-- `frontend/src/`, frontend package files and config files.
+- 根目录文档和 `docs/`。
+- `.gitignore` 和 `.env.example`。
+- `backend/app/`、`backend/tests/`、`backend/scripts/`、后端包配置文件和锁文件。
+- `frontend/src/`、前端包配置文件和构建配置文件。
 
-Do not upload by default:
+默认不要上传：
 
-- Real `.env` files or API keys.
-- `data/app.db`, WAL/SHM files, LanceDB indexes, logs, generated artifacts and parsed text.
-- `frontend/node_modules/`, `frontend/dist/`, `backend/.venv/` and caches.
-- Private PDFs, resume drafts, course materials and unreviewed source documents.
+- 真实 `.env` 文件或 API Key。
+- `data/app.db`、WAL/SHM 文件、LanceDB 索引、日志、生成文件和解析文本。
+- `frontend/node_modules/`、`frontend/dist/`、`backend/.venv/` 和缓存。
+- 私有 PDF、简历草稿、课程材料和未经脱敏的源文档。
 
-Recommended module commits:
+建议按模块提交：
 
-1. Safety boundary and environment template.
-2. Documentation and architecture diagrams.
-3. Backend source and tests.
-4. Frontend source and build config.
-5. Public demo material only after manual review.
+1. 安全边界与环境模板。
+2. 文档和架构图。
+3. 后端源码与测试。
+4. 前端源码与构建配置。
+5. 公开演示材料，且仅在人工确认后提交。
 
-Push to GitHub only after the target remote URL is confirmed.
+推送到 GitHub 前，应确认目标远程仓库地址。

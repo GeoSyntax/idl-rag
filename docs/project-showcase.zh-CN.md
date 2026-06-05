@@ -14,32 +14,32 @@ IDL RAG Panel 是一个面向 ENVI/IDL 文档与代码资料的私有 RAG 工作
 
 ```mermaid
 flowchart LR
-  subgraph Browser[Browser]
-    UI[React + TypeScript + Ant Design]
+  subgraph Browser[浏览器]
+    UI[React + TypeScript + Ant Design 前端]
   end
 
-  subgraph Backend[FastAPI Backend]
-    API[REST / streaming API]
-    Auth[Auth and user isolation]
-    Ingest[Document ingest worker]
-    Retrieval[Retrieval service]
-    Agent[Chat and Agent orchestration]
-    Eval[Evaluation service]
-    Settings[Runtime settings service]
+  subgraph Backend[FastAPI 后端]
+    API[REST / 流式接口]
+    Auth[认证与用户隔离]
+    Ingest[文档入库任务]
+    Retrieval[检索服务]
+    Agent[对话与 Agent 编排]
+    Eval[评测服务]
+    Settings[运行时设置服务]
   end
 
-  subgraph Storage[Local Runtime Storage]
-    DB[(SQLite app DB)]
-    FTS[(SQLite FTS5)]
-    Vector[(LanceDB vector index)]
-    Files[Sources / parsed text / generated artifacts]
+  subgraph Storage[本地运行存储]
+    DB[(SQLite 应用数据库)]
+    FTS[(SQLite FTS5 全文索引)]
+    Vector[(LanceDB 向量索引)]
+    Files[源文件 / 解析文本 / 生成结果]
   end
 
-  subgraph Providers[Optional External Providers]
-    LLM[Chat model]
-    Embedding[Embedding model]
-    Rerank[Rerank model]
-    LangSmith[LangSmith]
+  subgraph Providers[可选外部模型服务]
+    LLM[对话模型]
+    Embedding[向量模型]
+    Rerank[重排模型]
+    LangSmith[LangSmith 评测]
   end
 
   UI --> API
@@ -70,106 +70,106 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  Q[User question] --> Rewrite[Session context and query rewrite]
-  Rewrite --> Strategy[Resolve strategy and top_k]
-  Strategy --> Keyword[SQLite FTS5 keyword retrieval]
-  Strategy --> Semantic[LanceDB vector retrieval]
-  Keyword --> Fusion[RRF fusion and heuristic scoring]
+  Q[用户问题] --> Rewrite[结合会话上下文改写查询]
+  Rewrite --> Strategy[解析检索策略与 top_k]
+  Strategy --> Keyword[SQLite FTS5 关键词检索]
+  Strategy --> Semantic[LanceDB 向量检索]
+  Keyword --> Fusion[RRF 融合与启发式评分]
   Semantic --> Fusion
-  Fusion --> Rerank{Rerank enabled?}
-  Rerank -- yes --> Cross[Cross-encoder or rerank API]
-  Rerank -- no --> Filter[Diversity filtering]
+  Fusion --> Rerank{是否启用重排?}
+  Rerank -- 是 --> Cross[交叉编码器或重排接口]
+  Rerank -- 否 --> Filter[多样性过滤]
   Cross --> Filter
-  Filter --> Citations[Ranked citations]
-  Citations --> Prompt[Grounded prompt]
-  Prompt --> Answer[Streaming answer]
-  Answer --> Persist[Persist message, citations, artifacts]
-  Persist --> UI[Render answer and citation details]
+  Filter --> Citations[排序后的引用结果]
+  Citations --> Prompt[基于引用构造提示词]
+  Prompt --> Answer[流式生成回答]
+  Answer --> Persist[保存消息、引用和生成文件]
+  Persist --> UI[前端展示回答与引用详情]
 ```
 
-当前默认策略是 `hybrid_rrf_no_rerank`。它在已有本地 benchmark 中与 rerank 版本效果接近，但延迟更低。`hybrid_rrf` 保留为 rerank 对照策略；`vector_only` 主要用于诊断 embedding 与向量索引质量。
+当前默认策略是 `hybrid_rrf_no_rerank`。它在已有本地基准测试中与启用重排的混合策略效果接近，但延迟更低。`hybrid_rrf` 保留为重排对照策略；`vector_only` 主要用于诊断向量模型与向量索引质量。
 
 ## 4. 文档入库流程图
 
 ```mermaid
 flowchart TD
-  Upload[Upload or path import] --> Validate[Validate type and size]
-  Validate --> Hash[SHA256 de-duplication]
-  Hash --> Job[Create document and index job]
-  Job --> Worker[Index worker]
-  Worker --> Extract[Text extraction]
-  Extract --> Split{File type}
-  Split -- PDF / Markdown / Text --> Paragraph[Paragraph chunks]
-  Split -- PRO / IDL --> Symbol[IDL symbol-aware chunks]
-  Paragraph --> Store[Store chunks]
+  Upload[上传文件或路径导入] --> Validate[校验类型与大小]
+  Validate --> Hash[SHA256 去重]
+  Hash --> Job[创建文档与索引任务]
+  Job --> Worker[索引工作进程]
+  Worker --> Extract[文本提取]
+  Extract --> Split{文件类型}
+  Split -- PDF / Markdown / Text --> Paragraph[按段落分块]
+  Split -- PRO / IDL --> Symbol[按 IDL 符号边界分块]
+  Paragraph --> Store[保存文本块]
   Symbol --> Store
-  Store --> FTS[Write FTS5 rows]
-  Store --> Embed[Create embeddings]
-  Embed --> Provider{Embedding provider available?}
-  Provider -- yes --> Remote[Remote embedding]
-  Provider -- no --> Fallback[Hash fallback embedding]
-  Remote --> Lance[LanceDB vectors]
+  Store --> FTS[写入 FTS5 全文索引]
+  Store --> Embed[生成向量]
+  Embed --> Provider{是否可用向量模型?}
+  Provider -- 是 --> Remote[调用远程向量模型]
+  Provider -- 否 --> Fallback[使用哈希回退向量]
+  Remote --> Lance[LanceDB 向量索引]
   Fallback --> Lance
-  Lance --> Ready[Document ready]
+  Lance --> Ready[文档入库完成]
 ```
 
 ## 5. 页面截图
 
-### 5.1 Dashboard
+### 5.1 概览页
 
-展示资料状态、索引状态、worker 状态和 fallback embedding 提示。
+展示资料状态、索引状态、工作进程状态和回退向量提示。
 
-![Dashboard](./assets/screenshots/dashboard.png)
+![概览页](./assets/screenshots/dashboard.png)
 
-### 5.2 Knowledge Bases
+### 5.2 知识库页
 
-管理知识库、默认检索策略、`top_k` 和 rerank 开关。
+管理知识库、默认检索策略、`top_k` 和重排开关。
 
-![Knowledge Bases](./assets/screenshots/knowledge-bases.png)
+![知识库页](./assets/screenshots/knowledge-bases.png)
 
-### 5.3 Documents
+### 5.3 文档页
 
-展示公开合成的 `demo_spectral_indices.pro` 文档、索引状态、chunk 数量和 parser/chunker 信息。
+展示公开合成的 `demo_spectral_indices.pro` 文档、索引状态、分块数量和解析器信息。
 
-![Documents](./assets/screenshots/documents.png)
+![文档页](./assets/screenshots/documents.png)
 
-### 5.4 Chat
+### 5.4 对话页
 
-基于公开合成 `compute_ndvi` 示例提问，展示回答、检索策略、fallback 状态和引用来源。
+基于公开合成的 `compute_ndvi` 示例提问，展示回答、检索策略、回退状态和引用来源。
 
-![Chat](./assets/screenshots/chat.png)
+![对话页](./assets/screenshots/chat.png)
 
-### 5.5 RetrievalLab
+### 5.5 检索测试页
 
-对同一个问题运行检索测试，展示候选 chunk、策略说明、分数和 metadata 入口。
+对同一个问题运行检索测试，展示候选文本块、策略说明、分数和元数据入口。
 
-![RetrievalLab](./assets/screenshots/retrieval-lab.png)
+![检索测试页](./assets/screenshots/retrieval-lab.png)
 
-### 5.6 Settings
+### 5.6 设置页
 
-配置模型 provider、API base URL、模型名称、rerank、LangSmith 和评测报告。
+配置模型服务、接口地址、模型名称、重排、LangSmith 和评测报告。
 
-![Settings](./assets/screenshots/settings.png)
+![设置页](./assets/screenshots/settings.png)
 
 ## 6. 核心功能说明
 
 | 模块 | 功能 |
 |---|---|
-| Auth / Users | 注册、登录、管理员用户管理、用户隔离 |
-| KnowledgeBases | 创建知识库、配置默认策略、配置 top_k 和 rerank |
-| Documents | 上传、路径导入、去重、索引、重试、重建和 chunk 查看 |
-| Chat | 普通问答、Agent 模式、流式生成、citation、`.pro` artifact 下载 |
-| RetrievalLab | 策略调试、候选结果、score、metadata 和 raw JSON 查看 |
-| Settings | Provider/key/model 配置、连接测试、本地评测、LangSmith 评测 |
-| Evaluation | golden QA、策略对比、工具型 code RAG case 分离评估 |
+| 认证 / 用户 | 注册、登录、管理员用户管理、用户隔离 |
+| 知识库 | 创建知识库、配置默认策略、配置 `top_k` 和重排 |
+| 文档 | 上传、路径导入、去重、索引、重试、重建和文本块查看 |
+| 对话 | 普通问答、Agent 模式、流式生成、引用展示、`.pro` 文件下载 |
+| 检索测试 | 策略调试、候选结果、分数、元数据和原始 JSON 查看 |
+| 设置 | 模型服务、密钥、模型名称配置、连接测试、本地评测、LangSmith 评测 |
+| 评测 | golden QA、策略对比、工具型代码 RAG case 分离评估 |
 
 ## 7. 技术亮点
 
 - 使用 SQLite + FTS5 + LanceDB 构建本地优先 RAG，不依赖外部数据库服务。
 - 对 ENVI/IDL `.pro` / `.idl` 文件做符号级分块，保留 procedure/function 语义边界。
-- 支持 hybrid RRF、rerank 对照、multi-query、parent-child、dependency GraphRAG 和代码工具检索。
-- Citation 中保留 rank、strategy、score、line range 和 metadata，便于解释和调试。
-- Settings 中的敏感 key 加密存储，API 响应不回显真实 key。
+- 支持混合 RRF、重排对照、多查询、父子块、依赖图检索和代码工具检索。
+- 引用结果中保留排序、策略、分数、行号范围和元数据，便于解释和调试。
+- 设置页中的敏感 key 加密存储，API 响应不回显真实 key。
 - 文档、源码、截图和 GitHub 发布边界分离，避免上传本地运行数据和个人学习资料。
 
 ## 8. 本地演示步骤
@@ -188,11 +188,11 @@ flowchart TD
    ```
 
 4. 登录或注册账号。
-5. 在 Settings 配置模型 provider。
+5. 在设置页配置模型服务。
 6. 创建知识库，导入公开或脱敏文档。
-7. 在 Chat 提问并查看 citation。
-8. 在 RetrievalLab 对比检索策略。
-9. 在 Settings 查看评测报告。
+7. 在对话页提问并查看引用。
+8. 在检索测试页对比检索策略。
+9. 在设置页查看评测报告。
 
 ## 9. 发布与安全边界
 
@@ -207,7 +207,7 @@ GitHub 仓库应包含：
 GitHub 仓库不应包含：
 
 - 真实 `.env` 和 API Key。
-- `data/app.db`、WAL/SHM、LanceDB 索引、日志、解析文本和生成 artifact。
+- `data/app.db`、WAL/SHM、LanceDB 索引、日志、解析文本和生成文件。
 - 私有 PDF、课程扫描件、简历草稿、个人学习笔记和未确认数据源。
 - `node_modules`、`dist`、`.venv` 和缓存目录。
 
