@@ -1,0 +1,77 @@
+# Environment files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Local Claude / MCP / automation state
+.claude/settings.local.json
+.omc/
+.playwright-mcp/
+
+# Local databases and runtime data
+data/app.db
+data/*.db-wal
+data/*.db-shm
+data/indexes/
+data/logs/
+data/generated/
+data/parsed/
+data/cache/
+backend/data/
+
+# Private or unreviewed source material
+郭浩宇-anget开发.pdf
+扫描件_实验一IDL基本运算.pdf
+resume_draft.md
+data/sources/
+backend/data/sources/
+
+# Session transcripts and local debug output
+*session*.txt
+*transcript*.txt
+2026-*.txt
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+backend/.venv/
+backend/venv/
+.venv/
+venv/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+node_modules/
+dist/
+.vite/
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+
+# Temporary smoke-test artifacts
+.tmp-*/
+tmp/
+temp/
+*.tmp
