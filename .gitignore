@@ -57,6 +57,8 @@ frontend/dist/
 frontend/.vite/
 frontend/.cache/
 frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 node_modules/
 dist/
 .vite/
