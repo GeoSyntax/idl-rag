@@ -146,7 +146,7 @@ Detailed demo steps are in [`docs/demo.md`](./docs/demo.md).
 
 ## Project showcase
 
-The complete project showcase, architecture diagrams, and sanitized screenshots are in [`docs/project-showcase.md`](./docs/project-showcase.md).
+The default project showcase is Chinese: [`docs/project-showcase.md`](./docs/project-showcase.md). Separate language versions are also available: [中文](./docs/project-showcase.zh-CN.md) / [English](./docs/project-showcase.en-US.md).
 
 Key screenshots:
 

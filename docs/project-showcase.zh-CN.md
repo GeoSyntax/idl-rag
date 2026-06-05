@@ -1,6 +1,6 @@
 # IDL RAG Panel 项目展示说明
 
-默认语言：**中文** | [English](./project-showcase.en-US.md) | [中文独立版本](./project-showcase.zh-CN.md)
+语言版本：**中文** | [English](./project-showcase.en-US.md)
 
 本文档用于项目评审、作品集展示和 GitHub 说明。所有截图均来自公开合成演示数据，不包含私人学习资料、真实 API Key、本地数据库、私有 PDF 或简历内容。
 
