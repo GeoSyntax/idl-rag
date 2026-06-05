@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { api } from '../../api/client'
 import type { KnowledgeBase } from '../../api/types'
+import { DisplayEmpty, FileTypeBadge } from '../../components/DisplayPrimitives'
 
 type KnowledgeBasesPageProps = {
   items: KnowledgeBase[]
@@ -124,6 +125,17 @@ export function KnowledgeBasesPage({
           loading={loading}
           dataSource={items}
           pagination={false}
+          scroll={{ x: 760 }}
+          locale={{
+            emptyText: (
+              <DisplayEmpty
+                compact
+                illustration="database"
+                title="还没有知识库"
+                description="创建一个知识库后，再导入 ENVI/IDL 文档进行检索。"
+              />
+            ),
+          }}
           rowSelection={{
             type: 'radio',
             selectedRowKeys: selectedKnowledgeBaseId ? [selectedKnowledgeBaseId] : [],
@@ -143,6 +155,7 @@ export function KnowledgeBasesPage({
               width: 220,
               render: (_, record) => (
                 <div className="knowledge-config-summary">
+                  <FileTypeBadge label="RAG" />
                   <span>{record.default_retrieval_strategy}</span>
                   <span>top_k {record.default_top_k}</span>
                   <span>{record.default_rerank_enabled ? 'rerank on' : 'rerank off'}</span>
@@ -171,7 +184,7 @@ export function KnowledgeBasesPage({
         title={configTarget ? `知识库配置：${configTarget.name}` : '知识库配置'}
         open={Boolean(configTarget)}
         onClose={() => setConfigTarget(null)}
-        width={420}
+        width="min(100vw, 420px)"
       >
         <Form form={configForm} layout="vertical" onFinish={(values) => updateMutation.mutate(values)}>
           <Form.Item label="名称" name="name" rules={[{ required: true, message: '请输入知识库名称' }]}>

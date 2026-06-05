@@ -61,6 +61,7 @@ export function UsersPage({ items, loading, currentUserId, onChanged }: UsersPag
           loading={loading}
           dataSource={items}
           pagination={items.length > 10 ? { pageSize: 10 } : false}
+          scroll={{ x: 820 }}
           columns={[
             { title: '用户名', dataIndex: 'username' },
             {

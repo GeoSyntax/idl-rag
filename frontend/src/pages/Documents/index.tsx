@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query'
 
 import { api } from '../../api/client'
 import type { DocumentChunk, DocumentItem, ImportResult } from '../../api/types'
+import { DisplayEmpty, MetricSummary } from '../../components/DisplayPrimitives'
 
 type DocumentsPageProps = {
   knowledgeBaseId?: number
@@ -207,17 +208,21 @@ export function DocumentsPage({
         title="导入资料"
         extra={<span className="status-text">{title}</span>}
       >
-        <div className="page-stack">
+        <div className="content-stack">
           <Alert
             type="info"
             message="路径导入读取的是服务器本机路径，不是浏览器所在电脑的路径。未配置服务器导入根目录时，请使用上传文件。"
             showIcon={false}
           />
-          <Alert
-            type="info"
-            message={`支持 ${supportedExtensions.join('、')}；单次最多 ${maxUploadFiles} 个文件，单文件不超过 ${maxUploadFileMb} MB。`}
-            showIcon={false}
-          />
+          <div className="document-import-summary">
+            <MetricSummary
+              items={[
+                { label: '支持格式', value: supportedExtensions.join(' ') },
+                { label: '单次文件', value: maxUploadFiles },
+                { label: '单文件上限', value: `${maxUploadFileMb} MB` },
+              ]}
+            />
+          </div>
           <Form
             form={form}
             layout="vertical"
@@ -237,7 +242,7 @@ export function DocumentsPage({
             </Button>
           </Form>
 
-          <div className="page-stack">
+          <div className="content-stack content-stack-inline">
             <Upload
               multiple
               beforeUpload={beforeUpload}
@@ -269,12 +274,15 @@ export function DocumentsPage({
         className="section-card"
         title="文档列表"
         extra={
-          <div className="document-toolbar">
-            <span className="status-text">ready {documentSummary.ready}</span>
-            <span className="status-text">处理中 {documentSummary.active}</span>
-            <span className="status-text">failed {documentSummary.failed}</span>
-            <span className="status-text">stale {documentSummary.stale}</span>
-          </div>
+          <MetricSummary
+            className="document-toolbar"
+            items={[
+              { label: 'ready', value: documentSummary.ready, tone: 'success' },
+              { label: '处理中', value: documentSummary.active },
+              { label: 'failed', value: documentSummary.failed, tone: documentSummary.failed > 0 ? 'danger' : 'default' },
+              { label: 'stale', value: documentSummary.stale, tone: documentSummary.stale > 0 ? 'warning' : 'default' },
+            ]}
+          />
         }
       >
         <Table<DocumentItem>
@@ -282,6 +290,17 @@ export function DocumentsPage({
           loading={loading}
           dataSource={documents}
           pagination={documents.length > 10 ? { pageSize: 10 } : false}
+          scroll={{ x: 860 }}
+          locale={{
+            emptyText: (
+              <DisplayEmpty
+                compact
+                illustration="documents"
+                title="暂无文档"
+                description="导入路径或上传文件后，文档会加入索引队列。"
+              />
+            ),
+          }}
           columns={[
             {
               title: '文件',
@@ -424,7 +443,7 @@ function ChunkViewerDrawer({
       title={document ? `文档片段：${document.file_name}` : '文档片段'}
       open={Boolean(document)}
       onClose={handleClose}
-      width={820}
+      width="min(100vw, 820px)"
     >
       <div className="chunk-viewer-stack">
         {document ? (
@@ -467,6 +486,7 @@ function ChunkViewerDrawer({
           size="small"
           pagination={filteredChunks.length > 8 ? { pageSize: 8 } : false}
           dataSource={filteredChunks}
+          scroll={{ x: 760 }}
           columns={[
             {
               title: '#',

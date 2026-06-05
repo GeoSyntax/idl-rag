@@ -2,13 +2,14 @@ import {
   DatabaseOutlined,
   FileTextOutlined,
   MenuFoldOutlined,
+  MenuOutlined,
   MenuUnfoldOutlined,
   MessageOutlined,
   SearchOutlined,
   SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
-import { Button, Layout, Menu, Tooltip } from 'antd'
+import { Button, Drawer, Layout, Menu, Tooltip } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -46,6 +47,7 @@ export function AppLayout({
       return false
     }
   })
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
     try {
@@ -69,11 +71,16 @@ export function AppLayout({
     ...(showSettings ? [{ key: 'settings', icon: <SettingOutlined />, label: '设置' }] : []),
   ]
 
+  const handleNavigate = useCallback((key: string) => {
+    onNavigate(key)
+    setMobileNavOpen(false)
+  }, [onNavigate])
+
   return (
     <Layout className="app-shell">
       <Sider
-        width={220}
-        collapsedWidth={64}
+        width={240}
+        collapsedWidth={56}
         collapsed={collapsed}
         className="app-sidebar"
         collapsible
@@ -96,7 +103,7 @@ export function AppLayout({
             inlineCollapsed={collapsed}
             selectedKeys={[activeKey]}
             items={menuItems}
-            onClick={({ key }) => onNavigate(key)}
+            onClick={({ key }) => handleNavigate(key)}
           />
           <div className="app-sidebar-footer">
             <Tooltip title={collapsed ? '展开侧边栏' : '收起侧边栏'} placement="right">
@@ -113,7 +120,15 @@ export function AppLayout({
       <Layout className="app-content">
         <Header className="app-header">
           <div className="app-header-bar">
-            <h2 className="app-title">{title}</h2>
+            <div className="app-title-row">
+              <Button
+                type="text"
+                className="app-mobile-nav-trigger"
+                icon={<MenuOutlined />}
+                onClick={() => setMobileNavOpen(true)}
+              />
+              <h2 className="app-title">{title}</h2>
+            </div>
             <div className="app-user-panel">
               <div>
                 <div className="app-user-name">{currentUser.username}</div>
@@ -125,6 +140,22 @@ export function AppLayout({
         </Header>
         <Content className="app-body">{children}</Content>
       </Layout>
+      <Drawer
+        title="导航"
+        placement="left"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        width="min(320px, 86vw)"
+        className="app-mobile-nav"
+      >
+        <Menu
+          className="app-menu"
+          mode="inline"
+          selectedKeys={[activeKey]}
+          items={menuItems}
+          onClick={({ key }) => handleNavigate(key)}
+        />
+      </Drawer>
     </Layout>
   )
 }

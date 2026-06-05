@@ -1,9 +1,10 @@
-import { Alert, Button, Card, Drawer, Form, Input, InputNumber, Select, Table, Tag, message } from 'antd'
+import { Button, Card, Drawer, Form, Input, InputNumber, Select, Table, Tag, message } from 'antd'
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api/client'
 import type { KnowledgeBase, RetrievalDebugCandidate, RetrievalDebugResponse } from '../../api/types'
+import { DisplayEmpty, MetricSummary } from '../../components/DisplayPrimitives'
 
 type RetrievalLabPageProps = {
   knowledgeBases: KnowledgeBase[]
@@ -139,7 +140,12 @@ export function RetrievalLabPage({ knowledgeBases, initialKnowledgeBaseId }: Ret
 
       <Card title="候选结果" className="section-card">
         {!result ? (
-          <Alert type="info" showIcon message="运行一次检索测试后，这里会显示候选 chunk、来源、分数和调试信息。" />
+          <DisplayEmpty
+            compact
+            illustration="retrieval"
+            title="等待检索测试"
+            description="运行一次检索测试后，这里会显示候选 chunk、来源、分数和调试信息。"
+          />
         ) : (
           <RetrievalResult result={result} />
         )}
@@ -153,17 +159,21 @@ function RetrievalResult({ result }: { result: RetrievalDebugResponse }) {
 
   return (
     <div className="retrieval-result-stack">
-      <div className="retrieval-trace-summary">
-        <span>query：{result.query}</span>
-        <span>strategy：{result.strategy}</span>
-        <span>candidates：{result.candidate_count}</span>
-        {result.strategy === 'vector_only' ? <span className="retrieval-warning">diagnostic only</span> : null}
-      </div>
+      <MetricSummary
+        className="retrieval-trace-summary"
+        items={[
+          { label: 'query', value: result.query },
+          { label: 'strategy', value: result.strategy },
+          { label: 'candidates', value: result.candidate_count },
+          ...(result.strategy === 'vector_only' ? [{ label: 'mode', value: 'diagnostic only', tone: 'warning' as const }] : []),
+        ]}
+      />
       <Table<RetrievalDebugCandidate>
         rowKey={(record) => `${record.rank}-${record.chunk_id}`}
         size="small"
         pagination={false}
         dataSource={result.candidates}
+        scroll={{ x: 920 }}
         columns={[
           {
             title: 'Rank',
@@ -248,7 +258,7 @@ function CandidateDrawer({ candidate, onClose }: { candidate: RetrievalDebugCand
   ]
 
   return (
-    <Drawer title="候选详情" open={Boolean(candidate)} onClose={onClose} width={620}>
+    <Drawer title="候选详情" open={Boolean(candidate)} onClose={onClose} width="min(100vw, 620px)">
       <div className="citation-detail-stack">
         <div className="citation-detail-list">
           {details.map(([label, value]) => (
