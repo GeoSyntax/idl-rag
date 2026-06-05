@@ -29,6 +29,13 @@ All backend variables use the `IDLRAG_` prefix and are loaded by `backend/app/co
 | `IDLRAG_MAX_UPLOAD_FILE_MB` | Max single file size. |
 | `IDLRAG_MAX_UPLOAD_TOTAL_MB` | Max total upload size. |
 | `IDLRAG_MAX_PDF_PAGES` | PDF page limit. |
+| `IDLRAG_IDL_EXECUTABLE` | Local IDL Workbench command used for user-triggered `.pro` artifact runs. Defaults to `idlde` and is called with `-batch`. |
+| `IDLRAG_IDL_RUN_TIMEOUT_SECONDS` | Timeout for one local IDL run. |
+| `IDLRAG_IDL_RUN_MAX_STDOUT_CHARS` | Maximum stdout characters returned from one IDL run. |
+| `IDLRAG_IDL_RUN_MAX_STDERR_CHARS` | Maximum stderr characters returned from one IDL run. |
+| `IDLRAG_IDL_RUN_MAX_OUTPUT_FILES` | Maximum previewable output files collected from one IDL run directory. |
+| `IDLRAG_IDL_RUN_MAX_OUTPUT_FILE_MB` | Maximum size for one collected IDL output file. |
+| `IDLRAG_IDL_RUN_ALLOWED_OUTPUT_SUFFIXES` | Comma-separated image suffixes collected from IDL run output. |
 | `IDLRAG_DEFAULT_PROVIDER_NAME` | Default provider label shown in settings. |
 | `IDLRAG_DEFAULT_API_BASE_URL` | Default OpenAI-compatible API base URL. |
 | `IDLRAG_DEFAULT_CHAT_MODEL` | Default chat model name. |
@@ -42,6 +49,33 @@ All backend variables use the `IDLRAG_` prefix and are loaded by `backend/app/co
 | `VITE_API_BASE_URL` | Full backend API prefix, for example `http://127.0.0.1:8000/api`. |
 
 The frontend reads this value in `frontend/src/api/client.ts`.
+
+## Local IDL execution
+
+`IDLRAG_IDL_EXECUTABLE` should point to the IDL Workbench launcher when using Windows IDL 8.8:
+
+```text
+IDLRAG_IDL_EXECUTABLE=D:\envi5.6\ENVI56\IDL88\bin\bin.x86_64\idlde.exe
+```
+
+The backend executes generated Chat `.pro` artifacts with:
+
+```text
+idlde.exe -batch <run_dir>/__idlrag_runner.pro
+```
+
+For each run, the backend creates:
+
+```text
+data/generated/chat/user-{user_id}/session-{session_id}/runs/{run_id}/
+  source.pro
+  __idlrag_runner.pro
+  stdout.log
+  stderr.log
+  outputs/
+```
+
+Only image files written under `outputs/` with suffixes from `IDLRAG_IDL_RUN_ALLOWED_OUTPUT_SUFFIXES` are returned to the frontend as previewable `idl_output` artifacts. The route never accepts arbitrary shell commands or arbitrary local file paths.
 
 ## Runtime provider settings
 
@@ -73,6 +107,8 @@ IDLRAG_ENVIRONMENT=development
 IDLRAG_BASE_DIR=./data
 IDLRAG_AUTH_SECRET=replace-with-a-long-random-secret
 IDLRAG_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+IDLRAG_IDL_EXECUTABLE=idlde
+IDLRAG_IDL_RUN_TIMEOUT_SECONDS=30
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
 

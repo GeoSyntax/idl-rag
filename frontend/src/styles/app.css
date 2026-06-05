@@ -645,6 +645,68 @@ body { min-height: 100vh; }
   color: var(--surface);
 }
 
+.idl-run-card {
+  display: grid;
+  gap: 10px;
+}
+
+.idl-run-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.idl-run-header .anticon-check-circle {
+  color: var(--success);
+}
+
+.idl-run-header .anticon-clock-circle {
+  color: var(--warning);
+}
+
+.idl-run-header .anticon-close-circle {
+  color: var(--error);
+}
+
+.idl-run-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.idl-run-grid > div {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.idl-run-grid span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.idl-run-grid strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.idl-run-collapse {
+  background: var(--surface) !important;
+}
+
+.idl-run-log {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* ── Streaming ── */
 .chat-streaming-text {
   white-space: pre-wrap;
@@ -693,6 +755,63 @@ body { min-height: 100vh; }
   color: var(--text-muted);
   font-size: 12px;
   margin-left: auto;
+}
+
+.chat-artifact-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-artifact-image-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.chat-artifact-image-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.chat-artifact-image-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-artifact-image-thumb {
+  display: block;
+  max-width: 320px;
+  max-height: 180px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  background: var(--surface);
+}
+
+.chat-artifact-image-placeholder {
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.chat-artifact-image-full {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
 /* ── Citations ── */

@@ -29,6 +29,7 @@ This document defines what can be committed to GitHub and what must remain local
 - `data/indexes/`
 - `data/logs/`
 - `data/generated/`
+- IDL local run logs and output images under `data/generated/chat/**/runs/`
 - `data/parsed/`
 - `data/cache/`
 - `backend/data/`

@@ -5,6 +5,8 @@ import type {
   ChatResponse,
   ChatSession,
   DashboardSummary,
+  IdlRunRequest,
+  IdlRunResponse,
   DocumentChunk,
   DocumentItem,
   EvaluationReport,
@@ -226,7 +228,12 @@ export const api = {
   deleteSession: (sessionId: number) => request<void>(`/chat/sessions/${sessionId}`, { method: 'DELETE' }),
   listMessages: (sessionId: number) =>
     request<ChatMessage[]>(`/chat/sessions/${sessionId}/messages`),
-  downloadChatArtifact: async (downloadPath: string, fileName: string) => {
+  runChatArtifactWithIdl: (sessionId: number, artifactId: string, payload: IdlRunRequest = {}) =>
+    request<IdlRunResponse>(`/chat/sessions/${sessionId}/artifacts/${artifactId}/run-idl`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  fetchChatArtifactBlob: async (downloadPath: string) => {
     const accessToken = getStoredAccessToken()
     const response = await fetch(`${API_BASE}${downloadPath}`, {
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
@@ -239,7 +246,10 @@ export const api = {
       const message = typeof data.detail === 'string' ? data.detail : '下载失败'
       throw new Error(message)
     }
-    const blob = await response.blob()
+    return response.blob()
+  },
+  downloadChatArtifact: async (downloadPath: string, fileName: string) => {
+    const blob = await api.fetchChatArtifactBlob(downloadPath)
     if (typeof window === 'undefined') {
       return
     }

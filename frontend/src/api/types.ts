@@ -208,6 +208,9 @@ export type ChatArtifact = {
   media_type: string
   size: number
   download_url: string
+  kind?: 'pro' | 'idl_output' | 'idl_log' | null
+  previewable?: boolean
+  run_id?: string | null
 }
 
 export type ChatMessage = {
@@ -224,6 +227,23 @@ export type ChatResponse = {
   answer: string
   citations: Citation[]
   messages: ChatMessage[]
+}
+
+export type IdlRunRequest = {
+  entrypoint?: string
+  timeout_seconds?: number
+}
+
+export type IdlRunResponse = {
+  run_id: string
+  session_id: number
+  message: ChatMessage
+  exit_code: number | null
+  stdout: string
+  stderr: string
+  timed_out: boolean
+  duration_ms: number
+  artifacts: ChatArtifact[]
 }
 
 export type ChatSession = {

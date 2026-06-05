@@ -803,6 +803,9 @@ class AgentService:
         )
         return [self._to_message_response(message) for message in messages]
 
+    def to_message_response(self, message: ChatMessage) -> ChatMessageResponse:
+        return self._to_message_response(message)
+
     def list_sessions(self, db: Session, owner_user_id: int) -> list[ChatSession]:
         return (
             db.query(ChatSession)
@@ -913,6 +916,8 @@ class AgentService:
             "media_type": _ARTIFACT_MEDIA_TYPE,
             "size": file_path.stat().st_size,
             "storage_path": file_path.as_posix(),
+            "kind": "pro",
+            "previewable": False,
         }
 
     def _detect_program_name(self, question: str, code: str) -> str:
@@ -963,4 +968,7 @@ class AgentService:
             media_type=media_type,
             size=size,
             download_url=f"/chat/sessions/{session_id}/artifacts/{artifact_id}",
+            kind=artifact.get("kind"),
+            previewable=bool(artifact.get("previewable")),
+            run_id=artifact.get("run_id"),
         )

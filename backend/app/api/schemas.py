@@ -209,6 +209,9 @@ class ChatArtifact(BaseModel):
     media_type: str
     size: int
     download_url: str
+    kind: Literal["pro", "idl_output", "idl_log"] | None = None
+    previewable: bool = False
+    run_id: str | None = None
 
 
 class ChatMessageResponse(BaseModel):
@@ -227,6 +230,23 @@ class ChatResponse(BaseModel):
     answer: str
     citations: list[Citation]
     messages: list[ChatMessageResponse]
+
+
+class IdlRunRequest(BaseModel):
+    entrypoint: str | None = Field(default=None, min_length=1, max_length=80)
+    timeout_seconds: int | None = Field(default=None, ge=1, le=600)
+
+
+class IdlRunResponse(BaseModel):
+    run_id: str
+    session_id: int
+    message: ChatMessageResponse
+    exit_code: int | None
+    stdout: str
+    stderr: str
+    timed_out: bool
+    duration_ms: int
+    artifacts: list[ChatArtifact]
 
 
 class ChatSessionResponse(BaseModel):

@@ -36,6 +36,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   const [chatMode, setChatMode] = useState<'normal' | 'agent'>('normal')
   const [fixTarget, setFixTarget] = useState<{ artifactId: string; fileName: string } | null>(null)
   const [generateProFile, setGenerateProFile] = useState(false)
+  const [runningArtifactId, setRunningArtifactId] = useState<string | null>(null)
 
   const [selectedKBIds, setSelectedKBIds] = useState<number[]>([])
   const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null)
@@ -366,6 +367,23 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
     inputRef.current?.focus()
   }
 
+  const runArtifactWithIdl = async (artifact: ChatArtifact) => {
+    if (!sessionId) {
+      messageApi.warning('请先选择或创建会话。')
+      return
+    }
+    setRunningArtifactId(artifact.id)
+    try {
+      const response = await api.runChatArtifactWithIdl(sessionId, artifact.id)
+      setMessages((prev) => [...prev, response.message])
+      messageApi.success(response.timed_out ? 'IDL 运行已超时，日志已返回' : 'IDL 运行完成')
+    } catch (err) {
+      messageApi.error((err as Error).message || 'IDL 运行失败')
+    } finally {
+      setRunningArtifactId(null)
+    }
+  }
+
   const kbSelectOptions = useMemo(
     () => knowledgeBases.map((kb) => ({ label: `${kb.name} (${kb.document_count})`, value: kb.id })),
     [knowledgeBases],
@@ -508,6 +526,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
             messagesEndRef={messagesEndRef}
             onDownloadArtifact={downloadArtifact}
             onStartFix={startFixMode}
+            onRunArtifact={runArtifactWithIdl}
+            runningArtifactId={runningArtifactId}
           />
         )}
       </div>

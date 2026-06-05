@@ -2,7 +2,7 @@
 
 语言版本：**中文** | [English](./README.en-US.md)
 
-IDL RAG Panel 是一个面向 ENVI/IDL 文档、代码和课程资料的本地优先 RAG 工作台。它把分散在本地的 PDF、Markdown、文本和 `.pro` / `.idl` 代码整理成可检索的知识库，并提供带引用的问答、检索调试、Agent 工具调用、`.pro` 文件生成和检索效果评测。
+IDL RAG Panel 是一个面向 ENVI/IDL 文档、代码和课程资料的本地优先 RAG 工作台。它把分散在本地的 PDF、Markdown、文本和 `.pro` / `.idl` 代码整理成可检索的知识库，并提供带引用的问答、检索调试、Agent 工具调用、`.pro` 文件生成、本地 IDL 运行和检索效果评测。
 
 这个项目的重点不是做一个通用聊天界面，而是解决 ENVI/IDL 学习、实验和项目开发中常见的三个问题：资料难找、代码上下文难追踪、回答缺少可验证来源。
 
@@ -17,6 +17,7 @@ IDL RAG Panel 是一个面向 ENVI/IDL 文档、代码和课程资料的本地�
 | 检索调试工作台 | RetrievalLab 可对比不同检索策略，查看候选 chunk、score、metadata 和 raw JSON。 |
 | 效果评测 | 支持本地 golden QA、策略对比、命中率、MRR、延迟和 LangSmith 相关评测配置。 |
 | 代码辅助 | Agent 模式支持符号搜索、上下文读取、调用关系分析和 `.pro` 文件生成。 |
+| 本地 IDL 运行 | 对话中生成或保存的 `.pro` artifact 可由用户主动点击运行，后端通过 `idlde.exe -batch` 调用本机 IDL，并返回运行摘要、日志和输出图预览。 |
 
 ## 页面预览
 
@@ -49,10 +50,41 @@ IDL RAG Panel 是一个面向 ENVI/IDL 文档、代码和课程资料的本地�
 | 文档入库 | 上传文件、路径导入、SHA256 去重、失败重试、重建索引和状态跟踪。 |
 | IDL 分块 | 普通文本按段落分块，IDL 代码按 procedure/function 等符号边界分块。 |
 | 混合检索 | SQLite FTS5 关键词检索、LanceDB 向量检索、RRF 融合和可选重排。 |
-| 对话问答 | 流式回答、引用展示、检索策略展示、Agent 模式和 `.pro` 文件生成。 |
+| 对话问答 | 流式回答、引用展示、检索策略展示、Agent 模式、`.pro` 文件生成、本地 IDL 运行和图片结果展示。 |
 | 检索测试 | 对比策略，查看候选 chunk、分数、元数据、匹配信息和原始 JSON。 |
 | 评测 | 本地 golden QA、策略对比、命中率、精确率、召回率、MRR 和延迟统计。 |
 | 设置 | 模型服务、API Key、对话模型、向量模型、重排模型和 LangSmith 配置。 |
+
+## Agent 能力
+
+Chat 中的 Agent 模式不是单纯把问题交给大模型生成回答，而是围绕当前知识库、IDL 代码结构和本地运行环境组织一个可验证的代码工作流。
+
+| 能力 | 说明 |
+|---|---|
+| 知识库检索 | 根据用户问题检索当前选中的知识库，并把引用来源、chunk 分数和行号范围带回回答。 |
+| IDL 代码工具 | 支持符号搜索、上下文读取、调用方/被调用方分析、代码片段检查等工具调用，用于追踪 `.pro` / `.idl` 文件结构。 |
+| `.pro` artifact 生成 | Agent 可以基于检索到的资料和代码上下文生成 `.pro` 文件，并以 Chat artifact 形式保存、下载和继续运行。 |
+| 本地 IDL 执行 | 用户点击“运行 IDL”后，后端为当前 artifact 生成独立 run 目录，通过 `idlde.exe -batch` 执行完整 `.pro` 文件。 |
+| 结果回传 | 执行完成后，Chat 会追加运行摘要、退出码、耗时、stdout/stderr 日志和 PNG/JPEG 等输出图预览。 |
+| 安全边界 | Agent 不会自主执行任意 shell 命令，也不能运行任意本地路径；v1 只运行当前登录用户拥有的 Chat `.pro` artifact。 |
+
+```mermaid
+flowchart LR
+  Ask[用户问题 / 代码需求] --> Agent[Chat Agent]
+  Agent --> Search[知识库检索]
+  Agent --> Tools[IDL 代码工具]
+  Tools --> Symbol[符号搜索]
+  Tools --> Context[上下文读取]
+  Tools --> Calls[调用关系分析]
+  Search --> Pro[生成 .pro artifact]
+  Context --> Pro
+  Calls --> Pro
+  Pro --> Click[用户点击运行 IDL]
+  Click --> Batch[idlde.exe -batch]
+  Batch --> Result[运行摘要 / 日志 / 输出图预览]
+```
+
+这条链路适合做 ENVI/IDL 学习资料问答、代码上下文追踪、脚本生成、运行验证和效果图展示。运行产物保存在 `data/generated/chat/**/runs/`，属于本地运行数据，不应提交到 Git。
 
 ## 核心页面
 
@@ -77,7 +109,9 @@ flowchart LR
   Vector --> Retrieve
   Retrieve --> Ground[引用与上下文]
   Ground --> Answer[回答 / Agent / .pro 生成]
-  Answer --> UI[前端展示与评测]
+  Answer --> Run[用户触发本地 IDL 运行]
+  Run --> UI[日志、图片预览与评测]
+  Answer --> UI
 ```
 
 ## 技术架构
@@ -89,6 +123,7 @@ flowchart LR
   API --> FTS[(SQLite FTS5)]
   API --> VEC[(LanceDB 向量索引)]
   API --> FS[本地运行文件]
+  API --> IDL[idlde.exe -batch 本机 IDL]
   API --> LLM[OpenAI 兼容模型服务 / 向量模型]
 ```
 
@@ -127,6 +162,7 @@ flowchart LR
 - 默认使用 SQLite，本地部署和小团队验证更方便；大规模并发需要进一步改造存储和任务队列。
 - 向量检索质量依赖实际配置的 embedding provider。
 - `data/app.db` 中的敏感字段会加密存储，但数据库文件本身仍属于本地运行数据。
+- 本地 IDL 运行只针对当前用户拥有的 Chat `.pro` artifact，由用户主动触发；后端生成 `__idlrag_runner.pro` 并通过 `idlde.exe -batch` 执行，运行日志和输出图保存在 `data/generated/chat/**/runs/`，不应提交到 Git。
 - 截图和展示材料使用公开合成数据，不包含私人学习文件、真实 API Key 或本地数据库。
 
 ## 项目结构
@@ -178,8 +214,11 @@ Copy-Item .env.example .env
 ```text
 IDLRAG_AUTH_SECRET=replace-with-a-long-random-secret
 IDLRAG_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+IDLRAG_IDL_EXECUTABLE=idlde
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
+
+Windows IDL 8.8 建议把 `IDLRAG_IDL_EXECUTABLE` 设置为 Workbench 启动器，例如 `D:\envi5.6\ENVI56\IDL88\bin\bin.x86_64\idlde.exe`。后端会使用 `idlde.exe -batch <runner.pro>` 执行，不使用 `idl.exe -e`。
 
 ### 2. 安装后端依赖
 
@@ -226,8 +265,9 @@ http://127.0.0.1:5173
 5. 等待文档状态变为 `ready`。
 6. 进入对话页面，选择知识库并提问。
 7. 查看回答中的引用来源、检索策略和行号范围。
-8. 进入检索测试页面，对比不同检索策略的候选结果。
-9. 在设置页面查看本地评测报告。
+8. 如果回答生成了 `.pro` 文件，可点击“运行 IDL”查看执行日志和输出图片预览。
+9. 进入检索测试页面，对比不同检索策略的候选结果。
+10. 在设置页面查看本地评测报告。
 
 更完整的演示步骤见 [`docs/demo.md`](./docs/demo.md)。
 

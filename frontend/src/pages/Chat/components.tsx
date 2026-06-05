@@ -1,10 +1,11 @@
 import { Button, Collapse, Drawer, Tag } from 'antd'
-import { FileTextOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons'
-import { useState } from 'react'
+import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, FileTextOutlined, PictureOutlined, PlayCircleOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons'
+import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 
-import type { ChatMessage, Citation } from '../../api/types'
-import type { AgentStepItem, ArtifactAction, KnowledgeStatus } from './types'
+import { api } from '../../api/client'
+import type { ChatArtifact, ChatMessage, Citation } from '../../api/types'
+import type { AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
 
 export function KnowledgeStatusBar({
   loading,
@@ -50,6 +51,8 @@ export function MessageList({
   messagesEndRef,
   onDownloadArtifact,
   onStartFix,
+  onRunArtifact,
+  runningArtifactId,
 }: {
   messages: ChatMessage[]
   agentSteps: AgentStepItem[]
@@ -58,6 +61,8 @@ export function MessageList({
   messagesEndRef: RefObject<HTMLDivElement>
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
+  onRunArtifact: AsyncArtifactAction
+  runningArtifactId: string | null
 }) {
   return (
     <div className="chat-message-list">
@@ -67,6 +72,8 @@ export function MessageList({
           message={msg}
           onDownloadArtifact={onDownloadArtifact}
           onStartFix={onStartFix}
+          onRunArtifact={onRunArtifact}
+          runningArtifactId={runningArtifactId}
         />
       ))}
       {agentSteps.length > 0 && !streamingContent ? (
@@ -102,10 +109,14 @@ function MessageBubble({
   message,
   onDownloadArtifact,
   onStartFix,
+  onRunArtifact,
+  runningArtifactId,
 }: {
   message: ChatMessage
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
+  onRunArtifact: AsyncArtifactAction
+  runningArtifactId: string | null
 }) {
   const isUser = message.role === 'user'
   return (
@@ -116,21 +127,24 @@ function MessageBubble({
         </div>
       )}
       <div className={`chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}`}>
-        <div className="chat-bubble-content">{message.content}</div>
+        <div className="chat-bubble-content">
+          {parseIdlRunContent(message.content) ? (
+            <IdlRunResult content={message.content} artifactCount={message.artifacts.length} />
+          ) : (
+            message.content
+          )}
+        </div>
         {message.artifacts.length > 0 && (
           <div className="chat-artifacts">
             {message.artifacts.map((artifact) => (
-              <div key={artifact.id} className="chat-artifact">
-                <FileTextOutlined />
-                <span className="chat-artifact-name">{artifact.file_name}</span>
-                <span className="chat-artifact-size">{formatBytes(artifact.size)}</span>
-                <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
-                  下载
-                </Button>
-                <Button size="small" type="link" onClick={() => onStartFix(artifact)}>
-                  修复
-                </Button>
-              </div>
+              <ArtifactItem
+                key={artifact.id}
+                artifact={artifact}
+                onDownloadArtifact={onDownloadArtifact}
+                onStartFix={onStartFix}
+                onRunArtifact={onRunArtifact}
+                running={runningArtifactId === artifact.id}
+              />
             ))}
           </div>
         )}
@@ -141,6 +155,186 @@ function MessageBubble({
           <UserOutlined />
         </div>
       )}
+    </div>
+  )
+}
+
+type IdlRunView = {
+  status: '成功' | '失败' | '超时'
+  exitCode: string
+  durationMs: string
+  outputFiles: string
+  stdout: string
+  stderr: string
+}
+
+function IdlRunResult({ content, artifactCount }: { content: string; artifactCount: number }) {
+  const result = parseIdlRunContent(content)
+  if (!result) return <>{content}</>
+
+  const ok = result.status === '成功'
+  const timedOut = result.status === '超时'
+  const logItems = []
+  if (result.stdout) {
+    logItems.push({ key: 'stdout', label: 'stdout', children: <pre className="idl-run-log">{result.stdout}</pre> })
+  }
+  if (result.stderr) {
+    logItems.push({ key: 'stderr', label: 'stderr', children: <pre className="idl-run-log">{result.stderr}</pre> })
+  }
+
+  return (
+    <div className="idl-run-card">
+      <div className="idl-run-header">
+        {ok ? <CheckCircleOutlined /> : timedOut ? <ClockCircleOutlined /> : <CloseCircleOutlined />}
+        <span>IDL 运行{result.status}</span>
+      </div>
+      <div className="idl-run-grid">
+        <div>
+          <span>退出码</span>
+          <strong>{result.exitCode}</strong>
+        </div>
+        <div>
+          <span>耗时</span>
+          <strong>{formatDuration(result.durationMs)}</strong>
+        </div>
+        <div>
+          <span>输出图片</span>
+          <strong>{artifactCount || Number(result.outputFiles) || 0}</strong>
+        </div>
+      </div>
+      {logItems.length > 0 ? <Collapse className="idl-run-collapse" size="small" items={logItems} /> : null}
+    </div>
+  )
+}
+
+function parseIdlRunContent(content: string): IdlRunView | null {
+  const statusMatch = content.match(/^IDL 运行(成功|失败|超时)。/)
+  if (!statusMatch) return null
+
+  return {
+    status: statusMatch[1] as IdlRunView['status'],
+    exitCode: content.match(/^exit_code: (.+)$/m)?.[1] ?? '-',
+    durationMs: content.match(/^duration_ms: (.+)$/m)?.[1] ?? '-',
+    outputFiles: content.match(/^output_files: (.+)$/m)?.[1] ?? '0',
+    stdout: extractLogBlock(content, 'stdout'),
+    stderr: extractLogBlock(content, 'stderr'),
+  }
+}
+
+function extractLogBlock(content: string, label: 'stdout' | 'stderr'): string {
+  const start = `${label}:\n` + '```text\n'
+  const startIndex = content.indexOf(start)
+  if (startIndex < 0) return ''
+  const valueStart = startIndex + start.length
+  const endIndex = content.indexOf('\n```', valueStart)
+  if (endIndex < 0) return content.slice(valueStart).trim()
+  return content.slice(valueStart, endIndex).trim()
+}
+
+function formatDuration(value: string): string {
+  const ms = Number(value)
+  if (!Number.isFinite(ms)) return value
+  if (ms < 1000) return `${ms} ms`
+  return `${(ms / 1000).toFixed(1)} s`
+}
+
+function ArtifactItem({
+  artifact,
+  onDownloadArtifact,
+  onStartFix,
+  onRunArtifact,
+  running,
+}: {
+  artifact: ChatArtifact
+  onDownloadArtifact: ArtifactAction
+  onStartFix: ArtifactAction
+  onRunArtifact: AsyncArtifactAction
+  running: boolean
+}) {
+  const canRun = artifact.kind === 'pro' || artifact.file_name.toLowerCase().endsWith('.pro')
+  const canPreview = artifact.previewable || artifact.media_type.startsWith('image/')
+
+  if (canPreview) {
+    return <ArtifactImagePreview artifact={artifact} onDownloadArtifact={onDownloadArtifact} />
+  }
+
+  return (
+    <div className="chat-artifact">
+      <FileTextOutlined />
+      <span className="chat-artifact-name">{artifact.file_name}</span>
+      <span className="chat-artifact-size">{formatBytes(artifact.size)}</span>
+      {canRun ? (
+        <Button size="small" type="link" icon={<PlayCircleOutlined />} loading={running} onClick={() => onRunArtifact(artifact)}>
+          运行 IDL
+        </Button>
+      ) : null}
+      <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
+        下载
+      </Button>
+      {canRun ? (
+        <Button size="small" type="link" onClick={() => onStartFix(artifact)}>
+          修复
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+function ArtifactImagePreview({
+  artifact,
+  onDownloadArtifact,
+}: {
+  artifact: ChatArtifact
+  onDownloadArtifact: ArtifactAction
+}) {
+  const [objectUrl, setObjectUrl] = useState('')
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    let nextObjectUrl = ''
+    setLoadError('')
+    api.fetchChatArtifactBlob(artifact.download_url)
+      .then((blob) => {
+        if (!active) return
+        nextObjectUrl = window.URL.createObjectURL(blob)
+        setObjectUrl(nextObjectUrl)
+      })
+      .catch((err) => {
+        if (active) setLoadError((err as Error).message || '图片加载失败')
+      })
+    return () => {
+      active = false
+      if (nextObjectUrl) window.URL.revokeObjectURL(nextObjectUrl)
+    }
+  }, [artifact.download_url])
+
+  return (
+    <div className="chat-artifact-image-card">
+      <div className="chat-artifact-image-header">
+        <PictureOutlined />
+        <span className="chat-artifact-name">{artifact.file_name}</span>
+        <span className="chat-artifact-size">{formatBytes(artifact.size)}</span>
+      </div>
+      {objectUrl ? (
+        <button className="chat-artifact-image-button" type="button" onClick={() => setPreviewOpen(true)}>
+          <img className="chat-artifact-image-thumb" src={objectUrl} alt={artifact.file_name} />
+        </button>
+      ) : (
+        <div className="chat-artifact-image-placeholder">{loadError || '正在加载图片...'}</div>
+      )}
+      <div className="chat-artifact-actions">
+        <Button size="small" type="link" disabled={!objectUrl} onClick={() => setPreviewOpen(true)}>
+          预览
+        </Button>
+        <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
+          下载
+        </Button>
+      </div>
+      <Drawer title={artifact.file_name} open={previewOpen} onClose={() => setPreviewOpen(false)} width={720}>
+        {objectUrl ? <img className="chat-artifact-image-full" src={objectUrl} alt={artifact.file_name} /> : null}
+      </Drawer>
     </div>
   )
 }

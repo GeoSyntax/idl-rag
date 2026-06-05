@@ -24,3 +24,4 @@ export type KnowledgeStatus = {
 }
 
 export type ArtifactAction = (artifact: ChatArtifact) => void
+export type AsyncArtifactAction = (artifact: ChatArtifact) => void | Promise<void>

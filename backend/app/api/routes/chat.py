@@ -13,6 +13,8 @@ from app.api.schemas import (
     ChatResponse,
     ChatSessionRenameRequest,
     ChatSessionResponse,
+    IdlRunRequest,
+    IdlRunResponse,
     RetrievalDebugRequest,
     RetrievalDebugResponse,
 )
@@ -20,10 +22,12 @@ from app.core.config import get_app_settings
 from app.db.database import get_db
 from app.db.models import ChatSession, KnowledgeBase, User
 from app.services.agent_service import AgentService
+from app.services.idl_execution_service import IdlExecutionService
 from app.services.retrieve_service import RetrievalService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 service = AgentService()
+idl_execution_service = IdlExecutionService()
 retrieval_service = RetrievalService()
 
 SUPPORTED_UPLOAD_SUFFIXES = {".pdf", ".md", ".markdown", ".txt", ".pro", ".idl"}
@@ -156,6 +160,30 @@ def download_artifact(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     validated_path = _validate_artifact_path(str(file_path))
     return FileResponse(path=validated_path, media_type=media_type, filename=file_name)
+
+
+@router.post("/sessions/{session_id}/artifacts/{artifact_id}/run-idl", response_model=IdlRunResponse)
+def run_artifact_with_idl(
+    session_id: int,
+    artifact_id: str,
+    payload: IdlRunRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> IdlRunResponse:
+    try:
+        request = payload or IdlRunRequest()
+        return idl_execution_service.run_artifact(
+            db,
+            session_id,
+            artifact_id,
+            current_user.id,
+            entrypoint=request.entrypoint,
+            timeout_seconds=request.timeout_seconds,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "不存在" in message else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
 
 
 @router.post("/upload-temp")

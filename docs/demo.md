@@ -69,13 +69,17 @@ Open Chat:
 3. Confirm the response streams normally.
 4. Inspect citations and check strategy/score/metadata.
 5. Toggle `.pro` generation if the demo includes code generation.
-6. Download the generated artifact if needed.
+6. Click `运行 IDL` on a generated `.pro` artifact.
+7. Confirm the IDL run summary card shows status, exit code, duration, and output image count.
+8. Open the generated image preview and download the artifact if needed.
 
 Expected result:
 
 - The answer is grounded in retrieved content.
 - Citation cards are visible.
 - Retrieval policy is shown.
+- IDL run summary cards are readable when `.pro` execution is demonstrated.
+- Generated output images are visible as thumbnails and open in the preview drawer.
 - No transparent duplicated selector boxes or floating UI artifacts appear.
 
 ## 7. RetrievalLab demo

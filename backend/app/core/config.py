@@ -36,6 +36,13 @@ class AppSettings(BaseSettings):
     max_pdf_pages: int = 300
     index_job_max_attempts: int = 3
     index_job_timeout_minutes: int = 30
+    idl_executable: str = "idlde"
+    idl_run_timeout_seconds: int = 30
+    idl_run_max_stdout_chars: int = 20000
+    idl_run_max_stderr_chars: int = 20000
+    idl_run_max_output_files: int = 12
+    idl_run_max_output_file_mb: int = 20
+    idl_run_allowed_output_suffixes: str = ".png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif"
 
     model_config = SettingsConfigDict(env_prefix="IDLRAG_", extra="ignore")
 

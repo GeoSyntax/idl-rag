@@ -12,6 +12,7 @@ flowchart LR
   Backend --> FTS[(SQLite FTS5)]
   Backend --> Lance[(LanceDB)]
   Backend --> RuntimeFiles[Local runtime files]
+  Backend --> IDL[Local IDL Workbench batch runner]
   Backend --> Providers[OpenAI-compatible providers]
 ```
 
@@ -26,7 +27,8 @@ The GitHub repository should contain source code, tests, documentation and confi
 | SQLite | Users, settings, knowledge bases, documents, chunks, jobs, chat sessions, reports and metadata. |
 | SQLite FTS5 | Keyword retrieval over indexed chunks. |
 | LanceDB | Vector index for semantic retrieval. |
-| Local files | Uploaded sources, parsed text, generated artifacts and logs. |
+| Local files | Uploaded sources, parsed text, generated artifacts, IDL run logs and output images. |
+| Local IDL Workbench batch runner | Runs user-owned Chat `.pro` artifacts through `idlde.exe -batch` and collects image outputs. |
 | OpenAI-compatible providers | Chat, embedding and optional rerank endpoints. |
 
 ## Query lifecycle
@@ -52,6 +54,32 @@ sequenceDiagram
   A-->>F: SSE-style stream events
   A->>S: Persist assistant message and artifacts
 ```
+
+## Local IDL execution lifecycle
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant F as Frontend
+  participant A as FastAPI
+  participant I as IdlExecutionService
+  participant D as idlde.exe
+  participant S as Local storage
+
+  U->>F: Click Run IDL on a .pro artifact
+  F->>A: POST /api/chat/sessions/{session}/artifacts/{artifact}/run-idl
+  A->>I: Validate owner and .pro artifact
+  I->>S: Create runs/{run_id}/source.pro and outputs/
+  I->>S: Write __idlrag_runner.pro
+  I->>D: idlde.exe -batch __idlrag_runner.pro
+  D->>S: Write images into outputs/
+  I->>S: Read stdout.log, stderr.log and collect image files
+  I->>A: Persist assistant message with idl_output artifacts
+  A-->>F: Return run summary and output artifacts
+  F-->>U: Show status card, logs, thumbnails and preview drawer
+```
+
+The runner changes IDL's working directory to `outputs/`, compiles `../source.pro`, calls the selected procedure and exits. Only image files in `outputs/` with allowed suffixes are returned as previewable artifacts.
 
 ## Index lifecycle
 

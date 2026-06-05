@@ -20,6 +20,7 @@ flowchart LR
     Ingest[Ingest Service]
     Retrieval[Retrieval Service]
     Agent[Agent Service]
+    IDLRun[IDL Execution Service]
     Eval[Evaluation Service]
     RuntimeSettings[Settings Service]
   end
@@ -29,6 +30,11 @@ flowchart LR
     FTS[(SQLite FTS5)]
     Vector[(LanceDB)]
     Files[Sources / Parsed / Generated Files]
+    RunFiles[IDL runs / logs / output images]
+  end
+
+  subgraph LocalIDL[Local IDL]
+    IDLWorkbench[idlde.exe -batch]
   end
 
   subgraph Providers[External Providers]
@@ -48,6 +54,7 @@ flowchart LR
   API --> Ingest
   API --> Retrieval
   API --> Agent
+  API --> IDLRun
   API --> Eval
   API --> RuntimeSettings
 
@@ -62,6 +69,9 @@ flowchart LR
   Retrieval --> Vector
   Agent --> Retrieval
   Agent --> DB
+  IDLRun --> Files
+  IDLRun --> RunFiles
+  IDLRun --> IDLWorkbench
   Eval --> Retrieval
 
   RuntimeSettings --> LLM
@@ -83,6 +93,7 @@ flowchart LR
 | IDL chunking | `backend/app/services/chunk_idl_service.py` | IDL/ENVI 代码符号级分块、结构体和调用关系提取 |
 | Retrieval | `backend/app/services/retrieve_service.py` | FTS、向量、RRF、rerank、parent-child、dependency 和代码工具检索 |
 | Agent | `backend/app/services/agent_service.py`, `backend/app/services/agent_tools.py` | 对话编排、工具调用、代码分析/修复、`.pro` artifact 生成 |
+| IDL Execution | `backend/app/services/idl_execution_service.py` | 校验用户拥有的 `.pro` artifact，生成 batch runner，通过 `idlde.exe -batch` 调用本机 IDL，收集日志和输出图片 |
 | Evaluation | `backend/app/services/evaluation_service.py`, `backend/app/services/eval_runner.py` | 本地 golden QA、策略对比、LangSmith 同步/评测 |
 
 ## 3. 前端模块
@@ -172,7 +183,29 @@ flowchart LR
 
 Code tools are evaluated separately from natural-language QA cases because they need exact symbol/file/dependency expectations rather than generic answer relevance scoring.
 
-## 7. 配置与密钥流转
+## 7. 本地 IDL 执行流程
+
+```mermaid
+flowchart TD
+  Click[用户点击 .pro artifact 的运行 IDL] --> Route[POST /run-idl]
+  Route --> Owner[校验登录用户、session owner 和 artifact]
+  Owner --> RunDir[创建 runs/{run_id}/]
+  RunDir --> Source[复制 source.pro]
+  RunDir --> Outputs[创建 outputs/]
+  Source --> Runner[生成 __idlrag_runner.pro]
+  Outputs --> Runner
+  Runner --> Batch[idlde.exe -batch __idlrag_runner.pro]
+  Batch --> Logs[stdout.log / stderr.log]
+  Batch --> Images[outputs/*.png / *.jpg / *.tif]
+  Logs --> Message[保存 assistant 运行摘要]
+  Images --> Artifact[保存 idl_output artifact]
+  Message --> UI[前端运行卡片]
+  Artifact --> UIImg[图片缩略图 / 大图预览 / 下载]
+```
+
+当前 Windows IDL 8.8 环境中，`idl.exe -e` 会卡住或触发 control pipe 错误；已验证可用的方式是使用 IDL Workbench 启动器：`idlde.exe -batch <runner.pro>`。后端不接收任意 shell 命令，只对当前用户拥有的 Chat `.pro` artifact 生成受控 runner，且仅收集 `outputs/` 目录中的允许图片后缀。
+
+## 8. 配置与密钥流转
 
 ```mermaid
 flowchart TD
@@ -187,7 +220,7 @@ flowchart TD
 
 Sensitive runtime settings include `api_key`, `rerank_api_key` and `langsmith_api_key`. They are encrypted before being stored in SQLite. The SQLite database still must not be committed because it is local runtime state and may contain user data, encrypted secrets, prompts, documents, chat history and generated artifacts.
 
-## 8. 构建与展示流程
+## 9. 构建与展示流程
 
 ```mermaid
 flowchart LR
@@ -202,7 +235,7 @@ flowchart LR
   Tests --> Publish[Review git status before GitHub push]
 ```
 
-## 9. Storage and publishing boundary
+## 10. Storage and publishing boundary
 
 The repository should contain source code, tests, documentation and configuration templates. It should not contain runtime state.
 

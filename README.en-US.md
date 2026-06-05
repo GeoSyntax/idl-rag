@@ -2,7 +2,7 @@
 
 Language: [中文](./README.md) | **English**
 
-IDL RAG Panel is a local-first RAG workbench for ENVI/IDL documents, code, and course materials. It turns local PDFs, Markdown files, text documents, and `.pro` / `.idl` source files into searchable knowledge bases, then provides grounded Q&A, retrieval debugging, Agent tool execution, `.pro` file generation, and retrieval evaluation.
+IDL RAG Panel is a local-first RAG workbench for ENVI/IDL documents, code, and course materials. It turns local PDFs, Markdown files, text documents, and `.pro` / `.idl` source files into searchable knowledge bases, then provides grounded Q&A, retrieval debugging, Agent tool execution, `.pro` file generation, local IDL execution, and retrieval evaluation.
 
 The project is not meant to be a generic chat UI. It focuses on three practical problems in ENVI/IDL learning, lab work, and project development: scattered materials are hard to search, code context is hard to trace, and generated answers need verifiable sources.
 
@@ -17,6 +17,7 @@ The project is not meant to be a generic chat UI. It focuses on three practical 
 | Retrieval debugging workbench | RetrievalLab compares strategies and exposes candidate chunks, scores, metadata, and raw JSON. |
 | Evaluation support | Supports local golden QA, strategy comparison, hit rate, MRR, latency, and LangSmith-related evaluation settings. |
 | Code assistance | Agent mode supports symbol search, context reading, call-relationship analysis, and `.pro` file generation. |
+| Local IDL execution | Generated or saved chat `.pro` artifacts can be run by user action; the backend invokes local IDL through `idlde.exe -batch` and returns a run summary, logs, and output image previews. |
 
 ## Screenshots
 
@@ -49,7 +50,7 @@ See the full showcase in [`docs/project-showcase.en-US.md`](./docs/project-showc
 | Document ingestion | Upload files, import from local paths, deduplicate with SHA256, retry failed jobs, rebuild indexes, and track status. |
 | IDL chunking | Chunk normal text by paragraphs and IDL code around procedure/function symbol boundaries. |
 | Hybrid retrieval | SQLite FTS5 keyword retrieval, LanceDB vector retrieval, RRF fusion, and optional rerank. |
-| Chat Q&A | Streaming answers, citations, retrieval strategy display, Agent mode, and `.pro` file generation. |
+| Chat Q&A | Streaming answers, citations, retrieval strategy display, Agent mode, `.pro` file generation, local IDL execution, and image result display. |
 | Retrieval testing | Compare strategies and inspect candidate chunks, scores, metadata, match info, and raw JSON. |
 | Evaluation | Local golden QA, strategy comparison, hit rate, precision, recall, MRR, and latency statistics. |
 | Settings | Model providers, API keys, chat model, embedding model, rerank model, and LangSmith configuration. |
@@ -77,7 +78,9 @@ flowchart LR
   Vector --> Retrieve
   Retrieve --> Ground[Citations and context]
   Ground --> Answer[Answer / Agent / .pro generation]
-  Answer --> UI[Frontend display and evaluation]
+  Answer --> Run[User-triggered local IDL run]
+  Run --> UI[Logs, image previews, and evaluation]
+  Answer --> UI
 ```
 
 ## Architecture
@@ -89,6 +92,7 @@ flowchart LR
   API --> FTS[(SQLite FTS5)]
   API --> VEC[(LanceDB vector index)]
   API --> FS[Local runtime files]
+  API --> IDL[idlde.exe -batch local IDL]
   API --> LLM[OpenAI-compatible model provider / embedding model]
 ```
 
@@ -127,6 +131,7 @@ Not suitable as-is for:
 - SQLite is the default storage layer, which is convenient for local deployment and small-team validation; high-concurrency production usage would need further storage and queue changes.
 - Vector retrieval quality depends on the configured embedding provider.
 - Sensitive fields in `data/app.db` are encrypted, but the database file itself is still local runtime data.
+- Local IDL execution only runs chat `.pro` artifacts owned by the current user and must be triggered by the user; the backend generates `__idlrag_runner.pro` and executes it through `idlde.exe -batch`, while run logs and output images stay under `data/generated/chat/**/runs/` and should not be committed to Git.
 - Screenshots and showcase materials use public synthetic data and do not contain private learning files, real API keys, or local databases.
 
 ## Project Structure
@@ -178,8 +183,11 @@ The most important local development values are:
 ```text
 IDLRAG_AUTH_SECRET=replace-with-a-long-random-secret
 IDLRAG_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+IDLRAG_IDL_EXECUTABLE=idlde
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```
+
+For Windows IDL 8.8, set `IDLRAG_IDL_EXECUTABLE` to the Workbench launcher, for example `D:\envi5.6\ENVI56\IDL88\bin\bin.x86_64\idlde.exe`. The backend runs `idlde.exe -batch <runner.pro>` and does not use `idl.exe -e`.
 
 ### 2. Install Backend Dependencies
 
@@ -226,8 +234,9 @@ http://127.0.0.1:5173
 5. Wait until the document status becomes `ready`.
 6. Open the chat page, select a knowledge base, and ask a question.
 7. Inspect citation sources, retrieval strategy, and line ranges in the answer.
-8. Open the retrieval test page and compare candidate results from different strategies.
-9. Review local evaluation reports in the settings page.
+8. If the answer generated a `.pro` file, click “运行 IDL” to inspect execution logs and output image previews.
+9. Open the retrieval test page and compare candidate results from different strategies.
+10. Review local evaluation reports in the settings page.
 
 More detailed demo steps are available in [`docs/demo.md`](./docs/demo.md).
 

@@ -6,7 +6,7 @@ This document is intended for project review, portfolio presentation, and GitHub
 
 ## 1. Project Overview
 
-IDL RAG Panel is a private RAG workbench for ENVI/IDL documents and code. It turns local documents, IDL/ENVI source files, course materials, or project references into searchable knowledge bases, then provides grounded Q&A, retrieval debugging, Agent tool execution, `.pro` file generation, and evaluation comparison.
+IDL RAG Panel is a private RAG workbench for ENVI/IDL documents and code. It turns local documents, IDL/ENVI source files, course materials, or project references into searchable knowledge bases, then provides grounded Q&A, retrieval debugging, Agent tool execution, `.pro` file generation, local IDL execution, output image preview, and evaluation comparison.
 
 The goal is not to clone a generic chat product. The project focuses on ENVI/IDL-specific retrieval, code understanding, citation traceability, and retrieval quality evaluation in a local-first vertical RAG application.
 
@@ -24,6 +24,7 @@ flowchart LR
     Ingest[Document ingest worker]
     Retrieval[Retrieval service]
     Agent[Chat and Agent orchestration]
+    IDLRun[IDL execution service]
     Eval[Evaluation service]
     Settings[Runtime settings service]
   end
@@ -33,6 +34,11 @@ flowchart LR
     FTS[(SQLite FTS5)]
     Vector[(LanceDB vector index)]
     Files[Sources / parsed text / generated artifacts]
+    IDLOutputs[IDL run logs / output images]
+  end
+
+  subgraph LocalIDL[Local IDL]
+    IDLBatch[idlde.exe -batch]
   end
 
   subgraph Providers[Optional External Providers]
@@ -47,6 +53,7 @@ flowchart LR
   API --> Ingest
   API --> Retrieval
   API --> Agent
+  API --> IDLRun
   API --> Eval
   API --> Settings
   Auth --> DB
@@ -59,6 +66,9 @@ flowchart LR
   Retrieval --> FTS
   Retrieval --> Vector
   Agent --> Retrieval
+  IDLRun --> Files
+  IDLRun --> IDLOutputs
+  IDLRun --> IDLBatch
   Eval --> Retrieval
   Settings --> LLM
   Settings --> Embedding
@@ -113,45 +123,60 @@ flowchart TD
   Lance --> Ready[Document ready]
 ```
 
-## 5. Screenshots
+## 5. Local IDL Execution Flow
 
-### 5.1 Dashboard
+```mermaid
+flowchart TD
+  Artifact[Chat .pro artifact] --> Click[User clicks Run IDL]
+  Click --> Runner[Backend writes __idlrag_runner.pro]
+  Runner --> Batch[idlde.exe -batch runner]
+  Batch --> Output[outputs/ image files]
+  Batch --> Logs[stdout.log / stderr.log]
+  Output --> Preview[Chat thumbnail and full-image preview]
+  Logs --> Summary[Chat run summary card]
+```
+
+On the verified Windows IDL 8.8 environment, complete `.pro` execution uses `idlde.exe -batch <runner.pro>`. The backend only runs Chat artifacts owned by the current user; it does not accept arbitrary shell commands and does not return local filesystem paths.
+
+## 6. Screenshots
+
+### 6.1 Dashboard
 
 Shows corpus status, index status, worker status, and fallback embedding warnings.
 
 ![Dashboard](./assets/screenshots/dashboard.png)
 
-### 5.2 Knowledge Bases
+### 6.2 Knowledge Bases
 
 Manages knowledge bases, default retrieval strategy, `top_k`, and rerank settings.
 
 ![Knowledge Bases](./assets/screenshots/knowledge-bases.png)
 
-### 5.3 Documents
+### 6.3 Documents
 
 Shows the public synthetic `demo_spectral_indices.pro` document, index status, chunk count, and parser/chunker metadata.
 
 ![Documents](./assets/screenshots/documents.png)
 
-### 5.4 Chat
+### 6.4 Chat
 
-Asks a question about the public synthetic `compute_ndvi` example and shows the answer, retrieval policy, fallback state, and citations.
+Shows local IDL execution for a `.pro` artifact, including the run summary, exit code, duration, output image count, thumbnail, and full-image preview.
 
 ![Chat](./assets/screenshots/chat.png)
 
-### 5.5 RetrievalLab
+### 6.5 RetrievalLab
 
 Runs a retrieval test for the same query and shows candidate chunks, strategy guidance, scores, and metadata entry points.
 
 ![RetrievalLab](./assets/screenshots/retrieval-lab.png)
 
-### 5.6 Settings
+### 6.6 Settings
 
 Configures the model provider, API base URL, model names, rerank, LangSmith, and evaluation reports.
 
 ![Settings](./assets/screenshots/settings.png)
 
-## 6. Core Modules
+## 7. Core Modules
 
 | Module | Capability |
 |---|---|
@@ -163,7 +188,7 @@ Configures the model provider, API base URL, model names, rerank, LangSmith, and
 | Settings | Provider/key/model configuration, connection testing, local evaluation, LangSmith evaluation |
 | Evaluation | Golden QA, strategy comparison, and separate code-tool-mode case evaluation |
 
-## 7. Technical Highlights
+## 8. Technical Highlights
 
 - Uses SQLite + FTS5 + LanceDB for a local-first RAG architecture without requiring an external database service.
 - Applies symbol-aware chunking to ENVI/IDL `.pro` and `.idl` files, preserving procedure/function boundaries.
@@ -172,7 +197,7 @@ Configures the model provider, API base URL, model names, rerank, LangSmith, and
 - Encrypts sensitive runtime keys in Settings and avoids echoing real keys in API responses.
 - Separates documentation, source code, screenshots, and GitHub publishing boundaries from local runtime data and private learning files.
 
-## 8. Local Demo Steps
+## 9. Local Demo Steps
 
 1. Copy `.env.example` to `.env`, then set `IDLRAG_AUTH_SECRET` and `VITE_API_BASE_URL`.
 2. Start the backend:
@@ -194,7 +219,7 @@ Configures the model provider, API base URL, model names, rerank, LangSmith, and
 8. Compare retrieval strategies in RetrievalLab.
 9. Review evaluation reports in Settings.
 
-## 9. Publishing and Security Boundary
+## 10. Publishing and Security Boundary
 
 The GitHub repository should include:
 
