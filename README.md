@@ -144,6 +144,19 @@ http://127.0.0.1:5173
 
 Detailed demo steps are in [`docs/demo.md`](./docs/demo.md).
 
+## Project showcase
+
+The complete project showcase, architecture diagrams, and sanitized screenshots are in [`docs/project-showcase.md`](./docs/project-showcase.md).
+
+Key screenshots:
+
+- [Dashboard](./docs/assets/screenshots/dashboard.png)
+- [Knowledge Bases](./docs/assets/screenshots/knowledge-bases.png)
+- [Documents](./docs/assets/screenshots/documents.png)
+- [Chat](./docs/assets/screenshots/chat.png)
+- [RetrievalLab](./docs/assets/screenshots/retrieval-lab.png)
+- [Settings](./docs/assets/screenshots/settings.png)
+
 ## Configuration and key handling
 
 The backend reads environment defaults through `backend/app/core/config.py`. Runtime model settings and provider keys are managed by `backend/app/services/settings_service.py`; sensitive values such as `api_key`, `rerank_api_key` and `langsmith_api_key` are encrypted through helpers in `backend/app/core/security.py` before being stored in the local database.
