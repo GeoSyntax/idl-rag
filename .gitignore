@@ -21,7 +21,9 @@ data/logs/
 data/generated/
 data/parsed/
 data/cache/
-backend/data/
+backend/data/*
+!backend/data/dict/
+!backend/data/dict/**
 
 # Private or unreviewed source material
 郭浩宇-anget开发.pdf
@@ -54,6 +56,7 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/.cache/
+frontend/*.tsbuildinfo
 node_modules/
 dist/
 .vite/
