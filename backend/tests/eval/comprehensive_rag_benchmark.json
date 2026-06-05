@@ -1,0 +1,318 @@
+{
+  "version": "2.0",
+  "description": "Comprehensive benchmark for comparing IDL/ENVI RAG strategies across official ENVI docs, local IDL manual snippets, generated remote sensing IDL code, and remote sensing theory/articles.",
+  "test_cases": [
+    {
+      "id": "official_envi_task_01",
+      "category": "official_envi_task",
+      "question": "ENVI 中 ApplyGainOffset 任务和 RadiometricCalibration 任务有什么区别？",
+      "expected_keywords": ["ApplyGainOffset", "RadiometricCalibration", "gain", "offset", "radiance", "reflectance"],
+      "expected_answer_contains": "ApplyGainOffset",
+      "expected_files": ["task_ENVIApplyGainOffsetTask.md"],
+      "difficulty": "medium",
+      "tags": ["envi_task", "radiometric", "official_docs"]
+    },
+    {
+      "id": "official_envi_task_02",
+      "category": "official_envi_task",
+      "question": "如何用 ENVITask 将栅格导出为 GeoTIFF？",
+      "expected_keywords": ["ENVITask", "ExportRasterToTIFF", "OUTPUT_RASTER_URI", "Execute"],
+      "expected_answer_contains": "ExportRasterToTIFF",
+      "expected_files": ["task_ENVIExportRasterToTIFFTask.md"],
+      "difficulty": "medium",
+      "tags": ["envi_task", "export", "geotiff"]
+    },
+    {
+      "id": "official_envi_task_03",
+      "category": "official_envi_task",
+      "question": "QUAC 增益和偏移量计算任务用于什么场景？",
+      "expected_keywords": ["QUAC", "Gain", "Offset", "ENVICalculateQUACGainOffsetTask"],
+      "expected_answer_contains": "QUAC",
+      "expected_files": ["task_ENVICalculateQUACGainOffsetTask.md"],
+      "difficulty": "medium",
+      "tags": ["envi_task", "atmospheric_correction"]
+    },
+    {
+      "id": "official_classification_01",
+      "category": "official_classification",
+      "question": "ENVI 分类工作流里 DefineClassifier、EvaluateClassifier 和 RunClassifier 分别对应什么阶段？",
+      "expected_keywords": ["DefineClassifier", "EvaluateClassifier", "RunClassifier", "classification"],
+      "expected_answer_contains": "EvaluateClassifier",
+      "expected_files": ["envi_api_Classification_ProgrammingGuideClassification_DefineClassifier.md", "envi_api_Classification_ProgrammingGuideClassification_EvaluateClassifier.md", "envi_api_Classification_ProgrammingGuideClassification_RunClassifier.md"],
+      "difficulty": "hard",
+      "tags": ["classification", "workflow", "official_docs"]
+    },
+    {
+      "id": "official_roi_01",
+      "category": "official_roi",
+      "question": "ENVI Classic 中计算 ROI 均值需要用到哪些 ROI 相关函数？",
+      "expected_keywords": ["ROI", "ENVI_GET_ROI_IDS", "ENVI_GET_ROI_DATA", "mean"],
+      "expected_answer_contains": "ENVI_GET_ROI_DATA",
+      "expected_files": ["classic_Additional Topics in ENVI Programming_ExampleCalculatingROIMeans.md"],
+      "difficulty": "medium",
+      "tags": ["classic_envi", "roi", "statistics"]
+    },
+    {
+      "id": "official_band_math_01",
+      "category": "official_band_math",
+      "question": "Band Math 和 Spectral Indices 工具有什么关系，什么时候应该直接使用光谱指数工具？",
+      "expected_keywords": ["Band Math", "Spectral Indices", "vegetation", "index"],
+      "expected_answer_contains": "Spectral Indices",
+      "expected_files": ["band_BandMath.md", "band_SpectralIndices.md"],
+      "difficulty": "medium",
+      "tags": ["band_math", "spectral_indices"]
+    },
+    {
+      "id": "idl_manual_keyword_01",
+      "category": "idl_manual_keyword",
+      "question": "ENVI_OPEN_FILE 失败时 r_fid 或 fid 通常如何表示？",
+      "expected_keywords": ["ENVI_OPEN_FILE", "r_fid", "fid", "-1"],
+      "expected_answer_contains": "-1",
+      "expected_files": ["envi_api.md"],
+      "difficulty": "easy",
+      "tags": ["idl_manual", "classic_api"]
+    },
+    {
+      "id": "idl_manual_keyword_02",
+      "category": "idl_manual_keyword",
+      "question": "IDL 读取 NetCDF 变量通常需要哪些 NCDF_* 调用？",
+      "expected_keywords": ["NCDF_OPEN", "NCDF_VARID", "NCDF_VARGET", "NCDF_CLOSE"],
+      "expected_answer_contains": "NCDF_VARGET",
+      "expected_files": ["idl_file_io.md"],
+      "difficulty": "medium",
+      "tags": ["idl_manual", "netcdf", "file_io"]
+    },
+    {
+      "id": "idl_manual_semantic_01",
+      "category": "idl_manual_semantic",
+      "question": "服务器批处理环境下为什么要用 headless 方式启动 ENVI？",
+      "expected_keywords": ["headless", "批处理", "图形界面", "envi"],
+      "expected_answer_contains": "headless",
+      "expected_files": ["envi_new_api.md", "envi_batch_processing.md"],
+      "difficulty": "medium",
+      "tags": ["idl_manual", "headless", "batch"]
+    },
+    {
+      "id": "idl_manual_semantic_02",
+      "category": "idl_manual_semantic",
+      "question": "大影像处理时如何避免一次性把全部像元读进内存？",
+      "expected_keywords": ["分块", "block", "tile", "内存"],
+      "expected_answer_contains": "分块",
+      "expected_files": ["envi_raster_ops.md", "envi_performance.md"],
+      "difficulty": "medium",
+      "tags": ["idl_manual", "performance", "large_raster"]
+    },
+    {
+      "id": "symbol_code_01",
+      "category": "symbol_code",
+      "question": "compute_ndvi 函数有哪些输入参数，它如何计算 NDVI？",
+      "expected_keywords": ["compute_ndvi", "nir", "red", "NDVI"],
+      "expected_answer_contains": "nir",
+      "expected_symbol": "compute_ndvi",
+      "expected_files": ["spectral_indices.pro", "envi_raster_ops.md"],
+      "difficulty": "easy",
+      "tags": ["symbol", "generated_idl", "ndvi"]
+    },
+    {
+      "id": "symbol_code_02",
+      "category": "symbol_code",
+      "question": "safe_divide 在光谱指数代码中如何处理无效分母？",
+      "expected_keywords": ["safe_divide", "denominator", "!values.f_nan", "where"],
+      "expected_answer_contains": "!values.f_nan",
+      "expected_symbol": "safe_divide",
+      "expected_files": ["spectral_indices.pro"],
+      "difficulty": "medium",
+      "tags": ["symbol", "generated_idl", "numerical_safety"]
+    },
+    {
+      "id": "symbol_code_03",
+      "category": "symbol_code",
+      "question": "dn_to_radiance 和 radiance_to_toa_reflectance 分别完成哪一步辐射校正？",
+      "expected_keywords": ["dn_to_radiance", "radiance_to_toa_reflectance", "gain", "offset", "reflectance"],
+      "expected_answer_contains": "radiance_to_toa_reflectance",
+      "expected_symbol": "dn_to_radiance",
+      "expected_files": ["radiometric_atmospheric_correction.pro"],
+      "difficulty": "medium",
+      "tags": ["symbol", "radiometric", "generated_idl"]
+    },
+    {
+      "id": "dependency_code_01",
+      "category": "dependency_code",
+      "question": "demo_spectral_indices 调用了哪些光谱指数计算函数？",
+      "expected_keywords": ["demo_spectral_indices", "compute_ndvi", "compute_ndwi", "compute_savi", "compute_evi"],
+      "expected_answer_contains": "compute_ndvi",
+      "expected_symbol": "demo_spectral_indices",
+      "expected_callee_symbols": ["compute_ndvi", "compute_ndwi", "compute_savi", "compute_evi", "compute_ndbi", "compute_nbr"],
+      "expected_files": ["spectral_indices.pro"],
+      "difficulty": "hard",
+      "tags": ["dependency", "generated_idl", "spectral_indices"]
+    },
+    {
+      "id": "dependency_code_02",
+      "category": "dependency_code",
+      "question": "demo_change_detection 中从变化幅度到变化图的处理链路是什么？",
+      "expected_keywords": ["demo_change_detection", "change_vector_magnitude", "otsu_threshold", "threshold_change_map"],
+      "expected_answer_contains": "threshold_change_map",
+      "expected_symbol": "demo_change_detection",
+      "expected_callee_symbols": ["change_vector_magnitude", "otsu_threshold", "threshold_change_map"],
+      "expected_files": ["change_detection.pro"],
+      "difficulty": "hard",
+      "tags": ["dependency", "change_detection", "generated_idl"]
+    },
+    {
+      "id": "dependency_code_03",
+      "category": "dependency_code",
+      "question": "分类精度代码如何从混淆矩阵计算 overall accuracy 和 kappa？",
+      "expected_keywords": ["confusion_matrix", "overall_accuracy", "kappa_coefficient", "DIAG_MATRIX"],
+      "expected_answer_contains": "kappa_coefficient",
+      "expected_symbol": "kappa_coefficient",
+      "expected_files": ["classification_metrics.pro"],
+      "difficulty": "medium",
+      "tags": ["dependency", "classification", "accuracy"]
+    },
+    {
+      "id": "theory_remote_sensing_01",
+      "category": "theory_remote_sensing",
+      "question": "遥感大气校正为什么需要考虑气溶胶或大气影响？",
+      "expected_keywords": ["atmospheric correction", "aerosol", "reflectance", "remote sensing"],
+      "expected_answer_contains": "atmospheric",
+      "expected_files": ["Atmospheric_correction_of_SeaWiFS_imagery_for_turbid_coastal_and_inland_waters.md", "Aerosol_and_monsoon_climate_interactions_over_Asia.md"],
+      "difficulty": "hard",
+      "tags": ["theory", "atmospheric_correction", "remote_sensing"]
+    },
+    {
+      "id": "theory_remote_sensing_02",
+      "category": "theory_remote_sensing",
+      "question": "估算地表温度或城市热岛时，遥感数据通常提供哪些关键信息？",
+      "expected_keywords": ["land surface temperature", "urban heat island", "remote sensing", "thermal"],
+      "expected_answer_contains": "temperature",
+      "expected_files": ["Disproportionate_exposure_to_urban_heat_island_intensity_across_major_US_cities.md"],
+      "difficulty": "hard",
+      "tags": ["theory", "lst", "urban_heat"]
+    },
+    {
+      "id": "theory_remote_sensing_03",
+      "category": "theory_remote_sensing",
+      "question": "植被生产力或 GPP 数据集通常依赖哪些遥感和生态变量？",
+      "expected_keywords": ["gross primary production", "vegetation", "remote sensing", "productivity"],
+      "expected_answer_contains": "vegetation",
+      "expected_files": ["A_global_moderate_resolution_dataset_of_gross_primary_production_of_vegetation_for_2000_2016.md"],
+      "difficulty": "hard",
+      "tags": ["theory", "vegetation", "gpp"]
+    },
+    {
+      "id": "cross_corpus_01",
+      "category": "cross_corpus",
+      "question": "如果要实现 NDVI 生产流程，应同时参考 ENVI 官方文档、IDL 函数和遥感理论中的哪些内容？",
+      "expected_keywords": ["NDVI", "Spectral Indices", "compute_ndvi", "nir", "red"],
+      "expected_answer_contains": "NDVI",
+      "expected_files": ["band_SpectralIndices.md", "spectral_indices.pro", "envi_raster_ops.md"],
+      "difficulty": "hard",
+      "tags": ["cross_corpus", "ndvi", "strategy_comparison"]
+    },
+    {
+      "id": "cross_corpus_02",
+      "category": "cross_corpus",
+      "question": "做监督分类项目时，从准备属性影像、采集 ROI 到评估分类器分别应查哪些资料？",
+      "expected_keywords": ["attribute image", "ROI", "EvaluateClassifier", "classification"],
+      "expected_answer_contains": "ROI",
+      "expected_files": ["tutorial_AdvancedClassification_ClassificationCreateAttributeImageTutorial.md", "tutorial_AdvancedClassification_ClassificationCollectTrainingData.md", "envi_api_Classification_ProgrammingGuideClassification_EvaluateClassifier.md"],
+      "difficulty": "hard",
+      "tags": ["cross_corpus", "classification", "workflow"]
+    },
+    {
+      "id": "code_generation_full_01",
+      "category": "code_generation",
+      "question": "写一个 IDL function compute_savi，输入 nir、red 和土壤调节因子 l，调用安全除法避免分母为 0。",
+      "expected_keywords": ["function", "compute_savi", "safe_divide", "nir", "red", "compile_opt", "end"],
+      "expected_answer_contains": "compute_savi",
+      "expected_files": ["spectral_indices.pro"],
+      "difficulty": "medium",
+      "tags": ["code_generation", "savi", "generated_idl"]
+    },
+    {
+      "id": "code_generation_full_02",
+      "category": "code_generation",
+      "question": "写一个 IDL 过程，使用 ENVITask('ExportRasterToTIFF') 将输入 raster 导出为 TIFF。",
+      "expected_keywords": ["pro", "ENVITask", "ExportRasterToTIFF", "OUTPUT_RASTER_URI", "Execute", "compile_opt", "end"],
+      "expected_answer_contains": "ExportRasterToTIFF",
+      "expected_files": ["task_ENVIExportRasterToTIFFTask.md"],
+      "difficulty": "hard",
+      "tags": ["code_generation", "envi_task", "export"]
+    },
+    {
+      "id": "code_fix_full_01",
+      "category": "code_fix",
+      "question": "修复这个变化检测逻辑：直接用 before/after 相除可能出现除零，应参考 image_ratio 或 safe divide 的处理方式。",
+      "expected_keywords": ["image_ratio", "where", "denominator", "!values.f_nan", "finite"],
+      "expected_answer_contains": "where",
+      "expected_files": ["change_detection.pro", "spectral_indices.pro"],
+      "difficulty": "medium",
+      "tags": ["code_fix", "change_detection", "numerical_safety"]
+    },
+    {
+      "id": "code_fix_full_02",
+      "category": "code_fix",
+      "question": "修复分类精度统计代码：如果样本总数为 0，overall_accuracy 和 kappa 应避免除零。",
+      "expected_keywords": ["overall_accuracy", "kappa_coefficient", "total_samples", "0", "finite"],
+      "expected_answer_contains": "total_samples",
+      "expected_files": ["classification_metrics.pro"],
+      "difficulty": "medium",
+      "tags": ["code_fix", "classification", "numerical_safety"]
+    },
+    {
+      "id": "code_tool_symbol_01",
+      "category": "code_tool_symbol",
+      "mode": "code_tool",
+      "question": "compute_ndvi",
+      "expected_tools": ["symbol_search", "read_context"],
+      "expected_keywords": ["compute_ndvi", "nir", "red", "safe_divide"],
+      "expected_answer_contains": "compute_ndvi",
+      "expected_symbol": "compute_ndvi",
+      "expected_files": ["spectral_indices.pro"],
+      "difficulty": "easy",
+      "tags": ["code_tool", "symbol", "ndvi"]
+    },
+    {
+      "id": "code_tool_dependency_01",
+      "category": "code_tool_dependency",
+      "mode": "code_tool",
+      "question": "demo_spectral_indices",
+      "expected_tools": ["find_callees", "read_context"],
+      "expected_keywords": ["demo_spectral_indices", "compute_ndvi", "compute_ndwi", "compute_savi", "compute_evi"],
+      "expected_answer_contains": "compute_ndvi",
+      "expected_symbol": "demo_spectral_indices",
+      "expected_callee_symbols": ["compute_ndvi", "compute_ndwi", "compute_savi", "compute_evi", "compute_ndbi", "compute_nbr"],
+      "expected_files": ["spectral_indices.pro"],
+      "difficulty": "hard",
+      "tags": ["code_tool", "dependency", "generated_idl"]
+    },
+    {
+      "id": "code_tool_dependency_02",
+      "category": "code_tool_dependency",
+      "mode": "code_tool",
+      "question": "safe_divide",
+      "expected_tools": ["find_callers", "symbol_search"],
+      "expected_keywords": ["safe_divide", "compute_ndvi", "compute_ndwi", "compute_savi"],
+      "expected_answer_contains": "safe_divide",
+      "expected_symbol": "safe_divide",
+      "expected_caller_symbols": ["compute_ndvi", "compute_ndwi", "compute_savi", "compute_evi"],
+      "expected_files": ["spectral_indices.pro"],
+      "difficulty": "medium",
+      "tags": ["code_tool", "callers", "numerical_safety"]
+    },
+    {
+      "id": "code_tool_fix_01",
+      "category": "code_tool_fix",
+      "mode": "code_tool",
+      "question": "safe_divide",
+      "expected_tools": ["read_context", "symbol_search"],
+      "expected_keywords": ["safe_divide", "denominator", "where", "!values.f_nan"],
+      "expected_answer_contains": "safe_divide",
+      "expected_symbol": "safe_divide",
+      "expected_files": ["spectral_indices.pro"],
+      "difficulty": "medium",
+      "tags": ["code_tool", "code_fix", "numerical_safety"]
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+{
+  "version": "1.0",
+  "description": "Golden QA dataset for ENVI/IDL RAG retrieval, answer, and agent evaluation.",
+  "test_cases": [
+    {
+      "id": "fts_keyword_01",
+      "category": "fts_keyword",
+      "question": "ENVI_OPEN_FILE 函数的作用是什么？",
+      "expected_keywords": ["ENVI_OPEN_FILE", "打开", "栅格"],
+      "expected_answer_contains": "打开",
+      "expected_files": ["envi_api.md"],
+      "difficulty": "easy",
+      "tags": ["envi", "classic_api"]
+    },
+    {
+      "id": "fts_keyword_02",
+      "category": "fts_keyword",
+      "question": "ENVI_GET_DATA 如何读取指定波段？",
+      "expected_keywords": ["ENVI_GET_DATA", "pos", "data"],
+      "expected_answer_contains": "pos",
+      "expected_files": ["envi_api.md"],
+      "difficulty": "easy",
+      "tags": ["envi", "classic_api", "raster"]
+    },
+    {
+      "id": "fts_keyword_03",
+      "category": "fts_keyword",
+      "question": "n_elements 在 IDL 中通常用来做什么？",
+      "expected_keywords": ["n_elements", "元素", "变量"],
+      "expected_answer_contains": "元素",
+      "expected_files": ["idl_functions.md", "idl_basics.md"],
+      "difficulty": "easy",
+      "tags": ["idl", "function"]
+    },
+    {
+      "id": "fts_keyword_04",
+      "category": "fts_keyword",
+      "question": "WIDGET_CONTROL 的用途是什么？",
+      "expected_keywords": ["WIDGET_CONTROL", "Widget", "控件"],
+      "expected_answer_contains": "控件",
+      "expected_files": ["idl_widgets.md"],
+      "difficulty": "easy",
+      "tags": ["idl", "widget"]
+    },
+    {
+      "id": "fts_keyword_05",
+      "category": "fts_keyword",
+      "question": "OBJ_DESTROY 什么时候需要调用？",
+      "expected_keywords": ["OBJ_DESTROY", "对象", "释放"],
+      "expected_answer_contains": "释放",
+      "expected_files": ["idl_objects.md"],
+      "difficulty": "easy",
+      "tags": ["idl", "object"]
+    },
+    {
+      "id": "fts_keyword_06",
+      "category": "fts_keyword",
+      "question": "NCDF_VARGET 如何读取 NetCDF 变量？",
+      "expected_keywords": ["NCDF_VARGET", "NetCDF", "变量"],
+      "expected_answer_contains": "变量",
+      "expected_files": ["idl_file_io.md"],
+      "difficulty": "medium",
+      "tags": ["idl", "file_io"]
+    },
+    {
+      "id": "vector_semantic_01",
+      "category": "vector_semantic",
+      "question": "如何在 IDL 中读取 nc 文件里的科学数据？",
+      "expected_keywords": ["NCDF_OPEN", "NCDF_VARID", "NCDF_VARGET"],
+      "expected_answer_contains": "NCDF_OPEN",
+      "expected_files": ["idl_file_io.md"],
+      "difficulty": "medium",
+      "tags": ["semantic", "netcdf"]
+    },
+    {
+      "id": "vector_semantic_02",
+      "category": "vector_semantic",
+      "question": "服务器上不要打开 ENVI 界面，应该怎么启动？",
+      "expected_keywords": ["headless", "envi", "批处理"],
+      "expected_answer_contains": "headless",
+      "expected_files": ["envi_new_api.md", "envi_batch_processing.md"],
+      "difficulty": "medium",
+      "tags": ["semantic", "batch"]
+    },
+    {
+      "id": "vector_semantic_03",
+      "category": "vector_semantic",
+      "question": "怎样避免大影像一次性读入内存？",
+      "expected_keywords": ["分块", "大影像", "block"],
+      "expected_answer_contains": "分块",
+      "expected_files": ["envi_raster_ops.md", "envi_batch_processing.md"],
+      "difficulty": "medium",
+      "tags": ["semantic", "performance"]
+    },
+    {
+      "id": "vector_semantic_04",
+      "category": "vector_semantic",
+      "question": "分类图重投影时应该用哪种重采样方式？",
+      "expected_keywords": ["nearest", "重采样", "分类"],
+      "expected_answer_contains": "nearest",
+      "expected_files": ["envi_coordinate.md"],
+      "difficulty": "medium",
+      "tags": ["semantic", "projection"]
+    },
+    {
+      "id": "vector_semantic_05",
+      "category": "vector_semantic",
+      "question": "IDL 里如何检查变量是否传进来了？",
+      "expected_keywords": ["n_elements", "n_params", "参数"],
+      "expected_answer_contains": "n_elements",
+      "expected_files": ["idl_basics.md", "idl_functions.md"],
+      "difficulty": "easy",
+      "tags": ["semantic", "idl"]
+    },
+    {
+      "id": "vector_semantic_06",
+      "category": "vector_semantic",
+      "question": "对象和指针资源不用了该怎么清理？",
+      "expected_keywords": ["OBJ_DESTROY", "PTR_FREE", "释放"],
+      "expected_answer_contains": "释放",
+      "expected_files": ["idl_objects.md"],
+      "difficulty": "medium",
+      "tags": ["semantic", "memory"]
+    },
+    {
+      "id": "symbol_lookup_01",
+      "category": "symbol_lookup",
+      "question": "compute_ndvi 这个函数的参数是什么？",
+      "expected_keywords": ["compute_ndvi", "nir", "red"],
+      "expected_answer_contains": "nir",
+      "expected_symbol": "compute_ndvi",
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "easy",
+      "tags": ["symbol", "ndvi"]
+    },
+    {
+      "id": "symbol_lookup_02",
+      "category": "symbol_lookup",
+      "question": "compute_band_ratio 如何处理分母为 0？",
+      "expected_keywords": ["compute_band_ratio", "denominator", "!values.f_nan"],
+      "expected_answer_contains": "!values.f_nan",
+      "expected_symbol": "compute_band_ratio",
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "medium",
+      "tags": ["symbol", "ratio"]
+    },
+    {
+      "id": "symbol_lookup_03",
+      "category": "symbol_lookup",
+      "question": "read_header 返回的结构体有哪些字段？",
+      "expected_keywords": ["read_header", "SCENE_HEADER", "sensor", "bands"],
+      "expected_answer_contains": "SCENE_HEADER",
+      "expected_symbol": "read_header",
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "medium",
+      "tags": ["symbol", "structure"]
+    },
+    {
+      "id": "symbol_lookup_04",
+      "category": "symbol_lookup",
+      "question": "apply_calibration 的 scale_factor 和 offset 如何使用？",
+      "expected_keywords": ["apply_calibration", "scale_factor", "offset"],
+      "expected_answer_contains": "scale_factor",
+      "expected_symbol": "apply_calibration",
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "medium",
+      "tags": ["symbol", "calibration"]
+    },
+    {
+      "id": "symbol_lookup_05",
+      "category": "symbol_lookup",
+      "question": "process_scene 的输入输出参数是什么？",
+      "expected_keywords": ["process_scene", "input_file", "output_file"],
+      "expected_answer_contains": "input_file",
+      "expected_symbol": "process_scene",
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "medium",
+      "tags": ["symbol", "workflow"]
+    },
+    {
+      "id": "companion_expand_01",
+      "category": "companion_expand",
+      "question": "process_scene 中 header.valid 是什么结构字段？",
+      "expected_keywords": ["SCENE_HEADER", "valid", "read_header"],
+      "expected_answer_contains": "valid",
+      "expected_symbol": "process_scene",
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "medium",
+      "tags": ["companion", "struct"]
+    },
+    {
+      "id": "companion_expand_02",
+      "category": "companion_expand",
+      "question": "COMMON processing_state 包含哪些共享变量？",
+      "expected_keywords": ["COMMON", "processing_state", "output_dir"],
+      "expected_answer_contains": "output_dir",
+      "expected_files": ["idl_structures.md"],
+      "difficulty": "medium",
+      "tags": ["companion", "common"]
+    },
+    {
+      "id": "companion_expand_03",
+      "category": "companion_expand",
+      "question": "STRUCT 在 IDL 中如何定义命名结构？",
+      "expected_keywords": ["STRUCT", "LANDSAT_SCENE", "命名结构"],
+      "expected_answer_contains": "命名结构",
+      "expected_files": ["idl_structures.md"],
+      "difficulty": "easy",
+      "tags": ["companion", "struct"]
+    },
+    {
+      "id": "companion_expand_04",
+      "category": "companion_expand",
+      "question": "Widget 事件里如何通过 uvalue 判断按钮动作？",
+      "expected_keywords": ["uvalue", "WIDGET_CONTROL", "RUN"],
+      "expected_answer_contains": "uvalue",
+      "expected_files": ["idl_widgets.md"],
+      "difficulty": "medium",
+      "tags": ["companion", "widget"]
+    },
+    {
+      "id": "dependency_graph_01",
+      "category": "dependency_graph",
+      "question": "process_scene 函数调用了哪些子函数？",
+      "expected_keywords": ["process_scene", "read_header", "apply_calibration"],
+      "expected_answer_contains": "read_header",
+      "expected_symbol": "process_scene",
+      "expected_callee_symbols": ["read_header", "apply_calibration"],
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "medium",
+      "tags": ["dependency", "workflow"]
+    },
+    {
+      "id": "dependency_graph_02",
+      "category": "dependency_graph",
+      "question": "process_scene 如何读取头信息并做定标？",
+      "expected_keywords": ["read_header", "apply_calibration", "calibrated"],
+      "expected_answer_contains": "apply_calibration",
+      "expected_symbol": "process_scene",
+      "expected_callee_symbols": ["read_header", "apply_calibration"],
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "medium",
+      "tags": ["dependency", "calibration"]
+    },
+    {
+      "id": "dependency_graph_03",
+      "category": "dependency_graph",
+      "question": "NDVI 工作流依赖哪些输入波段？",
+      "expected_keywords": ["NDVI", "红光", "近红外", "nir", "red"],
+      "expected_answer_contains": "NIR",
+      "expected_files": ["envi_raster_ops.md"],
+      "difficulty": "easy",
+      "tags": ["dependency", "ndvi"]
+    },
+    {
+      "id": "dependency_graph_04",
+      "category": "dependency_graph",
+      "question": "Classic NDVI 示例里调用了哪些 ENVI API？",
+      "expected_keywords": ["envi_open_file", "envi_get_data", "envi_enter_data"],
+      "expected_answer_contains": "envi_get_data",
+      "expected_files": ["envi_api.md"],
+      "difficulty": "hard",
+      "tags": ["dependency", "classic_api"]
+    },
+    {
+      "id": "code_generation_01",
+      "category": "code_generation",
+      "question": "写一个 IDL 程序，计算两个波段的比值并输出为新文件",
+      "expected_keywords": ["compile_opt", "pro", "ratio", "end"],
+      "expected_answer_contains": "pro",
+      "difficulty": "hard",
+      "tags": ["code_gen", "idl"]
+    },
+    {
+      "id": "code_generation_02",
+      "category": "code_generation",
+      "question": "生成一个批处理过程，遍历目录中的 ENVI 文件并调用 process_scene",
+      "expected_keywords": ["compile_opt", "file_search", "process_scene", "for"],
+      "expected_answer_contains": "compile_opt",
+      "difficulty": "hard",
+      "tags": ["code_gen", "batch"]
+    },
+    {
+      "id": "code_generation_03",
+      "category": "code_generation",
+      "question": "写一个 function compute_ndvi，输入 nir 和 red，返回 NDVI",
+      "expected_keywords": ["function", "compute_ndvi", "nir", "red", "return"],
+      "expected_answer_contains": "compute_ndvi",
+      "difficulty": "medium",
+      "tags": ["code_gen", "ndvi"]
+    },
+    {
+      "id": "code_generation_04",
+      "category": "code_generation",
+      "question": "写一个 headless ENVI 新 API 导出 GeoTIFF 的脚本",
+      "expected_keywords": ["envi(/headless)", "ENVITask", "ExportRasterToTIFF"],
+      "expected_answer_contains": "ENVITask",
+      "difficulty": "hard",
+      "tags": ["code_gen", "new_api"]
+    },
+    {
+      "id": "code_generation_05",
+      "category": "code_generation",
+      "question": "写一个 Widget 小工具，点击按钮后打印 Run",
+      "expected_keywords": ["WIDGET_BASE", "WIDGET_BUTTON", "XMANAGER", "uvalue"],
+      "expected_answer_contains": "WIDGET_BUTTON",
+      "difficulty": "medium",
+      "tags": ["code_gen", "widget"]
+    },
+    {
+      "id": "code_fix_01",
+      "category": "code_fix",
+      "question": "修复这段 IDL 代码：pro bad\n print, 'x'\n缺少 end",
+      "expected_keywords": ["end", "compile_opt", "pro"],
+      "expected_answer_contains": "end",
+      "difficulty": "easy",
+      "tags": ["code_fix", "syntax"]
+    },
+    {
+      "id": "code_fix_02",
+      "category": "code_fix",
+      "question": "修复 NDVI 代码，让分母为 0 的像元不要报错",
+      "expected_keywords": ["where", "denominator", "!values.f_nan"],
+      "expected_answer_contains": "where",
+      "difficulty": "medium",
+      "tags": ["code_fix", "ndvi"]
+    },
+    {
+      "id": "code_fix_03",
+      "category": "code_fix",
+      "question": "修复对象使用后没有释放的问题",
+      "expected_keywords": ["OBJ_DESTROY", "obj_valid", "释放"],
+      "expected_answer_contains": "OBJ_DESTROY",
+      "difficulty": "medium",
+      "tags": ["code_fix", "memory"]
+    }
+  ]
+}
