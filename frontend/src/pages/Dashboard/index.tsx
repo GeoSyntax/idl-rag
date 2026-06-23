@@ -78,6 +78,19 @@ export function DashboardPage({ summary, loading }: DashboardPageProps) {
           ]}
         />
       </Card>
+
+      <Card className="section-card" loading={loading} title="阶段耗时">
+        <MetricSummary
+          items={[
+            { label: '检索 avg', value: formatMs(summary?.avg_retrieve_ms) },
+            { label: 'Rerank avg', value: formatMs(summary?.avg_rerank_ms) },
+            { label: 'LLM 首 token avg', value: formatMs(summary?.avg_llm_first_token_ms) },
+            { label: '总耗时 avg', value: formatMs(summary?.avg_total_ms) },
+            { label: '引用覆盖率', value: formatPercent(summary?.citation_coverage) },
+            { label: '错误率', value: formatPercent(summary?.error_rate), tone: typeof summary?.error_rate === 'number' && summary.error_rate > 0.1 ? 'warning' : undefined },
+          ]}
+        />
+      </Card>
     </div>
   )
 }

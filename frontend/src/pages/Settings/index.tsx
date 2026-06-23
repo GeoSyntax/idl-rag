@@ -6,6 +6,12 @@ import { api } from '../../api/client'
 import type { EvaluationReport, KnowledgeBase, SystemSettingsPayload, SystemSettingsResponse } from '../../api/types'
 import { DisplayEmpty, MetricSummary } from '../../components/DisplayPrimitives'
 
+type CompareResult = {
+  left: Record<string, unknown>
+  right: Record<string, unknown>
+  deltas: Record<string, Record<string, number>>
+}
+
 type SettingsPageProps = {
   settings?: SystemSettingsResponse
   loading: boolean
@@ -139,6 +145,10 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
   })
 
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null)
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareIds, setCompareIds] = useState<number[]>([])
+  const [compareResult, setCompareResult] = useState<CompareResult | null>(null)
+  const [comparing, setComparing] = useState(false)
 
   const reportsQuery = useQuery({
     queryKey: ['evaluation-reports'],
@@ -150,6 +160,19 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
     queryFn: () => api.getEvaluationReport(selectedReportId as number),
     enabled: selectedReportId !== null,
   })
+
+  const handleCompare = async () => {
+    if (compareIds.length !== 2) return
+    setComparing(true)
+    try {
+      const result = await api.compareEvaluationReports(compareIds[0], compareIds[1])
+      setCompareResult(result)
+    } catch (err) {
+      messageApi.error((err as Error).message || '对比失败')
+    } finally {
+      setComparing(false)
+    }
+  }
 
   useEffect(() => {
     const firstKnowledgeBaseId = knowledgeBases[0]?.id
@@ -427,6 +450,24 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
             </Form>
           </div>
 
+          <Space style={{ marginBottom: 12 }}>
+            <Button
+              size="small"
+              type={compareMode ? 'primary' : 'default'}
+              onClick={() => { setCompareMode(!compareMode); setCompareIds([]); setCompareResult(null) }}
+            >
+              {compareMode ? '退出对比' : '报告对比'}
+            </Button>
+            {compareMode && compareIds.length === 2 && (
+              <Button size="small" loading={comparing} onClick={handleCompare}>
+                对比选中报告
+              </Button>
+            )}
+            {compareMode && compareIds.length < 2 && (
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>请勾选 2 份报告</span>
+            )}
+          </Space>
+
           <Table<EvaluationReport>
             className="settings-report-table"
             rowKey="id"
@@ -434,6 +475,10 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
             dataSource={reports}
             pagination={{ pageSize: 6 }}
             scroll={{ x: 860 }}
+            rowSelection={compareMode ? {
+              selectedRowKeys: compareIds,
+              onChange: (keys) => setCompareIds(keys as number[]),
+            } : undefined}
             locale={{
               emptyText: (
                 <DisplayEmpty
@@ -488,6 +533,11 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
         loading={reportDetailQuery.isLoading}
         open={selectedReportId !== null}
         onClose={() => setSelectedReportId(null)}
+      />
+      <CompareDrawer
+        result={compareResult}
+        open={compareResult !== null}
+        onClose={() => setCompareResult(null)}
       />
     </>
   )
@@ -673,4 +723,55 @@ function formatReportValue(value: unknown): string {
     return String(value)
   }
   return JSON.stringify(value) ?? '-'
+}
+
+function CompareDrawer({
+  result,
+  open,
+  onClose,
+}: {
+  result: CompareResult | null
+  open: boolean
+  onClose: () => void
+}) {
+  if (!result) return null
+  const leftMeta = result.left as Record<string, string>
+  const rightMeta = result.right as Record<string, string>
+  const deltaRows = Object.entries(result.deltas).map(([metric, vals]) => ({
+    metric,
+    left: vals.left,
+    right: vals.right,
+    delta: vals.delta,
+    direction: vals.delta > 0.0001 ? '↑' : vals.delta < -0.0001 ? '↓' : '—',
+  }))
+
+  return (
+    <Drawer title="报告对比" open={open} onClose={onClose} width="min(100vw, 760px)">
+      <div className="settings-report-detail">
+        <MetricSummary
+          items={[
+            { label: '左（基准）', value: `#${leftMeta.id} · ${leftMeta.strategy || '-'}` },
+            { label: '右（对比）', value: `#${rightMeta.id} · ${rightMeta.strategy || '-'}` },
+          ]}
+        />
+        <Table
+          size="small"
+          pagination={false}
+          rowKey="metric"
+          dataSource={deltaRows}
+          scroll={{ x: 500 }}
+          columns={[
+            { title: '指标', dataIndex: 'metric' },
+            { title: '左', dataIndex: 'left', render: (v: number) => v.toFixed(4) },
+            { title: '右', dataIndex: 'right', render: (v: number) => v.toFixed(4) },
+            { title: 'Delta', dataIndex: 'delta', render: (v: number) => {
+              const sign = v > 0 ? '+' : ''
+              return `${sign}${v.toFixed(4)}`
+            }},
+            { title: '', dataIndex: 'direction', width: 40 },
+          ]}
+        />
+      </div>
+    </Drawer>
+  )
 }

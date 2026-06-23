@@ -23,8 +23,8 @@ from app.api.schemas import (
     RetrievalDebugResponse,
 )
 from app.core.config import get_app_settings
-from app.db.database import get_db
-from app.db.models import ChatSession, KnowledgeBase, User
+from app.db.database import get_db, get_session_factory
+from app.db.models import ChatRequestLog, ChatSession, KnowledgeBase, User
 from app.services.agent_service import AgentService
 from app.services.gee_service import GeeService
 from app.services.idl_execution_service import IdlExecutionService
@@ -38,6 +38,43 @@ idl_execution_service = IdlExecutionService()
 retrieval_service = RetrievalService()
 
 SUPPORTED_UPLOAD_SUFFIXES = {".pdf", ".md", ".markdown", ".txt", ".pro", ".idl"}
+
+
+def _persist_chat_request_log(
+    *,
+    owner_user_id: int,
+    session_id: int | None,
+    mode: str,
+    payload: ChatRequest,
+    retrieve_timing: dict,
+    llm_timing: dict,
+    total_ms: float,
+    citation_count: int,
+    artifact_count: int,
+    has_error: bool,
+) -> None:
+    """在独立 session 中写入请求日志，不阻塞响应流。"""
+    try:
+        SessionLocal = get_session_factory()
+        with SessionLocal() as log_db:
+            log_db.add(ChatRequestLog(
+                owner_user_id=owner_user_id,
+                session_id=session_id,
+                mode=mode,
+                strategy=payload.strategy,
+                top_k=payload.top_k,
+                retrieve_ms=retrieve_timing.get("retrieve_ms"),
+                rerank_ms=retrieve_timing.get("rerank_ms"),
+                llm_first_token_ms=llm_timing.get("first_token_ms"),
+                llm_total_ms=llm_timing.get("total_ms"),
+                total_ms=total_ms,
+                citation_count=citation_count,
+                artifact_count=artifact_count,
+                has_error=has_error,
+            ))
+            log_db.commit()
+    except Exception:  # noqa: BLE001
+        pass  # 日志写入不应阻断主流程
 
 
 def _validate_artifact_path(storage_path: str) -> Path:
@@ -109,7 +146,38 @@ def ask_question(
     try:
         response = service.answer(db, payload, current_user.id)
     except ValueError as exc:
+        log = ChatRequestLog(
+            owner_user_id=current_user.id,
+            mode="ask",
+            strategy=payload.strategy,
+            top_k=payload.top_k,
+            retrieve_ms=service.retrieval_service.last_timing.get("retrieve_ms"),
+            total_ms=(time.perf_counter() - started_at) * 1000,
+            citation_count=0,
+            artifact_count=0,
+            has_error=True,
+        )
+        db.add(log)
+        db.commit()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    log = ChatRequestLog(
+        owner_user_id=current_user.id,
+        session_id=getattr(response, "session_id", None),
+        mode="ask",
+        strategy=payload.strategy,
+        top_k=payload.top_k,
+        retrieve_ms=service.retrieval_service.last_timing.get("retrieve_ms"),
+        rerank_ms=service.retrieval_service.last_timing.get("rerank_ms"),
+        llm_first_token_ms=service.llm_service.last_timing.get("first_token_ms"),
+        llm_total_ms=service.llm_service.last_timing.get("total_ms"),
+        total_ms=(time.perf_counter() - started_at) * 1000,
+        citation_count=len(response.citations),
+        artifact_count=len(response.messages[-1].artifacts) if response.messages else 0,
+        has_error=False,
+    )
+    db.add(log)
+    db.commit()
     runtime_metrics.record_chat_request(
         current_user.id,
         latency_ms=(time.perf_counter() - started_at) * 1000,
@@ -127,12 +195,21 @@ async def ask_question_stream(
     async def event_generator():
         started_at = time.perf_counter()
         first_token_ms: float | None = None
+        has_error = False
+        citation_count = 0
+        artifact_count = 0
+        result_session_id = None
         try:
             async for token in service.answer_stream_async(db, payload, current_user.id):
                 if token.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
+                if token.get("type") == "done":
+                    result_session_id = token.get("session_id")
+                    citation_count = len(token.get("citations", []))
+                    artifact_count = len(token.get("artifacts", []))
                 yield f"data: {json.dumps(token, ensure_ascii=False)}\n\n"
         except ValueError as exc:
+            has_error = True
             error_event = {"type": "error", "message": str(exc)}
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
         finally:
@@ -140,6 +217,18 @@ async def ask_question_stream(
                 current_user.id,
                 latency_ms=(time.perf_counter() - started_at) * 1000,
                 first_token_ms=first_token_ms,
+            )
+            _persist_chat_request_log(
+                owner_user_id=current_user.id,
+                session_id=result_session_id,
+                mode="ask-stream",
+                payload=payload,
+                retrieve_timing=service.retrieval_service.last_timing,
+                llm_timing=service.llm_service.last_timing,
+                total_ms=(time.perf_counter() - started_at) * 1000,
+                citation_count=citation_count,
+                artifact_count=artifact_count,
+                has_error=has_error,
             )
 
     return StreamingResponse(
@@ -163,12 +252,21 @@ async def agent_stream(
     async def event_generator():
         started_at = time.perf_counter()
         first_token_ms: float | None = None
+        has_error = False
+        citation_count = 0
+        artifact_count = 0
+        result_session_id = None
         try:
             async for event in service.agent_answer_stream_async(db, payload, current_user.id):
                 if event.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
+                if event.get("type") == "done":
+                    result_session_id = event.get("session_id")
+                    citation_count = len(event.get("citations", []))
+                    artifact_count = len(event.get("artifacts", []))
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except ValueError as exc:
+            has_error = True
             error_event = {"type": "error", "message": str(exc)}
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
         finally:
@@ -176,6 +274,18 @@ async def agent_stream(
                 current_user.id,
                 latency_ms=(time.perf_counter() - started_at) * 1000,
                 first_token_ms=first_token_ms,
+            )
+            _persist_chat_request_log(
+                owner_user_id=current_user.id,
+                session_id=result_session_id,
+                mode="agent-stream",
+                payload=payload,
+                retrieve_timing=service.retrieval_service.last_timing,
+                llm_timing=service.llm_service.last_timing,
+                total_ms=(time.perf_counter() - started_at) * 1000,
+                citation_count=citation_count,
+                artifact_count=artifact_count,
+                has_error=has_error,
             )
 
     return StreamingResponse(

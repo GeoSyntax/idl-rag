@@ -87,6 +87,9 @@ async def _http_post_with_retry_async(
 
 
 class LlmService:
+    def __init__(self) -> None:
+        self.last_timing: dict[str, float] = {}
+
     def generate_answer(
         self,
         db: Session,
@@ -198,6 +201,8 @@ class LlmService:
                 },
             ],
         }
+        t0 = time.perf_counter()
+        first_token_ms: float | None = None
         with httpx.Client(timeout=120.0) as client:
             with client.stream(
                 "POST",
@@ -217,9 +222,15 @@ class LlmService:
                         delta = chunk["choices"][0].get("delta", {})
                         content = delta.get("content", "")
                         if content:
+                            if first_token_ms is None:
+                                first_token_ms = (time.perf_counter() - t0) * 1000
                             yield content
                     except (json.JSONDecodeError, KeyError, IndexError):
                         continue
+        self.last_timing = {
+            "first_token_ms": first_token_ms,
+            "total_ms": (time.perf_counter() - t0) * 1000,
+        }
 
     def generate_pro_file(
         self,
@@ -713,6 +724,8 @@ class LlmService:
                 },
             ],
         }
+        t0 = time.perf_counter()
+        first_token_ms: float | None = None
         async with httpx.AsyncClient(timeout=120.0) as client:
             async with client.stream(
                 "POST",
@@ -732,6 +745,12 @@ class LlmService:
                         delta = chunk["choices"][0].get("delta", {})
                         content = delta.get("content", "")
                         if content:
+                            if first_token_ms is None:
+                                first_token_ms = (time.perf_counter() - t0) * 1000
                             yield content
                     except (json.JSONDecodeError, KeyError, IndexError):
                         continue
+        self.last_timing = {
+            "first_token_ms": first_token_ms,
+            "total_ms": (time.perf_counter() - t0) * 1000,
+        }

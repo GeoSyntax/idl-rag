@@ -215,6 +215,10 @@ export const api = {
     }),
   listEvaluationReports: () => request<EvaluationReport[]>('/evaluation/reports'),
   getEvaluationReport: (reportId: number) => request<EvaluationReport>(`/evaluation/reports/${reportId}`),
+  compareEvaluationReports: (leftId: number, rightId: number) =>
+    request<{ left: Record<string, unknown>; right: Record<string, unknown>; deltas: Record<string, Record<string, number>> }>(
+      `/evaluation/reports/compare?left=${leftId}&right=${rightId}`,
+    ),
   askQuestion: (payload: {
     knowledge_base_ids?: number[]
     question: string

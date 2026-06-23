@@ -360,3 +360,9 @@ class DashboardSummaryResponse(BaseModel):
     latest_eval_hit_rate: float | None = None
     latest_eval_top_k: int | None = None
     latest_eval_strategy: str | None = None
+    avg_retrieve_ms: float | None = None
+    avg_rerank_ms: float | None = None
+    avg_llm_first_token_ms: float | None = None
+    avg_total_ms: float | None = None
+    citation_coverage: float | None = None
+    error_rate: float | None = None

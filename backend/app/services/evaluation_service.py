@@ -147,6 +147,38 @@ class EvaluationService:
             self._get_owned_knowledge_base(report.knowledge_base_id, owner_user_id)
         return report
 
+    def compare_reports(self, left_id: int, right_id: int, owner_user_id: int) -> dict:
+        left = self.get_report(left_id, owner_user_id)
+        right = self.get_report(right_id, owner_user_id)
+        left_summary = left.summary_json or {}
+        right_summary = right.summary_json or {}
+        metric_keys = [
+            "total", "passed", "pass_rate", "hit_rate",
+            "precision_at_k", "recall_at_k", "mrr",
+            "answer_relevance", "faithfulness", "latency_ms",
+        ]
+        deltas: dict[str, dict[str, float]] = {}
+        for key in metric_keys:
+            lv = left_summary.get(key)
+            rv = right_summary.get(key)
+            if isinstance(lv, int | float) and isinstance(rv, int | float):
+                deltas[key] = {"left": float(lv), "right": float(rv), "delta": float(rv - lv)}
+        return {
+            "left": {
+                "id": left.id,
+                "report_type": left.report_type,
+                "strategy": left.strategy,
+                "created_at": str(left.created_at),
+            },
+            "right": {
+                "id": right.id,
+                "report_type": right.report_type,
+                "strategy": right.strategy,
+                "created_at": str(right.created_at),
+            },
+            "deltas": deltas,
+        }
+
     def _get_owned_knowledge_base(self, knowledge_base_id: int, owner_user_id: int) -> KnowledgeBase:
         knowledge_base = self.db.get(KnowledgeBase, knowledge_base_id)
         if knowledge_base is None or knowledge_base.owner_user_id != owner_user_id:

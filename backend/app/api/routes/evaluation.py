@@ -94,3 +94,16 @@ def get_evaluation_report(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return EvaluationReportResponse.model_validate(report)
+
+
+@router.get("/reports/compare")
+def compare_evaluation_reports(
+    left: int,
+    right: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    try:
+        return EvaluationService(db).compare_reports(left, right, current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

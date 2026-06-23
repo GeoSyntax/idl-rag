@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -28,6 +29,7 @@ class RetrievalService:
         self.vector_store = LanceVectorStore(self.embedding_service, self.settings.lancedb_dir)
         self.full_text_store = SQLiteFullTextStore()
         self.metadata_store = MetadataStore()
+        self.last_timing: dict[str, float] = {}
 
     def get_table_name(self, db: Session) -> str:
         return self.vector_store.get_table_name(db)
@@ -156,19 +158,30 @@ class RetrievalService:
     ) -> list[Citation]:
         strategy = self._normalize_strategy(strategy)
         candidate_limit = max(top_k * 8, 32)
+        t0 = time.perf_counter()
 
         if strategy in {"grep", "grep_search"}:
-            return self.grep_chunks(db, knowledge_base_id, query, top_k=top_k, mode="auto")
+            result = self.grep_chunks(db, knowledge_base_id, query, top_k=top_k, mode="auto")
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy in {"symbol", "symbol_search"}:
-            return self.search_symbol(db, knowledge_base_id, query, top_k=top_k, exact=False, include_dependencies=True)
+            result = self.search_symbol(db, knowledge_base_id, query, top_k=top_k, exact=False, include_dependencies=True)
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy in {"read_context", "symbol_context"}:
-            return self.read_context_by_symbol(db, knowledge_base_id, query, max_chunks=top_k)
+            result = self.read_context_by_symbol(db, knowledge_base_id, query, max_chunks=top_k)
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "find_callers":
-            return self.find_callers(db, knowledge_base_id, query, top_k=top_k)
+            result = self.find_callers(db, knowledge_base_id, query, top_k=top_k)
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "find_callees":
-            return self.find_callees(db, knowledge_base_id, query, top_k=top_k)
+            result = self.find_callees(db, knowledge_base_id, query, top_k=top_k)
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "fts_only":
-            return self._finalize_rows(
+            result = self._finalize_rows(
                 db,
                 knowledge_base_id,
                 query,
@@ -178,8 +191,10 @@ class RetrievalService:
                 expand_context=False,
                 source_strategy=strategy,
             )
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "vector_only":
-            return self._finalize_rows(
+            result = self._finalize_rows(
                 db,
                 knowledge_base_id,
                 query,
@@ -189,16 +204,22 @@ class RetrievalService:
                 expand_context=False,
                 source_strategy=strategy,
             )
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "hybrid_rrf_no_rerank":
-            return self._hybrid_search(
+            result = self._hybrid_search(
                 db, knowledge_base_id, query, top_k, candidate_limit, use_rerank=False, source_strategy=strategy
             )
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy in {"multi_query", "rag_fusion"}:
             variants = self._query_variants(query)
             ranked_lists = [self._hybrid_ranked_rows(db, knowledge_base_id, item, candidate_limit) for item in variants]
             rows = self._fuse_ranked_lists(ranked_lists)
             should_rerank = use_rerank if use_rerank is not None else strategy == "rag_fusion"
-            return self._finalize_rows(db, knowledge_base_id, query, rows, top_k, use_rerank=should_rerank, source_strategy=strategy)
+            result = self._finalize_rows(db, knowledge_base_id, query, rows, top_k, use_rerank=should_rerank, source_strategy=strategy)
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "hyde":
             hyde_query = self._hyde_query(query)
             ranked_lists = [
@@ -207,10 +228,12 @@ class RetrievalService:
             ]
             rows = self._fuse_ranked_lists(ranked_lists)
             should_rerank = use_rerank if use_rerank is not None else True
-            return self._finalize_rows(db, knowledge_base_id, query, rows, top_k, use_rerank=should_rerank, source_strategy=strategy)
+            result = self._finalize_rows(db, knowledge_base_id, query, rows, top_k, use_rerank=should_rerank, source_strategy=strategy)
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "parent_child":
             should_rerank = use_rerank if use_rerank is not None else True
-            return self._hybrid_search(
+            result = self._hybrid_search(
                 db,
                 knowledge_base_id,
                 query,
@@ -220,9 +243,11 @@ class RetrievalService:
                 parent_child=True,
                 source_strategy=strategy,
             )
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "dependency_graphrag":
             should_rerank = use_rerank if use_rerank is not None else True
-            return self._hybrid_search(
+            result = self._hybrid_search(
                 db,
                 knowledge_base_id,
                 query,
@@ -233,11 +258,17 @@ class RetrievalService:
                 force_dependency=True,
                 source_strategy=strategy,
             )
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         if strategy == "agentic_react":
             should_rerank = use_rerank if use_rerank is not None else True
-            return self._hybrid_search(db, knowledge_base_id, query, top_k, candidate_limit, use_rerank=should_rerank, source_strategy=strategy)
+            result = self._hybrid_search(db, knowledge_base_id, query, top_k, candidate_limit, use_rerank=should_rerank, source_strategy=strategy)
+            self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+            return result
         should_rerank = use_rerank if use_rerank is not None else strategy in _RERANK_STRATEGIES
-        return self._hybrid_search(db, knowledge_base_id, query, top_k, candidate_limit, use_rerank=should_rerank, source_strategy=strategy)
+        result = self._hybrid_search(db, knowledge_base_id, query, top_k, candidate_limit, use_rerank=should_rerank, source_strategy=strategy)
+        self.last_timing = {"retrieve_ms": (time.perf_counter() - t0) * 1000}
+        return result
 
     def grep_chunks(
         self,
@@ -609,7 +640,9 @@ class RetrievalService:
         candidate_limit = max(top_k * 8, 32)
         ordered_rows = rows[:candidate_limit]
         if use_rerank:
+            t_rerank = time.perf_counter()
             ordered_rows = self.rerank_service.rerank(db, query, ordered_rows, top_k=max(candidate_limit, top_k))
+            self.last_timing["rerank_ms"] = (time.perf_counter() - t_rerank) * 1000
 
         selected: list[dict[str, Any]] = []
         seen_chunk_ids: set[int] = set()

@@ -313,6 +313,12 @@ export type DashboardSummary = {
   latest_eval_hit_rate: number | null
   latest_eval_top_k: number | null
   latest_eval_strategy: string | null
+  avg_retrieve_ms: number | null
+  avg_rerank_ms: number | null
+  avg_llm_first_token_ms: number | null
+  avg_total_ms: number | null
+  citation_coverage: number | null
+  error_rate: number | null
 }
 
 export type StreamEvent =

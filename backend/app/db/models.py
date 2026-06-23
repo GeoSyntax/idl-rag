@@ -196,3 +196,27 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=func.now())
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")
+
+
+class ChatRequestLog(Base):
+    """持久化每次 Chat 请求的耗时和质量信号，用于 Dashboard 指标和历史趋势。"""
+
+    __tablename__ = "chat_request_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    session_id: Mapped[int | None] = mapped_column(ForeignKey("chat_sessions.id"), nullable=True)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    strategy: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    top_k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retrieve_ms: Mapped[float | None] = mapped_column(nullable=True)
+    rerank_ms: Mapped[float | None] = mapped_column(nullable=True)
+    llm_first_token_ms: Mapped[float | None] = mapped_column(nullable=True)
+    llm_total_ms: Mapped[float | None] = mapped_column(nullable=True)
+    total_ms: Mapped[float] = mapped_column(nullable=False)
+    citation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    artifact_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    has_error: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=func.now())
+
+    owner: Mapped[User] = relationship()
