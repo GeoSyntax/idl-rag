@@ -406,6 +406,11 @@ def test_research_workflow_requires_owned_assets_evidence_and_frozen_formal_prot
             f"/api/research/projects/{project_id}/experiments/{formal['id']}/runs", headers=other_headers
         )
         assert shared_runs.status_code == 200
+        shared_project_runs = client.get(
+            f"/api/research/projects/{project_id}/runs?limit=5", headers=other_headers
+        )
+        assert shared_project_runs.status_code == 200
+        assert all(item["project_id"] == project_id for item in shared_project_runs.json())
         member_asset = client.post(
             f"/api/research/projects/{project_id}/data-assets",
             json={

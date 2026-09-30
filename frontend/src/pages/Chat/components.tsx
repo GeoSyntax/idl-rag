@@ -109,6 +109,7 @@ export function MessageList({
   agentRunMeta,
   agentLiveStatus,
   agentElapsedMs,
+  researchProjectId,
   isStreaming,
   streamingContent,
   streamError,
@@ -125,6 +126,7 @@ export function MessageList({
   agentRunMeta: AgentRunMeta | null
   agentLiveStatus: string
   agentElapsedMs: number
+  researchProjectId?: number
   isStreaming: boolean
   streamingContent: string
   streamError: string
@@ -189,6 +191,9 @@ export function MessageList({
         </div>
       )}
       <div ref={messagesEndRef} />
+      {researchProjectId && !isStreaming && !agentRunComplete && messages.length > 0 ? (
+        <ResearchRunRecovery projectId={researchProjectId} />
+      ) : null}
     </div>
   )
 }
@@ -564,7 +569,7 @@ type ResearchRunCardData = {
   outputs?: ResearchRunOutputCardData[]
 }
 
-function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> }) {
+function ResearchRunSummary({ metadata, projectWide = false }: { metadata: Record<string, unknown>; projectWide?: boolean }) {
   const projectId = typeof metadata.project_id === 'number' ? metadata.project_id : Number(metadata.project_id)
   const rawRuns = Array.isArray(metadata.runs) ? metadata.runs : []
   const runs = rawRuns.filter((value): value is ResearchRunCardData => {
@@ -593,7 +598,9 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
 
     const refresh = async () => {
       try {
-        const responses = await Promise.all(experimentIds.map((experimentId) => api.listResearchRuns(projectId, experimentId)))
+        const responses = projectWide
+          ? [await api.listResearchProjectRuns(projectId)]
+          : await Promise.all(experimentIds.map((experimentId) => api.listResearchRuns(projectId, experimentId)))
         if (!active) return
         const refreshed = responses
           .flatMap((items) => items)
@@ -615,7 +622,7 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
       active = false
       if (timer !== undefined) window.clearTimeout(timer)
     }
-  }, [activeRunKey, projectId])
+  }, [activeRunKey, projectId, projectWide])
 
   if (!runs.length) {
     return <div className="chat-research-run-empty">尚未有可展示的运行记录；queued 任务完成后可再次查询阶段产物。</div>
@@ -688,6 +695,61 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
       ))}
     </div>
   )
+}
+
+export function ResearchRunRecovery({ projectId }: { projectId: number }) {
+  const [runs, setRuns] = useState<ResearchRun[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    api.listResearchProjectRuns(projectId)
+      .then((items) => {
+        if (active) setRuns(items)
+      })
+      .catch(() => {
+        if (active) setRuns([])
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [projectId])
+
+  if (loading || runs.length === 0) return null
+  return (
+    <div className="chat-research-run-recovery">
+      <div className="chat-research-run-recovery-label">已恢复的研究运行</div>
+      <ResearchRunSummary metadata={researchRunsToMetadata(projectId, runs)} projectWide />
+    </div>
+  )
+}
+
+function researchRunsToMetadata(projectId: number, runs: ResearchRun[]): Record<string, unknown> {
+  return {
+    project_id: projectId,
+    runs: runs.map((run) => {
+      const manifest = run.manifest || {}
+      const metrics = manifest.validation_metrics || manifest.metrics
+      return {
+        run_id: run.id,
+        experiment_id: run.experiment_id,
+        status: run.status,
+        execution_mode: String(manifest.execution_mode || 'preview'),
+        output_count: run.outputs.length,
+        outputs: run.outputs.map((output) => ({
+          file_name: output.file_name,
+          kind: output.kind,
+          size: output.size,
+          previewable: /\.(png|jpe?g|webp)$/i.test(output.file_name),
+        })),
+        validation_metrics: metrics && typeof metrics === 'object' ? metrics : undefined,
+      }
+    }),
+  }
 }
 
 function mergeResearchRunCard(base: ResearchRunCardData | undefined, item: ResearchRun): ResearchRunCardData {

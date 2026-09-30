@@ -66,6 +66,26 @@ class ResearchRunService:
         )
         return [self._response(run) for run in runs]
 
+    def list_project_runs(
+        self, db: Session, project_id: int, owner_user_id: int, *, limit: int = 20
+    ) -> list[ResearchRunResponse]:
+        """List recent runs across a project for restoring a chat context.
+
+        The query is owner/member scoped and intentionally returns the same
+        safe run response used by the experiment page. It does not expose
+        private source paths or create a new audit record.
+        """
+        self._get_owned_project(db, project_id, owner_user_id)
+        bounded_limit = max(1, min(int(limit), 50))
+        runs = (
+            db.query(ResearchRun)
+            .filter(ResearchRun.project_id == project_id)
+            .order_by(ResearchRun.created_at.desc(), ResearchRun.id.desc())
+            .limit(bounded_limit)
+            .all()
+        )
+        return [self._response(run) for run in runs]
+
     def verify_run_integrity(
         self,
         db: Session,

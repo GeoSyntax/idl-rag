@@ -1003,6 +1003,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             agentRunMeta={agentRunMeta}
             agentLiveStatus={agentLiveStatus}
             agentElapsedMs={agentElapsedMs}
+            researchProjectId={researchProjectId}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             streamError={streamError}

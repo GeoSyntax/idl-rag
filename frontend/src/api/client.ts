@@ -651,6 +651,8 @@ export const api = {
     }),
   listResearchRuns: (projectId: number, experimentId: number) =>
     request<ResearchRun[]>(`/research/projects/${projectId}/experiments/${experimentId}/runs`),
+  listResearchProjectRuns: (projectId: number, limit = 20) =>
+    request<ResearchRun[]>(`/research/projects/${projectId}/runs?limit=${limit}`),
   startResearchRun: (projectId: number, experimentId: number, mode: 'sync' | 'queue' = 'sync') =>
     request<ResearchRun>(`/research/projects/${projectId}/experiments/${experimentId}/runs?mode=${mode}`, { method: 'POST' }),
   startResearchParameterSweep: (

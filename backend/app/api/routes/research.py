@@ -853,6 +853,22 @@ def list_experiment_runs(
         raise _not_found(exc) from exc
 
 
+@router.get(
+    "/{project_id}/runs",
+    response_model=list[ResearchRunResponse],
+)
+def list_project_runs(
+    project_id: int,
+    limit: int = Query(default=20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ResearchRunResponse]:
+    try:
+        return run_service.list_project_runs(db, project_id, current_user.id, limit=limit)
+    except LookupError as exc:
+        raise _not_found(exc) from exc
+
+
 @router.post(
     "/{project_id}/experiments/{experiment_id}/runs",
     response_model=ResearchRunResponse,
