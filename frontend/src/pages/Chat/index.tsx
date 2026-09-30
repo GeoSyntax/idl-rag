@@ -94,12 +94,37 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const stepIdRef = useRef(0)
   const restoringSessionRef = useRef(false)
+  const streamingBufferRef = useRef('')
+  const streamingFlushRef = useRef<number | null>(null)
+
+  const clearStreamingBuffer = useCallback(() => {
+    if (streamingFlushRef.current !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(streamingFlushRef.current)
+      streamingFlushRef.current = null
+    }
+    streamingBufferRef.current = ''
+    setStreamingContent('')
+  }, [])
+
+  const appendStreamingText = useCallback((content: string, requestId: number) => {
+    if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
+    streamingBufferRef.current += content
+    if (streamingFlushRef.current !== null || typeof window === 'undefined') return
+    streamingFlushRef.current = window.requestAnimationFrame(() => {
+      streamingFlushRef.current = null
+      if (!streamTerminalRef.current && streamRequestIdRef.current === requestId) {
+        setStreamingContent(streamingBufferRef.current)
+      }
+    })
+  }, [])
 
   const showError = useCallback((text: string) => {
     messageApi.error(text)
   }, [messageApi])
 
   const { loading: documentsLoading, status: knowledgeStatus } = useKnowledgeStatus(selectedKBIds, showError)
+
+  useEffect(() => () => clearStreamingBuffer(), [clearStreamingBuffer])
 
   const refreshSessions = async () => {
     setSessionsLoading(true)
@@ -179,7 +204,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     streamTerminalRef.current = true
     setMessages([])
     setSessionId(null)
-    setStreamingContent('')
+    clearStreamingBuffer()
     setStreamError('')
     setIsStreaming(false)
     setAgentSteps([])
@@ -206,7 +231,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     streamTerminalRef.current = true
     setMessages([])
     setSessionId(null)
-    setStreamingContent('')
+    clearStreamingBuffer()
     setStreamError('')
     setIsStreaming(false)
     setAgentSteps([])
@@ -229,7 +254,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       restoringSessionRef.current = true
       setSessionId(targetSessionId)
       setMessages(fullMessages)
-      setStreamingContent('')
+      clearStreamingBuffer()
       setStreamError('')
       setIsStreaming(false)
       setAgentSteps([])
@@ -335,7 +360,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     const requestId = ++streamRequestIdRef.current
     streamTerminalRef.current = false
     setIsStreaming(true)
-    setStreamingContent('')
+    clearStreamingBuffer()
     setStreamError('')
     setAgentSteps([])
     stepIdRef.current = 0
@@ -363,7 +388,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   }
 
   const finishStream = () => {
-    setStreamingContent('')
+    clearStreamingBuffer()
     setIsStreaming(false)
     // The final answer is loaded from the persisted session immediately after
     // `done`. Keep tool trace/run cards for inspection, but do not render the
@@ -424,7 +449,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         },
         {
           onToken: (content: string) => {
-            if (!streamTerminalRef.current && streamRequestIdRef.current === requestId) setStreamingContent((prev) => prev + content)
+            appendStreamingText(content, requestId)
           },
           onDone: (newSessionId: number) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
@@ -479,7 +504,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             ])
           },
           onToken: (content: string) => {
-            if (!streamTerminalRef.current && streamRequestIdRef.current === requestId) setStreamingContent((prev) => prev + content)
+            appendStreamingText(content, requestId)
           },
           onDone: (newSessionId: number) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
