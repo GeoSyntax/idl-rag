@@ -40,15 +40,17 @@ research_project_context
 | 3 | MNDWI 2024-10 preview validation | `threshold=0.0` | `completed` | 6 个阶段/清单输出 |
 | 4 | MNDWI threshold 0.15 preview | `threshold=0.15` | `completed` | 6 个阶段/清单输出 |
 
-## 阶段影像
+## 平台演示
 
-完整阶段切换视频：
+平台操作视频已经单独展示完整的工作台、知识库、Agent 对话、检索证据和结果回传流程：
 
-<video controls muted loop playsinline poster="assets/demos/poyang-mndwi-preview-feature.png" width="720">
-  <source src="assets/demos/poyang-agent-demo.mp4" type="video/mp4">
+<video controls muted loop playsinline poster="assets/demos/idl-rag-panel-demo-poster.png" width="900">
+  <source src="assets/demos/idl-rag-panel-demo.mp4" type="video/mp4">
 </video>
 
-[打开或下载演示视频](assets/demos/poyang-agent-demo.mp4)
+[打开或下载平台演示视频](assets/demos/idl-rag-panel-demo.mp4)
+
+## 阶段影像
 
 ### MNDWI 指数图
 

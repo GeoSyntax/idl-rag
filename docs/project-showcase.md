@@ -178,19 +178,21 @@ flowchart TD
 
 ## 7. 真实遥感 Agent 效果
 
-本项目已经用本地 `gemin2api` 跑通一条真实的鄱阳湖 MNDWI preview 链路：Agent 读取项目上下文、选择冻结公式和数据快照，在授权后创建并排队 Python preview，随后由本地 research worker 生成指数图、水体分类图、GeoTIFF 和运行清单。
+平台演示视频展示完整的工作台路径：进入平台、管理知识库、使用 Agent 对话、查看检索证据、运行脚本并回看结果。
 
-<video controls muted loop playsinline poster="assets/demos/poyang-mndwi-preview-feature.png" width="720">
-  <source src="assets/demos/poyang-agent-demo.mp4" type="video/mp4">
+<video controls muted loop playsinline poster="assets/demos/idl-rag-panel-demo-poster.png" width="900">
+  <source src="assets/demos/idl-rag-panel-demo.mp4" type="video/mp4">
 </video>
 
-[打开或下载 8 秒演示视频](assets/demos/poyang-agent-demo.mp4)
+[打开或下载平台演示视频](assets/demos/idl-rag-panel-demo.mp4)
+
+视频中的结果页对应下面这条真实的鄱阳湖 MNDWI preview 链路：Agent 读取项目上下文、选择冻结公式和数据快照，在授权后创建并排队 Python preview，随后由本地 research worker 生成指数图、水体分类图、GeoTIFF 和运行清单。
 
 ![MNDWI 指数图](assets/demos/poyang-mndwi-preview-feature.png)
 
 ![水体分类图](assets/demos/poyang-mndwi-preview-mask.png)
 
-本次 10 项 Agent 任务中，8 项通过工具契约，2 项进入人工复核，0 项程序异常。preview 未配置参考资产时不会伪造验证指标，这个限制和完整命令见 [`agent-demo-result.md`](agent-demo-result.md)。
+preview 未配置参考资产时不会伪造验证指标；完整运行记录和科学边界见 [`agent-demo-result.md`](agent-demo-result.md)。
 
 ## 8. 核心功能说明
 
