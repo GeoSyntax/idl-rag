@@ -73,6 +73,7 @@
 5. [x] 用路由级测试覆盖“完成后迟到异常”和“无终止事件的截断流”，前端生产构建通过。
 6. [x] 完成态把工具折叠轨迹附在最后一条助手回答内，不再额外渲染第二个机器人气泡；浏览器回放确认完成后只保留一个助手头像。
 7. [x] DevTools 实际回放“发送 → 停止 → 切换历史会话 → 重新发送”：停止请求只留下明确的未保存提示，旧流没有回写；重新发送后项目上下文仍为 project 1，旧 token/工具轨迹没有串入。
+8. [x] 页面质量门禁：补齐 Select 的可访问名称、提高状态/引用元信息的对比度，并提供本地应用的 `robots.txt` 与 `llms.txt`；Lighthouse 快照最终 32/32 通过（Accessibility/Best Practices/SEO/Agentic Browsing 均 100）。
 
 本轮验收证据：`backend/tests/test_chat_stream_routes.py`、前端 `npm run build --prefix frontend`，以及本地页面实际回放（发送 Agent 请求→生成中锁定上下文→完成后单一助手气泡→停止/切会话/重新发送）。后续再把这条操作序列固化为可重复的浏览器测试脚本。
 

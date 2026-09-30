@@ -687,6 +687,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             mode="multiple"
             allowClear
             placeholder="选择知识库"
+            aria-label="选择知识库"
             size="small"
             value={selectedKBIds}
             onChange={setSelectedKBIds}
@@ -705,6 +706,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             allowClear
             size="small"
             placeholder="绑定研究项目"
+            aria-label="绑定研究项目"
             value={researchProjectId}
             options={researchProjectOptions}
             className="chat-research-select"
@@ -775,6 +777,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             allowClear
             size="small"
             placeholder="历史会话"
+            aria-label="历史会话"
             value={sessionId ?? undefined}
             loading={sessionsLoading}
             options={sessionOptions}

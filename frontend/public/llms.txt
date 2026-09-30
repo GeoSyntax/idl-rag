@@ -1,0 +1,15 @@
+# IDL RAG Panel
+
+IDL RAG Panel 是一个本地优先的遥感研究工作台，连接论文、IDL/ENVI 代码、Python/GDAL 方法资料、研究项目数据资产和可追溯 Agent 工具流。
+
+## 使用边界
+
+- 项目资料和数据资产默认按用户/项目隔离。
+- Agent 的研究执行需要用户明确授权，并区分 preview、formal、GEE 和 IDL 能力。
+- 引用、运行指标和阶段影像必须来自实际工具或 Runner 产物；缺失证据时不应补写科学结论。
+
+## 文档
+
+- [项目说明](/README.md)
+- [工作流架构](/docs/workflow-architecture.md)
+- [Agent 任务集](/docs/agent-research-task-suite.md)
