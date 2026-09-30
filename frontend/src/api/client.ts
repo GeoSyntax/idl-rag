@@ -182,6 +182,15 @@ async function consumeSse<T extends SseEvent>(
       throw new Error('流式连接在收到完成事件前关闭，请重试。')
     }
   } finally {
+    // Release the underlying stream on abort, callback failure, and truncated
+    // responses. Merely releasing the lock can leave a fetch reader alive in
+    // some browsers, which becomes visible after several Agent turns.
+    try {
+      await reader.cancel()
+    } catch {
+      // The reader may already be closed; cleanup should never mask the
+      // original SSE or AbortError.
+    }
     reader.releaseLock()
   }
 }
