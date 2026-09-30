@@ -92,6 +92,10 @@ MNDWI spectral index B03 B11
 - 顶部显示研究项目名称、`private-local`、协议待补充项、项目 RAG 来源数和数据资产数；
 - 项目上下文加载失败时显示明确错误，但普通知识库对话仍可继续。
 
+当前本地演示项目还包含一条可复现的真实 preview：实验 `MNDWI 本地预览 · 含 WorldCover 校验`，Run `2`，Python、preview、completed。输入是 Sentinel-2 B03/B11 双波段栅格，参考是 WorldCover 水体标签；预期可以看到 `input_preview.png`、`normalized_difference_preview.png`、`water_mask_preview.png` 和 `validation_error_map_preview.png`，以及 overall accuracy、precision、recall、F1、IoU。向 Agent 输入“读取当前项目最近运行，给出可预览影像文件名和验证指标”时，只读查询即可出现运行卡片，不需要手工填写 experiment/run ID。
+
+如果回答没有检索到知识库来源，预期不会出现孤立的 `[1]`、`[2]` 引用编号；运行完成后“思考中/生成回答”状态也不应作为第二条助手回答残留。
+
 ## 任务 7：测试 GEE 接入
 
 GEE 默认关闭。需要先按 [`integrations.md`](./integrations.md) 配置 Google Cloud 项目、Earth Engine API 和 ADC。

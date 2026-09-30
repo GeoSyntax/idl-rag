@@ -365,6 +365,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const finishStream = () => {
     setStreamingContent('')
     setIsStreaming(false)
+    // The final answer is loaded from the persisted session immediately after
+    // `done`. Keep tool trace/run cards for inspection, but do not render the
+    // transient thinking/answer status as a second assistant response.
+    setAgentSteps((prev) => prev.filter((step) => ['tool_call', 'tool_result', 'error'].includes(step.step)))
     abortRef.current = null
   }
 

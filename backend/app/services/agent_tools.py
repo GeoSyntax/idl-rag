@@ -836,7 +836,17 @@ def tool_research_run_summary(
             .all()
         )
     else:
-        raise ValueError("research_run_summary 需要 experiment_id 或 run_id。")
+        # The Agent often knows the active project before it knows a particular
+        # experiment/run ID. Keep this project-level status query bounded and
+        # owner-scoped so it is useful for overview questions.
+        service._get_owned_project(db, project_id, owner_user_id)
+        runs = (
+            db.query(ResearchRun)
+            .filter(ResearchRun.project_id == project_id)
+            .order_by(ResearchRun.created_at.desc(), ResearchRun.id.desc())
+            .limit(12)
+            .all()
+        )
     run_summaries = []
     for item in runs:
         item_experiment = service._get_owned_experiment(db, project_id, item.experiment_id, owner_user_id)
@@ -1283,7 +1293,7 @@ AGENT_TOOLS = {
         "function": tool_research_data_catalog,
     },
     "research_run_summary": {
-        "description": "读取一个实验或运行的状态、验证指标、阶段信息和输出图件描述；不返回私有文件路径。",
+        "description": "读取研究运行的状态、验证指标、阶段信息和输出图件描述；只传 project_id 可查看当前项目最近运行，传 experiment_id 或 run_id 可聚焦单个实验/运行；不返回私有文件路径。",
         "parameters": {
             "project_id": {"type": "integer", "description": "研究项目 ID"},
             "experiment_id": {"type": "integer", "description": "实验 ID，与 run_id 二选一或同时提供"},

@@ -495,5 +495,10 @@ def test_research_run_summary_exposes_safe_output_references(tmp_path: Path) -> 
         assert summary["validation_metrics"]["f1"] == 0.8
         assert "C:/private" not in json.dumps(result.metadata, ensure_ascii=False)
         assert "C:/private" not in result.output
+
+        project_result = tool_research_run_summary(db, project.id, owner.id)
+        assert project_result.metadata["run_count"] == 1
+        assert project_result.metadata["runs"][0]["run_id"] == run.id
+        assert project_result.metadata["runs"][0]["experiment_name"] == "summary preview"
     finally:
         db.close()
