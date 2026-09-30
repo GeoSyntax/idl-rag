@@ -435,11 +435,142 @@ function StepContent({ step }: { step: AgentStepItem }) {
     return (
       <div>
         <Tag color="green" style={{ marginBottom: 4 }}>{step.tool}</Tag>
+        {step.metadata?.research_run ? <ResearchRunSummary metadata={step.metadata} /> : null}
         <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>{step.output}</pre>
       </div>
     )
   }
   return null
+}
+
+type ResearchRunOutputCardData = {
+  file_name: string
+  kind?: string
+  size?: number
+  previewable?: boolean
+}
+
+type ResearchRunCardData = {
+  run_id: number
+  experiment_id: number
+  experiment_name?: string
+  status: string
+  execution_mode?: string
+  output_count?: number
+  validation_metrics?: Record<string, unknown>
+  outputs?: ResearchRunOutputCardData[]
+}
+
+function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> }) {
+  const projectId = typeof metadata.project_id === 'number' ? metadata.project_id : Number(metadata.project_id)
+  const rawRuns = Array.isArray(metadata.runs) ? metadata.runs : []
+  const runs = rawRuns.filter((value): value is ResearchRunCardData => {
+    if (!value || typeof value !== 'object') return false
+    const item = value as Record<string, unknown>
+    return Number.isFinite(Number(item.run_id)) && Number.isFinite(Number(item.experiment_id)) && typeof item.status === 'string'
+  })
+
+  if (!runs.length) {
+    return <div className="chat-research-run-empty">尚未有可展示的运行记录；queued 任务完成后可再次查询阶段产物。</div>
+  }
+
+  return (
+    <div className="chat-research-run-summary">
+      <div className="chat-research-run-title">研究运行追踪</div>
+      {runs.map((run) => (
+        <div className="chat-research-run-card" key={`${run.experiment_id}-${run.run_id}`}>
+          <div className="chat-research-run-meta">
+            <strong>Run #{run.run_id}</strong>
+            <Tag color={runStatusColor(run.status)}>{run.status}</Tag>
+            <span>{run.execution_mode || 'preview'}</span>
+            <span>{run.experiment_name || `实验 #${run.experiment_id}`}</span>
+            <span>{run.output_count ?? run.outputs?.length ?? 0} 个产物</span>
+          </div>
+          {run.validation_metrics && Object.keys(run.validation_metrics).length > 0 ? (
+            <div className="chat-research-run-metrics">
+              {Object.entries(run.validation_metrics).slice(0, 8).map(([key, value]) => (
+                <span key={key}>{key}: <strong>{formatRunMetric(value)}</strong></span>
+              ))}
+            </div>
+          ) : null}
+          {projectId > 0 && run.outputs?.length ? (
+            <div className="chat-research-run-outputs">
+              {run.outputs.map((output) => (
+                <ResearchRunOutputPreview
+                  key={`${run.run_id}-${output.file_name}`}
+                  projectId={projectId}
+                  experimentId={run.experiment_id}
+                  runId={run.run_id}
+                  output={output}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function formatRunMetric(value: unknown): string {
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(4)
+  if (typeof value === 'string') return value
+  return JSON.stringify(value) ?? String(value)
+}
+
+function runStatusColor(status: string): string {
+  if (status === 'completed') return 'green'
+  if (status === 'failed' || status === 'cancelled' || status === 'unavailable') return 'red'
+  if (status === 'running') return 'blue'
+  return 'gold'
+}
+
+function ResearchRunOutputPreview({
+  projectId,
+  experimentId,
+  runId,
+  output,
+}: {
+  projectId: number
+  experimentId: number
+  runId: number
+  output: ResearchRunOutputCardData
+}) {
+  const [objectUrl, setObjectUrl] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const previewable = Boolean(output.previewable)
+
+  useEffect(() => {
+    if (!previewable) return undefined
+    let active = true
+    let nextObjectUrl = ''
+    api.fetchResearchRunOutputBlob(projectId, experimentId, runId, output.file_name)
+      .then((blob) => {
+        if (!active) return
+        nextObjectUrl = window.URL.createObjectURL(blob)
+        setObjectUrl(nextObjectUrl)
+      })
+      .catch((err) => {
+        if (active) setLoadError((err as Error).message || '阶段图加载失败')
+      })
+    return () => {
+      active = false
+      if (nextObjectUrl) window.URL.revokeObjectURL(nextObjectUrl)
+    }
+  }, [experimentId, output.file_name, previewable, projectId, runId])
+
+  return (
+    <div className="chat-research-run-output">
+      <div className="chat-research-run-output-name" title={output.file_name}>
+        {output.kind || 'output'} · {output.file_name}
+      </div>
+      {previewable ? (
+        objectUrl ? <img src={objectUrl} alt={output.file_name} /> : <span>{loadError || '正在加载阶段图...'}</span>
+      ) : (
+        <span>可在研究页下载或查看</span>
+      )}
+    </div>
+  )
 }
 
 function CitationList({ citations }: { citations: Array<{ citation: Citation; index: number }> }) {

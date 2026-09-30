@@ -335,7 +335,7 @@ export type AgentStep =
   | { step: 'error'; content: string }
 
 export type AgentStreamEvent =
-  | { type: 'step'; step: string; content?: string; tool?: string; args?: Record<string, string>; output?: string }
+  | { type: 'step'; step: string; content?: string; tool?: string; args?: Record<string, unknown>; output?: string; metadata?: Record<string, unknown> }
   | { type: 'token'; content: string }
   | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[] }
   | { type: 'error'; message: string }

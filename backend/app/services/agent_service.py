@@ -548,12 +548,15 @@ class AgentService:
                 except (ValueError, LookupError) as exc:
                     tool_result = ToolResult(name=tool_name, output=f"工具调用被拒绝：{exc}")
 
-                yield {
+                tool_event = {
                     "type": "step",
                     "step": "tool_result",
                     "tool": tool_name,
                     "output": tool_result.output[:500],
                 }
+                if tool_result.metadata:
+                    tool_event["metadata"] = tool_result.metadata
+                yield tool_event
 
                 all_citations.extend(tool_result.citations)
 

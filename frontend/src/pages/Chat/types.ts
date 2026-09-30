@@ -5,8 +5,9 @@ export type AgentStepItem = {
   step: string
   content?: string
   tool?: string
-  args?: Record<string, string>
+  args?: Record<string, unknown>
   output?: string
+  metadata?: Record<string, unknown>
 }
 
 export type AttachedFile = {

@@ -789,6 +789,8 @@ def _safe_run_payload(run, experiment) -> dict[str, object]:
             for key, value in output.items()
             if key.lower() not in {"uri", "href", "path", "run_dir", "output_dir", "source_uri"}
         }
+        if output.get("file_name"):
+            safe_output["file_name"] = Path(str(output["file_name"])).name
         outputs.append(safe_output)
     return {
         "run_id": run.id,
@@ -835,6 +837,40 @@ def tool_research_run_summary(
         )
     else:
         raise ValueError("research_run_summary 需要 experiment_id 或 run_id。")
+    run_summaries = []
+    for item in runs:
+        item_experiment = service._get_owned_experiment(db, project_id, item.experiment_id, owner_user_id)
+        safe_item = _safe_run_payload(item, item_experiment)
+        output_refs = []
+        for output in safe_item.get("outputs", []):
+            if not isinstance(output, dict):
+                continue
+            file_name = Path(str(output.get("file_name") or "")).name
+            if not file_name or file_name == ".":
+                continue
+            suffix = Path(file_name).suffix.lower()
+            output_refs.append({
+                "file_name": file_name,
+                "kind": str(output.get("kind") or "output"),
+                "size": output.get("size", 0),
+                "previewable": suffix in {".png", ".jpg", ".jpeg", ".webp"},
+            })
+        run_summary = {
+            "run_id": item.id,
+            "experiment_id": item.experiment_id,
+            "experiment_name": item_experiment.name,
+            "status": item.status,
+            "execution_mode": item_experiment.execution_mode,
+            "output_count": len(output_refs),
+            "outputs": output_refs,
+        }
+        safe_manifest = safe_item.get("manifest")
+        if isinstance(safe_manifest, dict):
+            validation_metrics = safe_manifest.get("validation_metrics") or safe_manifest.get("metrics")
+            if isinstance(validation_metrics, dict):
+                run_summary["validation_metrics"] = _safe_research_value(validation_metrics)
+        run_summaries.append(run_summary)
+
     payload = {
         "project_id": project_id,
         "runs": [_safe_run_payload(item, service._get_owned_experiment(db, project_id, item.experiment_id, owner_user_id)) for item in runs],
@@ -843,7 +879,13 @@ def tool_research_run_summary(
     return ToolResult(
         name="research_run_summary",
         output=json.dumps(payload, ensure_ascii=False, indent=2),
-        metadata={"project_id": project_id, "run_count": len(runs), "private_raw_data_included": False},
+        metadata={
+            "project_id": project_id,
+            "run_count": len(runs),
+            "runs": run_summaries,
+            "research_run": True,
+            "private_raw_data_included": False,
+        },
         next_suggestion="结合 validation_metrics 和 outputs 判断结果；不要把 preview 或代理标签当成正式科学结论。",
     )
 
@@ -928,7 +970,13 @@ def tool_research_create_preview_experiment(
     return ToolResult(
         name="research_create_preview_experiment",
         output=json.dumps(output, ensure_ascii=False, indent=2),
-        metadata={"project_id": project_id, "experiment_id": experiment.id, "mutating": True},
+        metadata={
+            "project_id": project_id,
+            "experiment_id": experiment.id,
+            "research_experiment": True,
+            "status": experiment.status,
+            "mutating": True,
+        },
         next_suggestion=(
             "如果用户本轮已经明确同意执行 preview 并要求排队，可继续调用 "
             f"research_queue_preview(confirm=true, experiment_id={experiment.id})；"
@@ -1026,7 +1074,23 @@ def tool_research_queue_preview(
     return ToolResult(
         name="research_queue_preview",
         output=json.dumps(payload, ensure_ascii=False, indent=2),
-        metadata={"project_id": project_id, "experiment_id": experiment_id, "mutating": True},
+        metadata={
+            "project_id": project_id,
+            "experiment_id": experiment_id,
+            "run_id": run.id,
+            "research_run": True,
+            "runs": [{
+                "run_id": run.id,
+                "experiment_id": experiment_id,
+                "experiment_name": experiment.name,
+                "status": run.status,
+                "execution_mode": experiment.execution_mode,
+                "output_count": 0,
+                "outputs": [],
+            }],
+            "status": run.status,
+            "mutating": True,
+        },
         next_suggestion=(
             "运行已进入 queued；研究页/worker 负责实际执行。调用 research_run_summary "
             "检查状态和阶段图件；queued/running/completed 均不得改写成 formal 科学结论。"

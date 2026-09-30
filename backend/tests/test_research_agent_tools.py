@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -160,6 +161,7 @@ def test_research_agent_stream_uses_bound_project_and_rejects_stranger(tmp_path:
         )
         tool_events = [event for event in events if event.get("step") == "tool_result"]
         assert tool_events and tool_events[0]["tool"] == "research_project_context"
+        assert tool_events[0]["metadata"]["project_id"] == project.id
         assert any(event.get("type") == "done" for event in events)
 
         with pytest.raises(ValueError, match="不存在或当前用户无访问权限"):
@@ -415,5 +417,83 @@ def test_research_agent_catalog_and_preview_creation_are_bounded(tmp_path: Path)
         assert '"execution_mode": "preview"' in allowed.output
         assert '"runner_type": "python"' in allowed.output
         assert allowed.metadata["mutating"] is True
+    finally:
+        db.close()
+
+
+def test_research_run_summary_exposes_safe_output_references(tmp_path: Path) -> None:
+    db = _new_db(tmp_path)
+    try:
+        owner, _member, _stranger, project = _create_project(db)
+        from app.db.models import FormulaSpec, ResearchDataSnapshot, ResearchExperiment, ResearchRun
+        from app.services.agent_tools import tool_research_run_summary
+
+        snapshot = ResearchDataSnapshot(
+            project_id=project.id,
+            name="summary snapshot",
+            description="test",
+            asset_ids_json=[],
+            snapshot_hash="a" * 64,
+        )
+        formula = FormulaSpec(
+            project_id=project.id,
+            name="summary formula",
+            version=1,
+            status="draft",
+            spec_json={"operation": "normalized_difference_threshold"},
+            evidence_card_ids_json=[],
+        )
+        db.add_all([snapshot, formula])
+        db.commit()
+        db.refresh(snapshot)
+        db.refresh(formula)
+        experiment = ResearchExperiment(
+            project_id=project.id,
+            formula_spec_id=formula.id,
+            data_snapshot_id=snapshot.id,
+            name="summary preview",
+            runner_type="python",
+            execution_mode="preview",
+            status="completed",
+        )
+        db.add(experiment)
+        db.commit()
+        db.refresh(experiment)
+        run = ResearchRun(
+            project_id=project.id,
+            experiment_id=experiment.id,
+            runner_type="python",
+            status="completed",
+            run_token="b" * 32,
+            run_dir="C:/private/research-runs/run-1",
+            manifest_json={"validation_metrics": {"f1": 0.8}},
+            outputs_json=[
+                {
+                    "kind": "classification_preview",
+                    "file_name": "classification.png",
+                    "uri": "C:/private/research-runs/run-1/classification.png",
+                    "size": 128,
+                },
+                {
+                    "kind": "feature_raster",
+                    "file_name": "C:/private/research-runs/run-1/feature.tif",
+                    "uri": "C:/private/research-runs/run-1/feature.tif",
+                    "size": 256,
+                },
+            ],
+        )
+        db.add(run)
+        db.commit()
+
+        result = tool_research_run_summary(db, project.id, owner.id, run_id=run.id)
+        summary = result.metadata["runs"][0]
+        assert result.metadata["research_run"] is True
+        assert summary["status"] == "completed"
+        assert [item["file_name"] for item in summary["outputs"]] == ["classification.png", "feature.tif"]
+        assert summary["outputs"][0]["previewable"] is True
+        assert summary["outputs"][1]["previewable"] is False
+        assert summary["validation_metrics"]["f1"] == 0.8
+        assert "C:/private" not in json.dumps(result.metadata, ensure_ascii=False)
+        assert "C:/private" not in result.output
     finally:
         db.close()

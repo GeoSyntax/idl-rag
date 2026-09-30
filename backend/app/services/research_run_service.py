@@ -917,7 +917,15 @@ class ResearchRunService:
         safe_name = Path(file_name).name
         if safe_name != file_name:
             raise LookupError("研究运行产物不存在。")
-        allowed_names = {str(item.get("file_name")) for item in run.outputs_json if item.get("file_name")}
+        # Output manifests are generated internally, but normalize the stored
+        # name before comparing it with the browser request. This keeps the
+        # public reference basename-only even if an older manifest recorded a
+        # path-like file_name.
+        allowed_names = {
+            Path(str(item.get("file_name"))).name
+            for item in run.outputs_json
+            if item.get("file_name")
+        }
         if safe_name not in allowed_names:
             raise LookupError("研究运行产物不存在。")
         run_dir = get_app_settings().research_runs_dir / f"project-{project_id}" / run.run_token

@@ -1451,6 +1451,109 @@ body { min-height: 100dvh; }
   overflow: hidden;
 }
 
+.chat-research-run-summary {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 10px;
+  padding: 8px;
+  border: 1px solid #bae6fd;
+  border-radius: var(--radius);
+  background: #f0f9ff;
+}
+
+.chat-research-run-title {
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chat-research-run-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #dbeafe;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.chat-research-run-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-research-run-meta strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.chat-research-run-metrics {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: #0369a1;
+  font-size: 11px;
+}
+
+.chat-research-run-metrics span {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: #e0f2fe;
+}
+
+.chat-research-run-metrics strong {
+  color: #075985;
+}
+
+.chat-research-run-outputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 6px;
+}
+
+.chat-research-run-output {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-research-run-output-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.chat-research-run-output img {
+  display: block;
+  width: 100%;
+  max-height: 140px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  background: var(--surface);
+}
+
+.chat-research-run-empty {
+  margin: 6px 0 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 /* ── Input area ── */
 .chat-input-area {
   flex-shrink: 0;

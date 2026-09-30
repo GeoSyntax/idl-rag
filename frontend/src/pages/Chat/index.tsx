@@ -426,7 +426,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             streamTerminalRef.current = true
             // 先移除临时流，再加载已落盘消息，避免同一答案短暂出现两次。
-            setAgentSteps([])
+            // Agent 步骤保留在当前页面，方便用户在最终回答后继续查看运行追踪。
             finishStream()
             void loadCompletedSession(newSessionId, requestId)
           },
@@ -470,6 +470,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
                 tool: stepEvent.tool,
                 args: stepEvent.args,
                 output: stepEvent.output,
+                metadata: stepEvent.metadata,
               },
             ])
           },
@@ -479,7 +480,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           onDone: (newSessionId: number) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             streamTerminalRef.current = true
-            setAgentSteps([])
+            // 保留 Agent 步骤，让研究运行卡片在最终回答落盘后仍可查看。
             finishStream()
             void loadCompletedSession(newSessionId, requestId)
           },
