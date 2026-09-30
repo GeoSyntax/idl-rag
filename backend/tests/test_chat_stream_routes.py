@@ -131,6 +131,38 @@ def test_agent_stream_emits_error_when_provider_ends_without_terminal(
     assert payloads[-1]["message"] == "Agent 流式请求未返回完成事件，请重试。"
 
 
+def test_agent_stream_terminal_event_contains_safe_timing_provenance(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The UI can correlate one run without receiving private request data."""
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.api.routes import chat
+    from app.main import create_app
+
+    async def completed_stream(db, payload, user_id):
+        yield {"type": "token", "content": "完成"}
+        yield {"type": "done", "session_id": 19, "citations": [], "artifacts": []}
+
+    monkeypatch.setattr(chat.service, "agent_answer_stream_async", completed_stream)
+
+    with TestClient(create_app()) as client:
+        registered = _register(client, username="provenance-reviewer")
+        response = client.post(
+            "/api/chat/agent-stream",
+            json={"question": "测试运行元数据"},
+            headers=_headers(registered["access_token"]),
+        )
+
+    payloads = _sse_payloads(response.text)
+    terminal = payloads[-1]
+    assert terminal["type"] == "done"
+    assert len(terminal["stream_id"]) == 12
+    assert terminal["server_elapsed_ms"] >= 0
+    assert "测试运行元数据" not in json.dumps(terminal, ensure_ascii=False)
+    assert "private" not in json.dumps(terminal, ensure_ascii=False).lower()
+
+
 @pytest.mark.asyncio
 async def test_agent_stream_persists_cancelled_request_and_does_not_emit_fallback(
     monkeypatch, tmp_path: Path

@@ -29,7 +29,7 @@ import type {
 import { DisplayEmpty, InlineIllustration } from '../../components/DisplayPrimitives'
 import { KnowledgeStatusBar, MessageList, ResearchContextBar } from './components'
 import { useKnowledgeStatus } from './hooks'
-import type { AgentStepItem, AttachedFile } from './types'
+import type { AgentRunMeta, AgentStepItem, AttachedFile } from './types'
 
 type ChatPageProps = {
   knowledgeBases: KnowledgeBase[]
@@ -61,6 +61,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [streamError, setStreamError] = useState('')
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
   const [agentRunComplete, setAgentRunComplete] = useState(false)
+  const [agentRunMeta, setAgentRunMeta] = useState<AgentRunMeta | null>(null)
   const [chatMode, setChatMode] = useState<'normal' | 'agent'>('normal')
   const [fixTarget, setFixTarget] = useState<{ artifactId: string; fileName: string } | null>(null)
   const [generateProFile, setGenerateProFile] = useState(false)
@@ -210,6 +211,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setIsStreaming(false)
     setAgentSteps([])
     setAgentRunComplete(false)
+    setAgentRunMeta(null)
     setFixTarget(null)
     setGenerateProFile(false)
     setInputValue('')
@@ -238,6 +240,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setIsStreaming(false)
     setAgentSteps([])
     setAgentRunComplete(false)
+    setAgentRunMeta(null)
     setFixTarget(null)
     setGenerateProFile(false)
     setInputValue('')
@@ -262,6 +265,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setIsStreaming(false)
       setAgentSteps([])
       setAgentRunComplete(false)
+      setAgentRunMeta(null)
       setFixTarget(null)
       setGenerateProFile(false)
       setAttachedFile(null)
@@ -368,6 +372,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setStreamError('')
     setAgentSteps([])
     setAgentRunComplete(false)
+    setAgentRunMeta(null)
     stepIdRef.current = 0
     setInputValue('')
     if (inputRef.current) {
@@ -424,6 +429,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
     streamTerminalRef.current = true
     setAgentRunComplete(false)
+    setAgentRunMeta(null)
     setStreamError(errorMsg)
     messageApi.error(errorMsg)
     finishStream()
@@ -434,6 +440,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     if (streamTerminalRef.current && (err as Error).name !== 'AbortError') return
     streamTerminalRef.current = true
     setAgentRunComplete(false)
+    setAgentRunMeta(null)
     if ((err as Error).name !== 'AbortError') {
       const message = (err as Error).message || fallback
       setStreamError(message)
@@ -514,9 +521,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           onToken: (content: string) => {
             appendStreamingText(content, requestId)
           },
-          onDone: (newSessionId: number) => {
+          onDone: (event) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             streamTerminalRef.current = true
+            const newSessionId = event.session_id
+            setAgentRunMeta({
+              streamId: event.stream_id ?? null,
+              serverElapsedMs: event.server_elapsed_ms ?? null,
+              firstTokenMs: event.first_token_ms ?? null,
+            })
             // 保留 Agent 步骤，让研究运行卡片在最终回答落盘后仍可查看。
             finishStream()
             void loadCompletedSession(newSessionId, requestId, true)
@@ -542,6 +555,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     streamTerminalRef.current = true
     abortRef.current?.abort()
     setAgentRunComplete(false)
+    setAgentRunMeta(null)
     setStreamError('生成已停止，未保存完整回答。')
     finishStream()
     messageApi.info('已停止生成')
@@ -939,6 +953,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             messages={messages}
             agentSteps={agentSteps}
             agentRunComplete={agentRunComplete}
+            agentRunMeta={agentRunMeta}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             streamError={streamError}

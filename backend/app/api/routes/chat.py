@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
@@ -41,6 +42,29 @@ idl_execution_service = IdlExecutionService()
 retrieval_service = RetrievalService()
 
 SUPPORTED_UPLOAD_SUFFIXES = {".pdf", ".md", ".markdown", ".txt", ".pro", ".idl"}
+
+
+def _decorate_stream_event(
+    event: dict,
+    *,
+    stream_id: str,
+    started_at: float,
+    first_token_ms: float | None,
+) -> dict:
+    """Attach bounded, non-sensitive provenance to one SSE event.
+
+    The identifier is only a correlation handle for the current request; it
+    does not contain user, project, path, prompt, or provider credentials.
+    Terminal events additionally carry server timing so the UI can explain a
+    slow Agent run without exposing internal logs.
+    """
+    decorated = dict(event)
+    decorated.setdefault("stream_id", stream_id)
+    if decorated.get("type") in {"done", "error"}:
+        decorated["server_elapsed_ms"] = round((time.perf_counter() - started_at) * 1000, 1)
+        if first_token_ms is not None:
+            decorated["first_token_ms"] = round(first_token_ms, 1)
+    return decorated
 
 
 def _persist_chat_request_log(
@@ -197,6 +221,7 @@ async def ask_question_stream(
     """真异步 SSE 流式端点 — 使用 AsyncClient 避免阻塞事件循环。"""
     async def event_generator():
         started_at = time.perf_counter()
+        stream_id = uuid4().hex[:12]
         first_token_ms: float | None = None
         has_error = False
         terminal_sent = False
@@ -218,7 +243,7 @@ async def ask_question_stream(
                     artifact_count = len(token.get("artifacts", []))
                 if token.get("type") == "error":
                     terminal_sent = True
-                yield f"data: {json.dumps(token, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(token, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
             raise
@@ -228,12 +253,12 @@ async def ask_question_stream(
             if not terminal_sent:
                 error_event = {"type": "error", "message": str(exc) or "流式请求失败"}
                 terminal_sent = True
-                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         else:
             if not terminal_sent:
                 has_error = True
                 error_event = {"type": "error", "message": "流式请求未返回完成事件，请重试。"}
-                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
                 current_user.id,
@@ -273,6 +298,7 @@ async def agent_stream(
     """Agent 模式 SSE 端点 — 支持任务拆解、工具调用、多轮迭代。"""
     async def event_generator():
         started_at = time.perf_counter()
+        stream_id = uuid4().hex[:12]
         first_token_ms: float | None = None
         has_error = False
         terminal_sent = False
@@ -294,7 +320,7 @@ async def agent_stream(
                     artifact_count = len(event.get("artifacts", []))
                 if event.get("type") == "error":
                     terminal_sent = True
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
             raise
@@ -304,12 +330,12 @@ async def agent_stream(
             if not terminal_sent:
                 error_event = {"type": "error", "message": str(exc) or "Agent 流式请求失败"}
                 terminal_sent = True
-                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         else:
             if not terminal_sent:
                 has_error = True
                 error_event = {"type": "error", "message": "Agent 流式请求未返回完成事件，请重试。"}
-                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
                 current_user.id,

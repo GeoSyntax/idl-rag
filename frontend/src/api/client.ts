@@ -766,7 +766,7 @@ export const api = {
     callbacks: {
       onStep: (step: AgentStreamEvent) => void
       onToken: (content: string) => void
-      onDone: (sessionId: number, citations: unknown[], artifacts: unknown[]) => void
+      onDone: (event: Extract<AgentStreamEvent, { type: 'done' }>) => void
       onError: (message: string) => void
     },
     signal?: AbortSignal,
@@ -797,7 +797,7 @@ export const api = {
       } else if (event.type === 'token') {
         callbacks.onToken(event.content)
       } else if (event.type === 'done') {
-        callbacks.onDone(event.session_id, event.citations, event.artifacts)
+        callbacks.onDone(event)
       } else if (event.type === 'error') {
         callbacks.onError(event.message)
       }

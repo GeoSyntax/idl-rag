@@ -323,9 +323,9 @@ export type DashboardSummary = {
 }
 
 export type StreamEvent =
-  | { type: 'token'; content: string }
-  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[] }
-  | { type: 'error'; message: string }
+  | { type: 'token'; content: string; stream_id?: string }
+  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
+  | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
 
 export type AgentStep =
   | { step: 'thinking'; content: string }
@@ -335,10 +335,10 @@ export type AgentStep =
   | { step: 'error'; content: string }
 
 export type AgentStreamEvent =
-  | { type: 'step'; step: string; content?: string; tool?: string; args?: Record<string, unknown>; output?: string; metadata?: Record<string, unknown> }
-  | { type: 'token'; content: string }
-  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[] }
-  | { type: 'error'; message: string }
+  | { type: 'step'; step: string; content?: string; tool?: string; args?: Record<string, unknown>; output?: string; metadata?: Record<string, unknown>; stream_id?: string }
+  | { type: 'token'; content: string; stream_id?: string }
+  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
+  | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
 
 export type AgentChatRequest = {
   knowledge_base_ids?: number[]

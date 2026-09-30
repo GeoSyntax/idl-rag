@@ -1592,6 +1592,30 @@ body { min-height: 100dvh; }
   border-top: 1px solid var(--border);
 }
 
+.chat-agent-run-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 9px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.chat-agent-run-meta span + span {
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
+.chat-agent-stream-id {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .chat-agent-collapse .ant-collapse-content-box {
   max-height: 240px;
   overflow: auto;

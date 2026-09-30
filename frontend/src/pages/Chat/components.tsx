@@ -6,7 +6,7 @@ import type { RefObject } from 'react'
 import { api } from '../../api/client'
 import type { ChatArtifact, ChatMessage, Citation, ResearchProject, ResearchProtocolReadiness } from '../../api/types'
 import { DisplayPlaceholder, FileTypeBadge, MetricSummary } from '../../components/DisplayPrimitives'
-import type { AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
+import type { AgentRunMeta, AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
 
 export function KnowledgeStatusBar({
   loading,
@@ -106,6 +106,7 @@ export function MessageList({
   messages,
   agentSteps,
   agentRunComplete,
+  agentRunMeta,
   isStreaming,
   streamingContent,
   streamError,
@@ -119,6 +120,7 @@ export function MessageList({
   messages: ChatMessage[]
   agentSteps: AgentStepItem[]
   agentRunComplete: boolean
+  agentRunMeta: AgentRunMeta | null
   isStreaming: boolean
   streamingContent: string
   streamError: string
@@ -146,6 +148,7 @@ export function MessageList({
           key={msg.role + msg.id}
           message={msg}
           agentSteps={msg.id === lastAssistantMessageId ? traceSteps : []}
+          agentRunMeta={msg.id === lastAssistantMessageId ? agentRunMeta : null}
           onDownloadArtifact={onDownloadArtifact}
           onStartFix={onStartFix}
           onRunArtifact={onRunArtifact}
@@ -184,6 +187,7 @@ export function MessageList({
 function MessageBubble({
   message,
   agentSteps = [],
+  agentRunMeta = null,
   onDownloadArtifact,
   onStartFix,
   onRunArtifact,
@@ -192,6 +196,7 @@ function MessageBubble({
 }: {
   message: ChatMessage
   agentSteps?: AgentStepItem[]
+  agentRunMeta?: AgentRunMeta | null
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
@@ -238,6 +243,7 @@ function MessageBubble({
             <AgentStepList steps={agentSteps} />
           </div>
         )}
+        {agentRunMeta && <AgentRunMetaSummary meta={agentRunMeta} />}
       </div>
       {isUser && (
         <div className="chat-avatar chat-avatar-user">
@@ -453,6 +459,19 @@ function AgentStepList({ steps }: { steps: AgentStepItem[] }) {
     children: <StepContent step={step} showResearchSummary={step.id === latestResearchSummaryId} />,
   }))
   return <Collapse items={items} size="small" className="chat-agent-collapse" defaultActiveKey={items.length ? [items[items.length - 1].key] : []} />
+}
+
+function AgentRunMetaSummary({ meta }: { meta: AgentRunMeta }) {
+  const elapsed = typeof meta.serverElapsedMs === 'number' ? `${Math.round(meta.serverElapsedMs)}ms` : '-'
+  const firstToken = typeof meta.firstTokenMs === 'number' ? `${Math.round(meta.firstTokenMs)}ms` : '-'
+  return (
+    <div className="chat-agent-run-meta" aria-label="本次 Agent 运行信息">
+      <span>本次 Agent</span>
+      <span>服务端 {elapsed}</span>
+      <span>首 token {firstToken}</span>
+      {meta.streamId ? <span className="chat-agent-stream-id" title={`流 ID：${meta.streamId}`}>流 {meta.streamId}</span> : null}
+    </div>
+  )
 }
 
 function getStepLabel(step: AgentStepItem): string {

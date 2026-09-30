@@ -97,3 +97,11 @@
 - [x] 用 `teacher_review_0930` 对 `/api/chat/agent-stream` 做端到端回归：普通 Agent 为 57 个 token、1 个 `done`、0 个 `error`；研究项目 Agent 为 182 个 token、1 个 `done`、1 个工具调用、0 个 `error`，无引用时返回空 citations。
 - [x] 配置层读取 `.env` 并兼容 `IDLRAG_BASE_DIR=./data`，避免任务 runner 与 Uvicorn 使用不同密钥加密 Gemini2API 配置而造成 SSE 401。
 - [x] `AppLayout` 改为按认证后懒加载；前端生产构建的最大共享 chunk 从约 632KB（gzip 205KB）降到 476KB（gzip 153KB），并消除了 Vite 500KB warning。
+
+## 当前轮次进度（运行可观测性）
+
+- [x] 普通问答与 Agent SSE 为每次请求生成 12 位受控 `stream_id`；仅用于关联前端气泡、服务端日志和测试结果，不包含用户、项目、路径、提示词或密钥。
+- [x] `done`/`error` 终止事件携带服务端总耗时与首 token 耗时；服务端继续保证一轮请求只有一个终止事件，异常与截断流不会伪装成成功。
+- [x] 完成态 Agent 气泡显示“服务端耗时 / 首 token / 流 ID”摘要；切换会话、停止、失败和重新发送会清除旧摘要，避免旧运行信息串到新回答。
+- [x] 用本地 Gemini2API 做真实 Agent SSE 回归：HTTP 200、39 个事件、1 个 `done`、0 个 `error`，`stream_id` 长度 12，服务端耗时 48786.8ms、首 token 48677.0ms，未发现私有信息泄露。
+- [x] 后端目标测试 28 项通过，ruff 通过，前端生产构建通过；Lighthouse 快照 32/32 通过（Accessibility / Best Practices / SEO / Agentic Browsing 均 100）。

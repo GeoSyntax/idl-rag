@@ -10,6 +10,12 @@ export type AgentStepItem = {
   metadata?: Record<string, unknown>
 }
 
+export type AgentRunMeta = {
+  streamId: string | null
+  serverElapsedMs: number | null
+  firstTokenMs: number | null
+}
+
 export type AttachedFile = {
   name: string
   content: string
