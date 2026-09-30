@@ -187,6 +187,35 @@ class AgentService:
         return [citation for index, citation in enumerate(citations, start=1) if index in referenced]
 
     @staticmethod
+    def _normalize_citations_for_answer(answer: str, citations: list) -> tuple[str, list]:
+        """Keep only cited sources and renumber markers to match that list.
+
+        Retrieval candidates are numbered before the model answers. If the
+        model cites ``[2]`` but not ``[1]``, simply filtering the candidate
+        list would leave a dangling ``[2]`` in the persisted answer. Normalize
+        the answer and source list together so the UI can always map markers
+        to the visible source cards.
+        """
+        source_count = len(citations)
+        referenced_indices = sorted({
+            int(value)
+            for value in re.findall(r"\[(\d+)\]", answer or "")
+            if 1 <= int(value) <= source_count
+        })
+        if not referenced_indices:
+            return AgentService._sanitize_citation_markers(answer, []), []
+
+        renumber = {old: new for new, old in enumerate(referenced_indices, start=1)}
+
+        def replace(match: re.Match[str]) -> str:
+            mapped = renumber.get(int(match.group(1)))
+            return f"[{mapped}]" if mapped is not None else ""
+
+        normalized = re.sub(r"\[(\d+)\]", replace, answer or "")
+        kept = [citations[index - 1] for index in referenced_indices]
+        return normalized, kept
+
+    @staticmethod
     def _sanitize_citation_markers(answer: str, citations: list) -> str:
         """Remove citation markers that cannot be backed by displayed sources.
 
@@ -241,8 +270,7 @@ class AgentService:
                                                        attached_file_content=payload.attached_file_content)
 
         if not payload.generate_pro_file:
-            citations = self._citations_used_by_answer(answer, citations)
-            answer = self._sanitize_citation_markers(answer, citations)
+            answer, citations = self._normalize_citations_for_answer(answer, citations)
 
         assistant_message = ChatMessage(
             session_id=session.id,
@@ -356,8 +384,7 @@ class AgentService:
             artifacts_json = []
 
         if not payload.generate_pro_file:
-            citations = self._citations_used_by_answer(answer, citations)
-            answer = self._sanitize_citation_markers(answer, citations)
+            answer, citations = self._normalize_citations_for_answer(answer, citations)
 
         if cancel_event is not None and cancel_event.is_set():
             return
@@ -447,8 +474,7 @@ class AgentService:
             artifacts_json = []
 
         if not payload.generate_pro_file:
-            citations = self._citations_used_by_answer(answer, citations)
-            answer = self._sanitize_citation_markers(answer, citations)
+            answer, citations = self._normalize_citations_for_answer(answer, citations)
 
         assistant_message = ChatMessage(
             session_id=session.id,
@@ -836,8 +862,9 @@ class AgentService:
         # 只保留回答实际使用的候选来源，然后清理无法映射到来源的模型标记。
         answer_text = "\n\n".join(full_answer_parts)
         if not artifacts_json:
-            all_citations = self._citations_used_by_answer(answer_text, all_citations)
-        answer_text = self._sanitize_citation_markers(answer_text, all_citations)
+            answer_text, all_citations = self._normalize_citations_for_answer(answer_text, all_citations)
+        else:
+            answer_text = self._sanitize_citation_markers(answer_text, all_citations)
 
         # Remote final text may already have been streamed through the async
         # queue. Local/structured fallbacks still emit the sanitized answer

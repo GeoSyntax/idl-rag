@@ -162,7 +162,7 @@ export function MessageList({
           runningArtifactId={runningArtifactId}
         />
       ))}
-      {(isStreaming || (agentSteps.length > 0 && !traceAttachedToMessage) || Boolean(streamError)) && (
+      {(isStreaming || (agentSteps.length > 0 && !traceAttachedToMessage && !agentRunComplete) || Boolean(streamError)) && (
         <div className="chat-msg chat-msg-assistant">
           <div className="chat-avatar chat-avatar-assistant">
             <RobotOutlined />

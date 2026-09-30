@@ -681,3 +681,46 @@ def test_only_answered_citation_markers_are_kept() -> None:
 
     assert [item.chunk_id for item in kept] == [2]
     assert AgentService._citations_used_by_answer("没有引用标记。", citations) == []
+
+
+def test_citation_markers_are_renumbered_after_unused_candidates_are_removed() -> None:
+    from app.api.schemas import Citation
+    from app.services.agent_service import AgentService
+
+    citations = [
+        Citation(chunk_id=1, document_id=1, file_name="first.md", file_path="first.md", excerpt="first"),
+        Citation(chunk_id=2, document_id=1, file_name="second.md", file_path="second.md", excerpt="second"),
+        Citation(chunk_id=3, document_id=1, file_name="third.md", file_path="third.md", excerpt="third"),
+    ]
+
+    answer, kept = AgentService._normalize_citations_for_answer("结论来自 [2] 和 [3]。", citations)
+
+    assert answer == "结论来自 [1] 和 [2]。"
+    assert [item.chunk_id for item in kept] == [2, 3]
+
+
+def test_citation_normalization_removes_orphan_markers() -> None:
+    from app.api.schemas import Citation
+    from app.services.agent_service import AgentService
+
+    citation = Citation(chunk_id=1, document_id=1, file_name="first.md", file_path="first.md", excerpt="first")
+    answer, kept = AgentService._normalize_citations_for_answer("没有来源 [9]。", [citation])
+
+    assert answer == "没有来源 。"
+    assert kept == []
+
+
+def test_empty_remote_stream_uses_non_empty_local_fallback(monkeypatch) -> None:
+    from app.services.llm_service import LlmService
+
+    service = LlmService()
+    monkeypatch.setattr(
+        "app.services.llm_service.get_runtime_settings",
+        lambda _db: type("Settings", (), {"api_key": "configured"})(),
+    )
+    monkeypatch.setattr(service, "_generate_remote_answer_stream", lambda *args, **kwargs: iter(()))
+
+    tokens = list(service.generate_answer_stream(None, "解释 MNDWI", []))
+
+    assert tokens
+    assert "没有在当前知识库中找到足够依据" in tokens[0]

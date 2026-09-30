@@ -570,6 +570,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             streamTerminalRef.current = true
             const newSessionId = event.session_id
+            // Mark completion before clearing the transient stream. While the
+            // persisted assistant message is fetched, suppress the trace-only
+            // bubble so a completed answer never looks like a second response.
+            setAgentRunComplete(true)
             setAgentRunMeta({
               streamId: event.stream_id ?? null,
               serverElapsedMs: event.server_elapsed_ms ?? null,

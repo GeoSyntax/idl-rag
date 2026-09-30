@@ -159,7 +159,14 @@ class LlmService:
         history = recent_messages or []
         if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
-                yield from self._generate_remote_answer_stream(settings, question, citations, history, attached_file_content)
+                emitted_content = False
+                for token in self._generate_remote_answer_stream(
+                    settings, question, citations, history, attached_file_content,
+                ):
+                    emitted_content = True
+                    yield token
+                if not emitted_content:
+                    yield self._generate_local_answer(question, citations, history)
                 return
             except httpx.HTTPStatusError as exc:
                 status_code = exc.response.status_code
@@ -221,6 +228,7 @@ class LlmService:
         }
         t0 = time.perf_counter()
         first_token_ms: float | None = None
+        emitted_content = False
         with httpx.Client(timeout=120.0) as client:
             with client.stream(
                 "POST",
@@ -240,6 +248,7 @@ class LlmService:
                         delta = chunk["choices"][0].get("delta", {})
                         content = delta.get("content", "")
                         if content:
+                            emitted_content = True
                             if first_token_ms is None:
                                 first_token_ms = (time.perf_counter() - t0) * 1000
                             yield content
@@ -249,6 +258,12 @@ class LlmService:
             "first_token_ms": first_token_ms,
             "total_ms": (time.perf_counter() - t0) * 1000,
         }
+        if not emitted_content:
+            # A gateway can return a syntactically valid stream containing
+            # only role/finish chunks. Treat that as an upstream failure so
+            # the caller uses its explicit local fallback instead of saving
+            # an empty assistant message and emitting a false `done`.
+            raise RuntimeError("模型服务返回空内容")
 
     def generate_pro_file(
         self,
@@ -872,10 +887,14 @@ class LlmService:
         history = recent_messages or []
         if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
+                emitted_content = False
                 async for token in self._generate_remote_answer_stream_async(
                     settings, question, citations, history, attached_file_content,
                 ):
+                    emitted_content = True
                     yield token
+                if not emitted_content:
+                    yield self._generate_local_answer(question, citations, history)
                 return
             except httpx.HTTPStatusError as exc:
                 status_code = exc.response.status_code
@@ -936,6 +955,7 @@ class LlmService:
         }
         t0 = time.perf_counter()
         first_token_ms: float | None = None
+        emitted_content = False
         async with httpx.AsyncClient(timeout=120.0) as client:
             async with client.stream(
                 "POST",
@@ -955,6 +975,7 @@ class LlmService:
                         delta = chunk["choices"][0].get("delta", {})
                         content = delta.get("content", "")
                         if content:
+                            emitted_content = True
                             if first_token_ms is None:
                                 first_token_ms = (time.perf_counter() - t0) * 1000
                             yield content
