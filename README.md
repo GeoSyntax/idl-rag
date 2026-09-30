@@ -66,24 +66,49 @@ Agent 会先检索相关资料，再整理数据、公式和参数，生成 Pyth
 
 这些图片只是实验结果的一部分。平台还会保留使用的资料、公式、参数、运行日志和输出文件，方便之后重新检查。
 
+## Workflow 架构
+
+平台把“资料依据”和“实验执行”分开，但用同一个研究项目把它们连起来：
+
+```mermaid
+flowchart LR
+  Q[研究问题] --> C[研究项目上下文]
+  P[论文 / 遥感资料 / IDL代码] --> RAG[项目 RAG]
+  G[GEE 数据] --> DATA[数据目录与冻结快照]
+  L[本地 GeoTIFF] --> DATA
+  C --> AGENT[Agent：检索、解释、生成代码]
+  RAG --> AGENT
+  DATA --> AGENT
+  AGENT --> REVIEW[用户确认公式、参数和运行方式]
+  REVIEW --> PY[Python / Rasterio / GDAL]
+  REVIEW --> IDL[IDL -batch / ENVI batch]
+  PY --> OUT[阶段影像 / GeoTIFF / 指标 / 日志]
+  IDL --> OUT
+  OUT --> EVIDENCE[运行记录与证据包]
+  EVIDENCE --> CHECK[老师或研究者复核]
+  CHECK -->|修改公式或参数| Q
+```
+
+GEE 和本地数据都会先进入数据目录，经过确认后才能成为实验输入；RAG 只负责提供资料依据和代码上下文，不会把未经确认的搜索结果自动当成结论。Python 是默认实验路线，IDL 是可选的本地兼容和对照路线。接入步骤见 [`docs/integrations.md`](./docs/integrations.md)。
+
 ## 页面长什么样？
 
 <table>
   <tr>
-    <td><img src="./docs/assets/showcase/workspace.png" alt="工作台" /></td>
-    <td><img src="./docs/assets/showcase/agent.png" alt="Agent 对话" /></td>
+    <td><img src="./docs/assets/showcase/research-workspace.svg" alt="鄱阳湖研究工作台" /></td>
+    <td><img src="./docs/assets/showcase/research-library.svg" alt="项目知识库" /></td>
   </tr>
   <tr>
-    <td align="center">工作台：资料和项目，从这里开始</td>
-    <td align="center">Agent 对话：问题、引用、代码和结果</td>
+    <td align="center">研究工作台：项目、数据快照和运行状态</td>
+    <td align="center">项目知识库：论文、遥感资料和代码</td>
   </tr>
   <tr>
-    <td><img src="./docs/assets/showcase/evidence.png" alt="检索证据" /></td>
-    <td><img src="./docs/assets/showcase/result.png" alt="影像结果" /></td>
+    <td><img src="./docs/assets/showcase/research-agent.svg" alt="Agent 研究助手" /></td>
+    <td><img src="./docs/assets/showcase/research-run.svg" alt="实验运行与影像证据" /></td>
   </tr>
   <tr>
-    <td align="center">检索证据：每条回答都有来源</td>
-    <td align="center">影像结果：阶段图和输出文件</td>
+    <td align="center">Agent：问题、引用、公式和代码</td>
+    <td align="center">实验运行：阶段图、日志和科研提示</td>
   </tr>
 </table>
 
@@ -120,6 +145,7 @@ npm run dev --prefix frontend
 ## 进一步了解
 
 - [研究工作流设计](./docs/research-workflow-platform-plan.md)
+- [Workflow 架构图与数据流](./docs/workflow-architecture.md)
 - [本地演示步骤](./docs/demo.md)
 - [鄱阳湖真实案例](./docs/real-research-case-poyang.md)
 - [配置说明](./docs/configuration.md)

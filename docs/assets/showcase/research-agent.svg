@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <rect width="1440" height="900" fill="#eef3f5"/>
+  <rect width="238" height="900" fill="#132334"/>
+  <text x="34" y="48" fill="#f4f7f8" font-family="Microsoft YaHei, sans-serif" font-size="23" font-weight="700">IDL RAG Panel</text>
+  <text x="34" y="76" fill="#91a6b6" font-family="Microsoft YaHei, sans-serif" font-size="13">遥感研究工作台</text>
+  <text x="42" y="160" fill="#b7c7d2" font-family="Microsoft YaHei, sans-serif" font-size="15">研究项目</text>
+  <text x="42" y="214" fill="#b7c7d2" font-family="Microsoft YaHei, sans-serif" font-size="15">知识库</text>
+  <text x="42" y="268" fill="#b7c7d2" font-family="Microsoft YaHei, sans-serif" font-size="15">数据目录</text>
+  <rect x="18" y="294" width="202" height="44" rx="6" fill="#1c9c8c"/>
+  <text x="42" y="322" fill="#ffffff" font-family="Microsoft YaHei, sans-serif" font-size="15">Agent 对话</text>
+  <text x="42" y="376" fill="#b7c7d2" font-family="Microsoft YaHei, sans-serif" font-size="15">实验运行</text>
+  <text x="42" y="430" fill="#b7c7d2" font-family="Microsoft YaHei, sans-serif" font-size="15">设置</text>
+  <text x="270" y="52" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="13">Agent 对话 / 鄱阳湖水体提取</text>
+  <text x="270" y="98" fill="#152638" font-family="Microsoft YaHei, sans-serif" font-size="28" font-weight="700">研究助手</text>
+  <text x="270" y="126" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="14">当前项目：鄱阳湖水体提取 · 已绑定 3 个知识库</text>
+  <rect x="270" y="158" width="278" height="638" rx="8" fill="#ffffff" stroke="#dbe5e8"/>
+  <text x="294" y="196" fill="#152638" font-family="Microsoft YaHei, sans-serif" font-size="16" font-weight="700">研究上下文</text>
+  <text x="294" y="238" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="12">项目</text><text x="294" y="260" fill="#152638" font-family="Microsoft YaHei, sans-serif" font-size="14">鄱阳湖水体提取</text>
+  <text x="294" y="306" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="12">数据快照</text><text x="294" y="328" fill="#152638" font-family="Microsoft YaHei, sans-serif" font-size="14">Sentinel-2 B03 / B11</text><text x="294" y="350" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="12">10 m · 2024-10 · ROI frozen</text>
+  <text x="294" y="396" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="12">当前公式</text><text x="294" y="420" fill="#152638" font-family="Consolas, monospace" font-size="14">MNDWI = (B03-B11)</text><text x="294" y="442" fill="#152638" font-family="Consolas, monospace" font-size="14">        / (B03+B11)</text>
+  <text x="294" y="488" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="12">可用资料</text>
+  <rect x="294" y="506" width="226" height="34" rx="5" fill="#edf7f5"/><text x="306" y="528" fill="#176b5f" font-family="Microsoft YaHei, sans-serif" font-size="12">论文与方法 · 32</text>
+  <rect x="294" y="548" width="226" height="34" rx="5" fill="#edf7f5"/><text x="306" y="570" fill="#176b5f" font-family="Microsoft YaHei, sans-serif" font-size="12">遥感资料 · 18</text>
+  <rect x="294" y="590" width="226" height="34" rx="5" fill="#edf7f5"/><text x="306" y="612" fill="#176b5f" font-family="Microsoft YaHei, sans-serif" font-size="12">IDL / Python 代码 · 14</text>
+  <rect x="574" y="158" width="790" height="638" rx="8" fill="#ffffff" stroke="#dbe5e8"/>
+  <rect x="602" y="192" width="694" height="104" rx="8" fill="#f4f7f8"/>
+  <text x="626" y="224" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="12">你</text>
+  <text x="626" y="254" fill="#152638" font-family="Microsoft YaHei, sans-serif" font-size="15">比较两个 MNDWI 阈值的水体提取结果，并生成可运行的 Python preview。</text>
+  <rect x="602" y="326" width="694" height="306" rx="8" fill="#f0f8f6" stroke="#d6ece6"/>
+  <text x="626" y="358" fill="#176b5f" font-family="Microsoft YaHei, sans-serif" font-size="12">Agent · 已检索 6 条资料</text>
+  <text x="626" y="397" fill="#152638" font-family="Microsoft YaHei, sans-serif" font-size="15">建议先用 MNDWI = (B03 - B11) / (B03 + B11)，</text>
+  <text x="626" y="425" fill="#152638" font-family="Microsoft YaHei, sans-serif" font-size="15">分别测试 threshold = 0.00 和 0.15。</text>
+  <text x="626" y="466" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="13">数据依据</text>
+  <rect x="706" y="447" width="218" height="30" rx="15" fill="#dcefeb"/><text x="720" y="467" fill="#176b5f" font-family="Microsoft YaHei, sans-serif" font-size="12">Sentinel-2 B03/B11 · 10 m</text>
+  <text x="626" y="510" fill="#6c7f8f" font-family="Microsoft YaHei, sans-serif" font-size="13">代码状态</text>
+  <rect x="706" y="491" width="150" height="30" rx="15" fill="#dcefeb"/><text x="720" y="511" fill="#176b5f" font-family="Microsoft YaHei, sans-serif" font-size="12">Python preview ready</text>
+  <text x="626" y="558" fill="#9a6b2b" font-family="Microsoft YaHei, sans-serif" font-size="13">注意：当前没有参考样本，不输出虚假的验证指标。</text>
+  <rect x="602" y="662" width="694" height="64" rx="8" fill="#ffffff" stroke="#cddcdf"/>
+  <text x="626" y="700" fill="#91a0aa" font-family="Microsoft YaHei, sans-serif" font-size="14">继续提问，或修改阈值、公式和输出要求…</text>
+  <rect x="1218" y="678" width="54" height="32" rx="6" fill="#1c9c8c"/><text x="1233" y="700" fill="#ffffff" font-family="Microsoft YaHei, sans-serif" font-size="14">发送</text>
+</svg>

@@ -144,37 +144,37 @@ On Windows ENVI/IDL 8.8, complete `.pro` execution must use a licensed command-l
 
 Shows corpus status, index status, worker status, and fallback embedding warnings.
 
-![Dashboard](./assets/showcase/workspace.png)
+![Research workspace](./assets/showcase/research-workspace.svg)
 
 ### 6.2 Knowledge Bases
 
 Manages knowledge bases, default retrieval strategy, `top_k`, and rerank settings.
 
-![Knowledge Bases](./assets/showcase/workspace.png)
+![Project library](./assets/showcase/research-library.svg)
 
 ### 6.3 Documents
 
 Shows the public synthetic `demo_spectral_indices.pro` document, index status, chunk count, and parser/chunker metadata.
 
-![Documents](./assets/showcase/ingest.png)
+![Project library](./assets/showcase/research-library.svg)
 
 ### 6.4 Chat
 
 Shows local IDL execution for a `.pro` artifact, including the run summary, exit code, duration, output image count, thumbnail, and full-image preview.
 
-![Chat](./assets/showcase/agent.png)
+![Research Agent](./assets/showcase/research-agent.svg)
 
 ### 6.5 RetrievalLab
 
 Runs a retrieval test for the same query and shows candidate chunks, strategy guidance, scores, and metadata entry points.
 
-![RetrievalLab](./assets/showcase/evidence.png)
+![Evidence](./assets/showcase/research-agent.svg)
 
 ### 6.6 Settings
 
 Configures the model provider, API base URL, model names, rerank, LangSmith, and evaluation reports.
 
-![Settings](./assets/showcase/settings.png)
+![Experiment run](./assets/showcase/research-run.svg)
 
 ## 7. Core Modules
 
