@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, datetime as datetime_type
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -7,6 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field
 class HealthResponse(BaseModel):
     status: str
     app_name: str
+
+
+class ReadinessResponse(BaseModel):
+    status: Literal["ready", "degraded"]
+    app_name: str
+    checks: dict[str, str] = Field(default_factory=dict)
 
 
 class SystemSettingsPayload(BaseModel):
@@ -163,6 +169,17 @@ class ChatRequest(BaseModel):
     generate_pro_file: bool = False
     attached_file_content: str | None = None
     input_artifact_ids: list[str] = Field(default_factory=list, max_length=8)
+    # Optional project context for the research-aware Agent. The project is
+    # always revalidated server-side against the authenticated user's
+    # ownership/membership before any project tool can run.
+    research_project_id: int | None = Field(default=None, ge=1)
+    allow_external_research: bool = False
+    # Explicit UI consent for bounded Agent mutations: create/queue a Python preview only after confirmation;
+    # formal/IDL execution, formula freezing and protocol edits remain researcher actions.
+    allow_research_execution: bool = False
+    # Separate consent for an outbound GEE request that creates a private
+    # DataAsset; it never implies permission to freeze a snapshot or run code.
+    allow_gee_fetch: bool = False
 
 
 class Citation(BaseModel):
@@ -347,6 +364,7 @@ class DashboardSummaryResponse(BaseModel):
     processing_index_job_count: int = 0
     failed_index_job_count: int = 0
     worker_alive: bool = False
+    worker_mode: Literal["embedded", "external", "disabled"] = "embedded"
     worker_last_error: str | None = None
     embedding_fallback_active: bool = False
     embedding_last_error: str | None = None
@@ -366,3 +384,481 @@ class DashboardSummaryResponse(BaseModel):
     avg_total_ms: float | None = None
     citation_coverage: float | None = None
     error_rate: float | None = None
+
+
+class ResearchProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    entry_mode: Literal["template", "open"] = "open"
+    protocol: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    protocol: dict[str, Any] | None = None
+
+
+class ResearchProtocolDraftRequest(BaseModel):
+    research_question: str = Field(min_length=8, max_length=3000)
+
+
+class ResearchProtocolDraftResponse(BaseModel):
+    protocol: dict[str, Any]
+    notice: str
+
+
+class ResearchProtocolRevisionResponse(BaseModel):
+    id: int
+    project_id: int
+    version: int
+    protocol: dict[str, Any]
+    protocol_hash: str
+    saved_by_user_id: int
+    created_at: datetime
+
+
+class ResearchProtocolReadinessItem(BaseModel):
+    code: str
+    path: str
+    message: str
+
+
+class ResearchProtocolReadinessResponse(BaseModel):
+    project_id: int
+    ready: bool
+    protocol_hash: str
+    protocol_revision_id: int | None
+    missing: list[ResearchProtocolReadinessItem] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchProjectResponse(BaseModel):
+    id: int
+    owner_user_id: int
+    name: str
+    description: str | None
+    entry_mode: Literal["template", "open"]
+    visibility: Literal["my"]
+    egress_policy: Literal["private-local"]
+    status: Literal["exploratory"]
+    protocol: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+
+class ResearchProjectMemberCreate(BaseModel):
+    username: str = Field(min_length=1, max_length=100)
+
+
+class ResearchProjectMemberResponse(BaseModel):
+    id: int
+    project_id: int
+    user_id: int
+    username: str
+    added_by_user_id: int
+    created_at: datetime
+
+
+class ResearchKnowledgeSourceCreate(BaseModel):
+    knowledge_base_id: int = Field(ge=1)
+    category: Literal["method", "idl_code", "python_code"]
+
+
+class ResearchKnowledgeSourceResponse(BaseModel):
+    id: int
+    project_id: int
+    knowledge_base_id: int
+    knowledge_base_name: str
+    category: Literal["method", "idl_code", "python_code"]
+    document_count: int
+    added_by_user_id: int
+    created_at: datetime
+
+
+class ResearchRagSearchResponse(BaseModel):
+    query: str
+    category: Literal["method", "idl_code", "python_code", "all"]
+    strategy: str
+    searched_knowledge_base_ids: list[int] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchProtocolEvidenceMapDraftRequest(ResearchProtocolDraftRequest):
+    """Request an editable protocol starter annotated with local project-RAG citations."""
+
+    category: Literal["method", "idl_code", "python_code", "all"] = "method"
+    top_k: int = Field(default=6, ge=1, le=20)
+    strategy: str = Field(default="hybrid_rrf_no_rerank", min_length=1, max_length=100)
+
+
+class ResearchProtocolEvidenceMapEntry(BaseModel):
+    citation: Citation
+    protocol_section: Literal["method_plan"] = "method_plan"
+    review_status: Literal["unverified"] = "unverified"
+    researcher_action: str
+
+
+class ResearchProtocolEvidenceMapDraftResponse(ResearchProtocolDraftResponse):
+    query: str
+    category: Literal["method", "idl_code", "python_code", "all"]
+    strategy: str
+    searched_knowledge_base_ids: list[int] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)
+    evidence_map: list[ResearchProtocolEvidenceMapEntry] = Field(default_factory=list)
+
+
+class ResearchDataAssetCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    asset_kind: Literal["raster", "vector", "table", "roi", "reference", "derived"]
+    source_type: Literal["local", "gee", "reference"]
+    source_uri: str = Field(min_length=1, max_length=4000)
+    sha256: str | None = Field(default=None, pattern=r"^[A-Fa-f0-9]{64}$")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchDataAssetResponse(BaseModel):
+    id: int
+    project_id: int
+    name: str
+    asset_kind: Literal["raster", "vector", "table", "roi", "reference", "derived"]
+    source_type: Literal["local", "gee", "reference"]
+    source_uri: str
+    sha256: str | None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    access_policy: Literal["private-local"]
+    created_at: datetime
+
+
+class ResearchRasterStackCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    asset_ids: list[int] = Field(min_length=2, max_length=8)
+    reference_asset_id: int | None = Field(default=None, ge=1)
+    band_names: list[str] = Field(default_factory=list, max_length=8)
+    resampling: Literal["nearest", "bilinear", "cubic"] = "bilinear"
+
+
+class ResearchGeeFetchRequest(BaseModel):
+    dataset_id: str = Field(min_length=1, max_length=200)
+    start_date: str | None = Field(default=None, max_length=20)
+    end_date: str | None = Field(default=None, max_length=20)
+    bbox: list[float] = Field(min_length=4, max_length=4)
+    bands: list[str] = Field(default_factory=list, max_length=12)
+    scale: int = Field(default=30, ge=1, le=10000)
+    crs: str = Field(default="EPSG:4326", min_length=1, max_length=40)
+    composite: Literal["median", "mean", "first"] = "median"
+    label: str | None = Field(default=None, max_length=80)
+
+
+class ResearchGeeFetchResponse(BaseModel):
+    asset: ResearchDataAssetResponse
+    notice: str
+
+
+class ResearchDataSnapshotCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    asset_ids: list[int] = Field(min_length=1, max_length=100)
+
+
+class ResearchDataSnapshotResponse(BaseModel):
+    id: int
+    project_id: int
+    name: str
+    description: str | None
+    asset_ids: list[int]
+    snapshot_hash: str
+    is_frozen: Literal[True]
+    frozen_at: datetime
+    created_at: datetime
+
+
+class EvidenceCardCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    status: Literal["candidate", "verified", "imported", "experiment_pinned"] = "candidate"
+    source_type: Literal["paper", "official_document", "code", "dataset", "web"]
+    source_url: str | None = Field(default=None, max_length=4000)
+    doi: str | None = Field(default=None, max_length=255)
+    license_note: str | None = Field(default=None, max_length=5000)
+    applicability: str | None = Field(default=None, max_length=10000)
+    limitations: str | None = Field(default=None, max_length=10000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class EvidenceCardResponse(BaseModel):
+    id: int
+    project_id: int
+    title: str
+    status: Literal["candidate", "verified", "imported", "experiment_pinned"]
+    source_type: Literal["paper", "official_document", "code", "dataset", "web"]
+    source_url: str | None
+    doi: str | None
+    license_note: str | None
+    applicability: str | None
+    limitations: str | None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    retrieved_at: datetime
+    created_at: datetime
+
+
+class FormulaSpecCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    version: int = Field(default=1, ge=1, le=10000)
+    status: Literal["draft", "candidate", "frozen"] = "draft"
+    spec: dict[str, Any] = Field(default_factory=dict)
+    evidence_card_ids: list[int] = Field(default_factory=list, max_length=50)
+
+
+class FormulaSpecResponse(BaseModel):
+    id: int
+    project_id: int
+    name: str
+    version: int
+    status: Literal["draft", "candidate", "frozen"]
+    spec: dict[str, Any] = Field(default_factory=dict)
+    evidence_card_ids: list[int] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+class ResearchExperimentCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    formula_spec_id: int = Field(ge=1)
+    data_snapshot_id: int = Field(ge=1)
+    runner_type: Literal["python", "idl"] = "python"
+    execution_mode: Literal["preview", "formal"]
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    validation_plan: dict[str, Any] = Field(default_factory=dict)
+    visualization_contract: list[str] = Field(default_factory=list, max_length=50)
+
+
+class ResearchExperimentResponse(BaseModel):
+    id: int
+    project_id: int
+    formula_spec_id: int
+    data_snapshot_id: int
+    name: str
+    runner_type: Literal["python", "idl"]
+    execution_mode: Literal["preview", "formal"]
+    status: Literal["planned", "running", "completed", "failed", "cancelled", "unavailable"]
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    validation_plan: dict[str, Any] = Field(default_factory=dict)
+    visualization_contract: list[str] = Field(default_factory=list)
+    project_protocol_revision_id: int | None
+    project_protocol_hash: str
+    created_at: datetime
+
+
+class ResearchSweepCandidate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchParameterSweepCreate(BaseModel):
+    candidates: list[ResearchSweepCandidate] = Field(min_length=2, max_length=20)
+    evaluation_split: Literal["development", "model_selection"]
+    ranking_metric: Literal["overall_accuracy", "precision", "recall", "f1", "iou"] = "f1"
+
+
+class ResearchRunResponse(BaseModel):
+    id: int
+    project_id: int
+    experiment_id: int
+    runner_type: Literal["python", "idl"]
+    status: Literal["queued", "running", "completed", "failed", "cancelled", "unavailable"]
+    run_token: str
+    manifest: dict[str, Any] = Field(default_factory=dict)
+    outputs: list[dict[str, Any]] = Field(default_factory=list)
+    error_message: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    created_at: datetime
+
+
+class ResearchRunVerificationResponse(BaseModel):
+    run_id: int
+    run_token: str
+    status: Literal["verified", "failed", "not_available"]
+    verified: bool
+    package_file_name: str | None = None
+    package_sha256: str | None = None
+    checked_file_count: int = 0
+    output_count: int = 0
+    issues: list[str] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchRunReproducibilityRequest(BaseModel):
+    reference_run_id: int = Field(ge=1)
+    absolute_tolerance: float = Field(default=1e-6, ge=0, le=1e6)
+    relative_tolerance: float = Field(default=1e-6, ge=0, le=1e6)
+
+
+class ResearchRunReproducibilityResponse(BaseModel):
+    run_id: int
+    reference_run_id: int
+    status: Literal["matched", "failed"]
+    matched: bool
+    absolute_tolerance: float
+    relative_tolerance: float
+    compared_output_count: int = 0
+    exact_matches: list[str] = Field(default_factory=list)
+    raster_comparisons: list[dict[str, Any]] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchRunComparisonRequest(BaseModel):
+    reference_run_id: int = Field(ge=1)
+
+
+class ResearchRunComparisonResponse(BaseModel):
+    run_id: int
+    reference_run_id: int
+    run_kind: Literal["formal_comparison"]
+    status: Literal["compared", "failed"]
+    comparable: bool
+    snapshot_hash: str | None = None
+    compared_metric_count: int = 0
+    metrics: list[dict[str, Any]] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchLiteratureCandidate(BaseModel):
+    provider: Literal["crossref", "openalex", "semantic_scholar"]
+    external_id: str
+    title: str
+    authors: list[str] = Field(default_factory=list)
+    container_title: str | None = None
+    published_year: int | None = None
+    doi: str | None = None
+    source_url: str | None = None
+    item_type: str | None = None
+    abstract: str | None = None
+
+
+class ResearchLiteratureSearchResponse(BaseModel):
+    audit_id: int
+    provider: Literal["crossref", "openalex", "semantic_scholar"] = "crossref"
+    query: str
+    candidates: list[ResearchLiteratureCandidate] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchLiteratureCandidateImport(BaseModel):
+    audit_id: int = Field(ge=1)
+    candidate: ResearchLiteratureCandidate
+
+
+class ResearchLiteratureRagImport(BaseModel):
+    audit_id: int = Field(ge=1)
+    candidate: ResearchLiteratureCandidate
+    knowledge_base_id: int = Field(ge=1)
+    category: Literal["method"] = "method"
+
+
+class ResearchLiteratureRagImportResponse(BaseModel):
+    document: DocumentResponse
+    knowledge_base_id: int
+    category: Literal["method"]
+    notice: str
+
+
+class ResearchLiteratureNetworkRequest(BaseModel):
+    audit_id: int = Field(ge=1)
+    candidate: ResearchLiteratureCandidate
+    relation: Literal["citations", "references"] = "references"
+    limit: int = Field(default=10, ge=1, le=20)
+    offset: int = Field(default=0, ge=0, le=10_000)
+
+
+class ResearchLiteratureNetworkResponse(BaseModel):
+    audit_id: int
+    source_audit_id: int
+    source_candidate: ResearchLiteratureCandidate
+    relation: Literal["citations", "references"]
+    offset: int
+    next_offset: int | None = None
+    candidates: list[ResearchLiteratureCandidate] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchStacSearchRequest(BaseModel):
+    provider: Literal["planetary_computer", "earth_search"] = "planetary_computer"
+    collections: list[str] = Field(min_length=1, max_length=5)
+    bbox: list[float] = Field(min_length=4, max_length=4)
+    datetime_start: date | None = None
+    datetime_end: date | None = None
+    cloud_cover_max: float | None = Field(default=None, ge=0, le=100)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
+class ResearchStacAsset(BaseModel):
+    href: str = Field(min_length=1, max_length=4000)
+    title: str | None = None
+    media_type: str | None = None
+    roles: list[str] = Field(default_factory=list)
+
+
+class ResearchStacCandidate(BaseModel):
+    provider: Literal["planetary_computer", "earth_search"]
+    external_id: str
+    collection: str
+    datetime: datetime_type | None = None
+    cloud_cover: float | None = None
+    assets: dict[str, ResearchStacAsset] = Field(default_factory=dict)
+
+
+class ResearchStacSearchResponse(BaseModel):
+    audit_id: int
+    provider: Literal["planetary_computer", "earth_search"]
+    query: ResearchStacSearchRequest
+    candidates: list[ResearchStacCandidate] = Field(default_factory=list)
+    notice: str
+
+
+class ResearchStacCandidateImport(BaseModel):
+    audit_id: int = Field(ge=1)
+    candidate: ResearchStacCandidate
+    asset_key: str = Field(min_length=1, max_length=120)
+    name: str | None = Field(default=None, max_length=255)
+
+
+class ResearchStacDownloadRequest(ResearchStacCandidateImport):
+    crop_bbox: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    target_resolution: float | None = Field(default=None, gt=0, le=1_000_000)
+
+
+class ResearchStacDownloadResponse(BaseModel):
+    asset: ResearchDataAssetResponse
+    notice: str
+
+
+class ResearchValidationSampleCreate(BaseModel):
+    data_snapshot_id: int | None = Field(default=None, ge=1)
+    source_asset_id: int | None = Field(default=None, ge=1)
+    longitude: float = Field(ge=-180, le=180)
+    latitude: float = Field(ge=-90, le=90)
+    label: Literal[0, 1]
+    observed_at: datetime
+    annotator: str = Field(min_length=1, max_length=200)
+    confidence: float = Field(ge=0, le=1)
+    split: Literal["development", "model_selection", "independent_test"]
+    spatial_block: str = Field(min_length=1, max_length=120)
+    temporal_stratum: str = Field(min_length=1, max_length=120)
+    conflict_status: Literal["none", "flagged", "resolved"] = "none"
+    source_note: str = Field(min_length=1, max_length=5000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchValidationSampleResponse(ResearchValidationSampleCreate):
+    id: int
+    project_id: int
+    created_at: datetime
+
+
+class ResearchValidationSampleImportResponse(BaseModel):
+    imported_count: int = Field(ge=1)
+    samples: list[ResearchValidationSampleResponse]

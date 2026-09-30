@@ -42,6 +42,20 @@ More screenshots:
 
 See the full showcase in [`docs/project-showcase.en-US.md`](./docs/project-showcase.en-US.md). The default showcase is Chinese: [`docs/project-showcase.md`](./docs/project-showcase.md).
 
+## Real remote-sensing demo
+
+The repository also includes a real local `gemin2api` run on the Poyang Lake case. The Agent created and queued two Python previews, then the local research worker generated the MNDWI feature image, water mask, GeoTIFF outputs, and run manifest.
+
+<video controls muted loop playsinline poster="./docs/assets/demos/poyang-mndwi-preview-feature.png" width="720">
+  <source src="./docs/assets/demos/poyang-agent-demo.mp4" type="video/mp4">
+</video>
+
+![MNDWI feature preview](./docs/assets/demos/poyang-mndwi-preview-feature.png)
+
+![Water mask preview](./docs/assets/demos/poyang-mndwi-preview-mask.png)
+
+See the execution record and scientific limitations in [`docs/agent-demo-result.md`](./docs/agent-demo-result.md).
+
 ## Core Capabilities
 
 | Module | Capabilities |

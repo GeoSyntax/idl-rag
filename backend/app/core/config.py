@@ -2,6 +2,7 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,10 +34,29 @@ class AppSettings(BaseSettings):
     max_upload_files: int = 20
     max_upload_file_mb: int = 50
     max_upload_total_mb: int = 200
+    research_max_upload_file_mb: int = 512
+    research_literature_search_timeout_seconds: int = 15
+    research_literature_search_max_results: int = 20
+    semantic_scholar_api_key: str = ""
+    research_semantic_scholar_min_interval_seconds: float = Field(default=0.25, ge=0, le=60)
+    research_stac_search_timeout_seconds: int = 20
+    research_stac_search_max_results: int = 20
+    research_stac_allowed_hosts: str = "planetarycomputer.microsoft.com,earth-search.aws.element84.com,*.blob.core.windows.net"
+    research_stac_download_timeout_seconds: int = 120
+    research_stac_max_download_mb: int = 100
+    research_stac_max_output_pixels: int = 25_000_000
+    research_stac_range_cache_mb: int = 64
     max_pdf_pages: int = 300
     index_job_max_attempts: int = 3
     index_job_timeout_minutes: int = 30
-    idl_executable: str = "idlde"
+    index_worker_enabled: bool = True
+    index_worker_heartbeat_timeout_seconds: int = Field(default=30, ge=5, le=300)
+    research_run_timeout_minutes: int = Field(default=120, ge=1, le=1440)
+    # ``idl.exe`` is the command-line interpreter for project .pro wrappers.
+    # Workbench launchers (idlde/envi_idl) can exit without executing source
+    # and are rejected by the runners; deployments may override this with a
+    # licensed ENVI batch/SAV adapter.
+    idl_executable: str = "idl"
     idl_run_timeout_seconds: int = 30
     idl_run_max_stdout_chars: int = 20000
     idl_run_max_stderr_chars: int = 20000
@@ -117,8 +137,24 @@ class AppSettings(BaseSettings):
         return self.generated_dir / "chat"
 
     @property
+    def research_dir(self) -> Path:
+        return self.data_dir / "research"
+
+    @property
+    def research_assets_dir(self) -> Path:
+        return self.research_dir / "assets"
+
+    @property
+    def research_runs_dir(self) -> Path:
+        return self.research_dir / "runs"
+
+    @property
     def lancedb_dir(self) -> Path:
         return self.data_dir / "indexes" / "lancedb"
+
+    @property
+    def index_worker_heartbeat_path(self) -> Path:
+        return self.data_dir / "worker" / "index-worker-heartbeat.json"
 
     @property
     def ocr_cache_dir(self) -> Path:
@@ -143,6 +179,9 @@ def get_app_settings() -> AppSettings:
         settings.logs_dir,
         settings.generated_dir,
         settings.chat_artifacts_dir,
+        settings.research_dir,
+        settings.research_assets_dir,
+        settings.research_runs_dir,
         settings.lancedb_dir,
     ]:
         path.mkdir(parents=True, exist_ok=True)

@@ -30,6 +30,11 @@ _CHAT_SESSION_ALTER_STATEMENTS = {
 _CHAT_MESSAGE_ALTER_STATEMENTS = {
     "artifacts_json": "ALTER TABLE chat_messages ADD COLUMN artifacts_json JSON NOT NULL DEFAULT '[]'",
 }
+_RESEARCH_EXPERIMENT_ALTER_STATEMENTS = {
+    "project_protocol_revision_id": "ALTER TABLE research_experiments ADD COLUMN project_protocol_revision_id INTEGER",
+    "project_protocol_json": "ALTER TABLE research_experiments ADD COLUMN project_protocol_json JSON NOT NULL DEFAULT '{}'",
+    "project_protocol_hash": "ALTER TABLE research_experiments ADD COLUMN project_protocol_hash VARCHAR(64) NOT NULL DEFAULT ''",
+}
 
 
 @lru_cache(maxsize=1)
@@ -82,6 +87,7 @@ def init_database() -> None:
         _ensure_chat_session_columns(connection)
         _ensure_chat_message_columns(connection)
         _ensure_document_columns(connection)
+        _ensure_research_experiment_columns(connection)
         connection.execute(
             text(
                 """
@@ -116,6 +122,13 @@ def _ensure_chat_message_columns(connection: Connection) -> None:
 def _ensure_chat_session_columns(connection: Connection) -> None:
     existing_columns = _table_columns(connection, "chat_sessions")
     for column_name, statement in _CHAT_SESSION_ALTER_STATEMENTS.items():
+        if column_name not in existing_columns:
+            connection.exec_driver_sql(statement)
+
+
+def _ensure_research_experiment_columns(connection: Connection) -> None:
+    existing_columns = _table_columns(connection, "research_experiments")
+    for column_name, statement in _RESEARCH_EXPERIMENT_ALTER_STATEMENTS.items():
         if column_name not in existing_columns:
             connection.exec_driver_sql(statement)
 

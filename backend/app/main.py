@@ -1,67 +1,64 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime
 from threading import Event, Thread
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, chat, dashboard, documents, evaluation, health, knowledge_bases, settings, users
+from app.api.routes import (
+    auth,
+    chat,
+    dashboard,
+    documents,
+    evaluation,
+    health,
+    knowledge_bases,
+    research,
+    settings,
+    users,
+)
 from app.core.config import get_app_settings
-from app.db.database import get_index_session_factory, init_database
-from app.services.ingest_service import IngestService
+from app.db.database import init_database
+from app.index_worker import run_index_worker
 
 logger = logging.getLogger(__name__)
-
-
-def _run_index_worker(*, stop_event: Event, state: dict) -> None:
-    service = IngestService()
-    session_factory = get_index_session_factory()
-    state["started_at"] = datetime.utcnow().isoformat()
-    while not stop_event.is_set():
-        state["last_heartbeat_at"] = datetime.utcnow().isoformat()
-        db = session_factory()
-        processed = False
-        try:
-            processed = service.process_next_job(db)
-            if processed:
-                state["processed_count"] = int(state.get("processed_count") or 0) + 1
-        except Exception as exc:  # noqa: BLE001
-            db.rollback()
-            state["last_error"] = str(exc)[:500]
-            logger.exception("Index worker failed while processing a job.")
-        finally:
-            db.close()
-        if not processed:
-            stop_event.wait(0.2)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_database()
-    stop_event = Event()
+    settings = get_app_settings()
     worker_state = {
+        "mode": "embedded" if settings.index_worker_enabled else "external",
+        "status": "disabled" if not settings.index_worker_enabled else "starting",
         "started_at": None,
         "last_heartbeat_at": None,
         "last_error": None,
         "processed_count": 0,
     }
-    worker = Thread(
-        target=_run_index_worker,
-        kwargs={"stop_event": stop_event, "state": worker_state},
-        name="idl-rag-index-worker",
-        daemon=True,
-    )
-    app.state.index_worker_stop = stop_event
     app.state.index_worker_state = worker_state
-    app.state.index_worker = worker
-    worker.start()
+    app.state.index_worker = None
+    app.state.index_worker_stop = None
+    if settings.index_worker_enabled:
+        stop_event = Event()
+        worker = Thread(
+            target=run_index_worker,
+            kwargs={"stop_event": stop_event, "state": worker_state},
+            name="idl-rag-index-worker",
+            daemon=True,
+        )
+        app.state.index_worker_stop = stop_event
+        app.state.index_worker = worker
+        worker.start()
     try:
         yield
     finally:
-        stop_event.set()
-        worker.join(timeout=2)
+        stop_event = getattr(app.state, "index_worker_stop", None)
+        worker = getattr(app.state, "index_worker", None)
+        if stop_event is not None and worker is not None:
+            stop_event.set()
+            worker.join(timeout=2)
 
 
 def create_app() -> FastAPI:
@@ -91,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(documents.router, prefix=app_settings.api_prefix)
     app.include_router(chat.router, prefix=app_settings.api_prefix)
     app.include_router(evaluation.router, prefix=app_settings.api_prefix)
+    app.include_router(research.router, prefix=app_settings.api_prefix)
 
     return app
 

@@ -1,0 +1,68 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      IDLRAG_BASE_DIR: /var/lib/idl-rag
+      IDLRAG_ENVIRONMENT: production
+      IDLRAG_AUTH_SECRET: ${IDLRAG_AUTH_SECRET:?Set a long random secret in .env before starting Compose.}
+      IDLRAG_CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      IDLRAG_IDL_EXECUTABLE: ""
+      IDLRAG_INDEX_WORKER_ENABLED: "false"
+      IDLRAG_INDEX_WORKER_HEARTBEAT_TIMEOUT_SECONDS: ${IDLRAG_INDEX_WORKER_HEARTBEAT_TIMEOUT_SECONDS:-30}
+      IDLRAG_SEMANTIC_SCHOLAR_API_KEY: ${IDLRAG_SEMANTIC_SCHOLAR_API_KEY:-}
+      IDLRAG_RESEARCH_SEMANTIC_SCHOLAR_MIN_INTERVAL_SECONDS: ${IDLRAG_RESEARCH_SEMANTIC_SCHOLAR_MIN_INTERVAL_SECONDS:-0.25}
+    volumes:
+      - idl_rag_data:/var/lib/idl-rag/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      IDLRAG_BASE_DIR: /var/lib/idl-rag
+      IDLRAG_ENVIRONMENT: production
+      IDLRAG_INDEX_WORKER_ENABLED: "false"
+      IDLRAG_INDEX_WORKER_HEARTBEAT_TIMEOUT_SECONDS: ${IDLRAG_INDEX_WORKER_HEARTBEAT_TIMEOUT_SECONDS:-30}
+    volumes:
+      - idl_rag_data:/var/lib/idl-rag/data
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["uv", "run", "--no-sync", "python", "-m", "app.index_worker"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker_healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  idl_rag_data:
+    name: idl_rag_data

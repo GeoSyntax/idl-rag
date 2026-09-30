@@ -11,13 +11,15 @@ import { DashboardPage } from './pages/Dashboard'
 import { DocumentsPage } from './pages/Documents'
 import { KnowledgeBasesPage } from './pages/KnowledgeBases'
 import { RetrievalLabPage } from './pages/RetrievalLab'
+import { ResearchPage } from './pages/Research'
 import { SettingsPage } from './pages/Settings'
 import { UsersPage } from './pages/Users'
 
-type PageKey = 'dashboard' | 'knowledge-bases' | 'documents' | 'chat' | 'retrieval-lab' | 'settings' | 'users'
+type PageKey = 'dashboard' | 'research' | 'knowledge-bases' | 'documents' | 'chat' | 'retrieval-lab' | 'settings' | 'users'
 
 const pageTitles: Record<PageKey, string> = {
   dashboard: '概览',
+  research: '研究项目',
   'knowledge-bases': '知识库',
   documents: '文档',
   chat: '对话',
@@ -230,6 +232,8 @@ export default function App() {
     switch (activePage) {
       case 'dashboard':
         return <DashboardPage summary={dashboardQuery.data} loading={dashboardQuery.isLoading} />
+      case 'research':
+        return <ResearchPage currentUserId={currentUser.id} />
       case 'knowledge-bases':
         return (
           <KnowledgeBasesPage

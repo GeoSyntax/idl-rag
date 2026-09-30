@@ -2,7 +2,7 @@
 
 默认语言：**中文** | [English](./project-showcase.en-US.md) | [中文独立版本](./project-showcase.zh-CN.md)
 
-本文档用于项目评审、作品集展示和 GitHub 说明。所有截图均来自公开合成演示数据，不包含私人学习资料、真实 API Key、本地数据库、私有 PDF 或简历内容。
+本文档用于项目评审、作品集展示和 GitHub 说明。页面 UI 截图来自公开合成演示数据；遥感研究效果图单独来自一次脱敏的公开数据 preview，不包含私人学习资料、真实 API Key、本地数据库、私有 PDF 或简历内容。真实 Agent 任务集结果见 [`agent-demo-result.md`](agent-demo-result.md)。
 
 ## 1. 项目简介
 
@@ -38,7 +38,7 @@ flowchart LR
   end
 
   subgraph LocalIDL[本机 IDL]
-    IDLBatch[idlde.exe -batch]
+    IDLBatch[configured IDL executable -batch]
   end
 
   subgraph Providers[可选外部模型服务]
@@ -129,14 +129,14 @@ flowchart TD
 flowchart TD
   Artifact[Chat .pro artifact] --> Click[用户点击运行 IDL]
   Click --> Runner[后端生成 __idlrag_runner.pro]
-  Runner --> Batch[idlde.exe -batch runner]
+  Runner --> Batch[configured IDL executable -batch runner]
   Batch --> Output[outputs/ 图片结果]
   Batch --> Logs[stdout.log / stderr.log]
   Output --> Preview[Chat 图片缩略图与大图预览]
   Logs --> Summary[Chat 运行摘要卡片]
 ```
 
-当前 Windows IDL 8.8 使用 `idlde.exe -batch <runner.pro>` 执行完整 `.pro` 文件。后端只运行当前用户拥有的 Chat artifact，不接受任意 shell 命令，也不返回本地文件系统路径。
+当前 Windows ENVI/IDL 8.8 应使用受许可的命令行 `idl.exe -batch <runner.pro>` 执行完整 `.pro` 文件；`envi_idl.exe`/`idlde.exe` 是 Workbench 启动器，`idlrt.exe` 只适合 SAV，Runner 会拒绝这些入口。后端只运行当前用户拥有的 Chat artifact，不接受任意 shell 命令，也不返回本地文件系统路径。
 
 ## 6. 页面截图
 
@@ -176,7 +176,23 @@ flowchart TD
 
 ![设置页](./assets/screenshots/settings.png)
 
-## 7. 核心功能说明
+## 7. 真实遥感 Agent 效果
+
+本项目已经用本地 `gemin2api` 跑通一条真实的鄱阳湖 MNDWI preview 链路：Agent 读取项目上下文、选择冻结公式和数据快照，在授权后创建并排队 Python preview，随后由本地 research worker 生成指数图、水体分类图、GeoTIFF 和运行清单。
+
+<video controls muted loop playsinline poster="assets/demos/poyang-mndwi-preview-feature.png" width="720">
+  <source src="assets/demos/poyang-agent-demo.mp4" type="video/mp4">
+</video>
+
+[打开或下载 8 秒演示视频](assets/demos/poyang-agent-demo.mp4)
+
+![MNDWI 指数图](assets/demos/poyang-mndwi-preview-feature.png)
+
+![水体分类图](assets/demos/poyang-mndwi-preview-mask.png)
+
+本次 10 项 Agent 任务中，8 项通过工具契约，2 项进入人工复核，0 项程序异常。preview 未配置参考资产时不会伪造验证指标，这个限制和完整命令见 [`agent-demo-result.md`](agent-demo-result.md)。
+
+## 8. 核心功能说明
 
 | 模块 | 功能 |
 |---|---|
@@ -188,7 +204,7 @@ flowchart TD
 | 设置 | 模型服务、密钥、模型名称配置、连接测试、本地评测、LangSmith 评测 |
 | 评测 | golden QA、策略对比、工具型代码 RAG case 分离评估 |
 
-## 8. 技术亮点
+## 9. 技术亮点
 
 - 使用 SQLite + FTS5 + LanceDB 构建本地优先 RAG，不依赖外部数据库服务。
 - 对 ENVI/IDL `.pro` / `.idl` 文件做符号级分块，保留 procedure/function 语义边界。
@@ -197,7 +213,7 @@ flowchart TD
 - 设置页中的敏感 key 加密存储，API 响应不回显真实 key。
 - 文档、源码、截图和 GitHub 发布边界分离，避免上传本地运行数据和个人学习资料。
 
-## 9. 本地演示步骤
+## 10. 本地演示步骤
 
 1. 复制 `.env.example` 为 `.env`，设置 `IDLRAG_AUTH_SECRET` 和 `VITE_API_BASE_URL`。
 2. 启动后端：
@@ -219,7 +235,7 @@ flowchart TD
 8. 在检索测试页对比检索策略。
 9. 在设置页查看评测报告。
 
-## 10. 发布与安全边界
+## 11. 发布与安全边界
 
 GitHub 仓库应包含：
 

@@ -11,10 +11,19 @@ from uuid import uuid4
 import httpx
 from sqlalchemy.orm import Session
 
-from app.api.schemas import GeeFetchRequest, GeeFetchResponse, GeeStatusResponse
+from app.api.schemas import (
+    GeeFetchRequest,
+    GeeFetchResponse,
+    GeeStatusResponse,
+    ResearchDataAssetCreate,
+    ResearchGeeFetchRequest,
+    ResearchGeeFetchResponse,
+)
 from app.core.config import get_app_settings
 from app.db.models import ChatMessage, ChatSession
 from app.services.agent_service import AgentService
+from app.services.research_asset_storage import ResearchAssetStorage
+from app.services.research_service import ResearchService
 
 _ALLOWED_DOWNLOAD_SUFFIXES = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".json", ".geojson", ".csv"}
 _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
@@ -23,6 +32,8 @@ _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 class GeeService:
     def __init__(self) -> None:
         self.agent_service = AgentService()
+        self.research_service = ResearchService()
+        self.research_asset_storage = ResearchAssetStorage()
         self._initialized = False
 
     def status(self) -> GeeStatusResponse:
@@ -45,7 +56,6 @@ class GeeService:
         payload: GeeFetchRequest,
         owner_user_id: int,
     ) -> GeeFetchResponse:
-        settings = get_app_settings()
         self._validate_request(payload)
         session = self._get_or_create_session(db, payload, owner_user_id)
         artifact = self._fetch_and_save_artifact(payload, owner_user_id, session.id)
@@ -68,7 +78,54 @@ class GeeService:
             artifact=response_message.artifacts[0],
         )
 
-    def _validate_request(self, payload: GeeFetchRequest) -> None:
+    def fetch_research_asset(
+        self,
+        db: Session,
+        project_id: int,
+        payload: ResearchGeeFetchRequest,
+        owner_user_id: int,
+    ) -> ResearchGeeFetchResponse:
+        """Fetch a bounded GEE result directly into the caller's project asset store."""
+        self.research_service.get_project(db, project_id, owner_user_id)
+        self._validate_request(payload)
+        content, suggested_name = self._download_image(payload)
+        file_name, normalized_content = self._normalize_research_download(content, payload, suggested_name)
+        source_uri, sha256, size = self.research_asset_storage.store_bytes(
+            project_id, file_name, normalized_content
+        )
+        asset = self.research_service.create_data_asset(
+            db,
+            project_id,
+            ResearchDataAssetCreate(
+                name=(payload.label or Path(file_name).stem)[:255],
+                asset_kind="raster",
+                source_type="gee",
+                source_uri=source_uri,
+                sha256=sha256,
+                metadata={
+                    "gee_query": {
+                        "dataset_id": payload.dataset_id,
+                        "bbox": payload.bbox,
+                        "bands": payload.bands,
+                        "scale": payload.scale,
+                        "crs": payload.crs,
+                        "composite": payload.composite,
+                        "start_date": payload.start_date,
+                        "end_date": payload.end_date,
+                    },
+                    "download_size": size,
+                    "download_file_name": file_name,
+                    "raw_project_data_sent": False,
+                },
+            ),
+            owner_user_id,
+        )
+        return ResearchGeeFetchResponse(
+            asset=asset,
+            notice="GEE 查询已保存为当前项目的私有数据资产；请创建 DataSnapshot 后再用于可复现实验。",
+        )
+
+    def _validate_request(self, payload: GeeFetchRequest | ResearchGeeFetchRequest) -> None:
         settings = get_app_settings()
         if not settings.gee_enabled:
             raise ValueError("GEE 未启用，请先配置 IDLRAG_GEE_ENABLED。")
@@ -137,7 +194,7 @@ class GeeService:
             "metadata": metadata,
         }
 
-    def _download_image(self, payload: GeeFetchRequest) -> tuple[bytes, str | None]:
+    def _download_image(self, payload: GeeFetchRequest | ResearchGeeFetchRequest) -> tuple[bytes, str | None]:
         ee = self._initialize_ee()
         region = ee.Geometry.Rectangle(payload.bbox)
         if payload.start_date or payload.end_date:
@@ -208,8 +265,13 @@ class GeeService:
         return file_path
 
     def _extract_zip(self, content: bytes, artifact_dir: Path) -> Path:
-        settings = get_app_settings()
-        max_bytes = settings.gee_max_download_mb * 1024 * 1024
+        output_name, output_content = self._extract_zip_file(content)
+        output_path = artifact_dir / output_name
+        output_path.write_bytes(output_content)
+        return output_path
+
+    def _extract_zip_file(self, content: bytes) -> tuple[str, bytes]:
+        max_bytes = get_app_settings().gee_max_download_mb * 1024 * 1024
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             candidates = []
             for info in archive.infolist():
@@ -226,18 +288,28 @@ class GeeService:
                 raise ValueError("GEE 下载压缩包中没有允许的输出文件。")
             selected = sorted(candidates, key=lambda item: item.filename)[0]
             output_name = self._sanitize_name(Path(selected.filename).name)
-            output_path = artifact_dir / output_name
-            output_path.write_bytes(archive.read(selected))
-            return output_path
+            return output_name, archive.read(selected)
 
-    def _safe_file_name(self, payload: GeeFetchRequest, suggested_name: str | None) -> str:
+    def _normalize_research_download(
+        self,
+        content: bytes,
+        payload: ResearchGeeFetchRequest,
+        suggested_name: str | None,
+    ) -> tuple[str, bytes]:
+        if zipfile.is_zipfile(io.BytesIO(content)):
+            return self._extract_zip_file(content)
+        return self._safe_file_name(payload, suggested_name), content
+
+    def _safe_file_name(
+        self, payload: GeeFetchRequest | ResearchGeeFetchRequest, suggested_name: str | None
+    ) -> str:
         if suggested_name:
             name = Path(suggested_name).name
         else:
             name = f"{self._safe_label(payload)}.tif"
         return self._sanitize_name(name)
 
-    def _safe_label(self, payload: GeeFetchRequest) -> str:
+    def _safe_label(self, payload: GeeFetchRequest | ResearchGeeFetchRequest) -> str:
         label = payload.label or payload.dataset_id.split("/")[-1] or "gee_data"
         return self._sanitize_name(label).rsplit(".", 1)[0][:80] or "gee_data"
 

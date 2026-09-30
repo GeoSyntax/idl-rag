@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas import Citation, RetrievalDebugCandidate, RetrievalDebugResponse
 from app.core.config import get_app_settings
-from app.db.models import Chunk, Document, KnowledgeBase, SymbolDependency
+from app.db.models import Chunk, Document, SymbolDependency
 from app.services.embedding_service import EmbeddingService
 from app.services.rerank_service import RerankService
 from app.services.storage_stores import LanceVectorStore, MetadataStore, SQLiteFullTextStore

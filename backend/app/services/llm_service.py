@@ -6,6 +6,7 @@ import logging
 import re
 import time
 from collections.abc import AsyncGenerator, Generator
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy.orm import Session
@@ -17,6 +18,18 @@ from app.services.settings_service import get_runtime_settings
 logger = logging.getLogger(__name__)
 
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _is_local_compatible_endpoint(settings) -> bool:
+    """Allow keyless local OpenAI-compatible servers (Ollama/LM Studio)."""
+    provider = str(getattr(settings, "provider_name", "") or "").strip().lower()
+    if provider in {"local", "ollama", "lmstudio", "lm-studio"}:
+        return True
+    try:
+        hostname = (urlparse(str(getattr(settings, "api_base_url", ""))).hostname or "").lower()
+    except ValueError:
+        return False
+    return hostname in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
 
 
 def _http_post_with_retry(
@@ -90,6 +103,11 @@ class LlmService:
     def __init__(self) -> None:
         self.last_timing: dict[str, float] = {}
 
+    def supports_agent(self, db: Session) -> bool:
+        """Whether a configured remote or local OpenAI-compatible chat endpoint exists."""
+        settings = get_runtime_settings(db)
+        return bool(settings.api_key) or _is_local_compatible_endpoint(settings)
+
     def generate_answer(
         self,
         db: Session,
@@ -100,7 +118,7 @@ class LlmService:
     ) -> str:
         settings = get_runtime_settings(db)
         history = recent_messages or []
-        if settings.api_key:
+        if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
                 return self._generate_remote_answer(settings, question, citations, history, attached_file_content)
             except httpx.HTTPStatusError as exc:
@@ -139,7 +157,7 @@ class LlmService:
         """
         settings = get_runtime_settings(db)
         history = recent_messages or []
-        if settings.api_key:
+        if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
                 yield from self._generate_remote_answer_stream(settings, question, citations, history, attached_file_content)
                 return
@@ -241,7 +259,7 @@ class LlmService:
     ) -> str:
         settings = get_runtime_settings(db)
         history = recent_messages or []
-        if settings.api_key:
+        if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
                 return self._generate_remote_pro_file(settings, question, citations, history)
             except Exception:  # noqa: BLE001
@@ -259,7 +277,7 @@ class LlmService:
             return question.strip()
 
         settings = get_runtime_settings(db)
-        if settings.api_key:
+        if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
                 rewritten = self._rewrite_query_remote(settings, question, history)
                 if rewritten:
@@ -309,7 +327,7 @@ class LlmService:
         }
         response = _http_post_with_retry(
             f"{settings.api_base_url.rstrip('/')}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.api_key}"},
+            headers={"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else {},
             json_payload=payload,
             timeout=90.0,
         )
@@ -561,7 +579,7 @@ class LlmService:
         - {"final_answer": "..."}  — 最终回答
         """
         settings = get_runtime_settings(db)
-        if settings.api_key:
+        if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
                 return self._agent_generate_remote(settings, messages)
             except Exception:  # noqa: BLE001
@@ -580,7 +598,7 @@ class LlmService:
         }
         response = _http_post_with_retry(
             f"{settings.api_base_url.rstrip('/')}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.api_key}"},
+            headers={"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else {},
             json_payload=payload,
             timeout=120.0,
         )

@@ -1,4 +1,4 @@
-import { Button, Drawer, Form, Input, InputNumber, Select, Segmented, Space, Tag, Upload, message, Tooltip } from 'antd'
+import { Button, Checkbox, Drawer, Form, Input, InputNumber, Select, Segmented, Space, Tag, Upload, message, Tooltip } from 'antd'
 import {
   UploadOutlined,
   CloseCircleFilled,
@@ -14,7 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api/client'
-import type { AgentStreamEvent, ChatArtifact, ChatMessage, ChatSession, GeeFetchRequest, KnowledgeBase } from '../../api/types'
+import type { AgentStreamEvent, ChatArtifact, ChatMessage, ChatSession, GeeFetchRequest, KnowledgeBase, ResearchProject } from '../../api/types'
 import { DisplayEmpty, InlineIllustration } from '../../components/DisplayPrimitives'
 import { KnowledgeStatusBar, MessageList } from './components'
 import { useKnowledgeStatus } from './hooks'
@@ -57,6 +57,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   const [geeForm] = Form.useForm<GeeFetchFormValues>()
 
   const [selectedKBIds, setSelectedKBIds] = useState<number[]>([])
+  const [researchProjects, setResearchProjects] = useState<ResearchProject[]>([])
+  const [researchProjectId, setResearchProjectId] = useState<number | undefined>()
+  const [allowExternalResearch, setAllowExternalResearch] = useState(false)
+  const [allowResearchExecution, setAllowResearchExecution] = useState(false)
+  const [allowGeeFetch, setAllowGeeFetch] = useState(false)
   const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null)
   const [uploading, setUploading] = useState(false)
   const [inputValue, setInputValue] = useState('')
@@ -86,6 +91,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
 
   useEffect(() => {
     void refreshSessions()
+    void api.listResearchProjects().then(setResearchProjects).catch(() => {
+      // The research selector is an optional enhancement; ordinary chat must
+      // remain usable if a deployment has not enabled research storage yet.
+    })
   }, [])
 
   useEffect(() => {
@@ -226,8 +235,12 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   const handleSubmit = () => {
     const question = inputValue.trim()
     if (!question) return
-    if (selectedKBIds.length === 0 && !attachedFile) {
+    if (selectedKBIds.length === 0 && !attachedFile && !researchProjectId) {
       messageApi.warning('请至少选择一个知识库，或上传一个文件')
+      return
+    }
+    if (chatMode !== 'agent' && selectedKBIds.length === 0 && researchProjectId) {
+      messageApi.warning('研究项目上下文需要使用 Agent 模式；普通聊天请选择知识库')
       return
     }
 
@@ -337,6 +350,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
           generate_pro_file: generateProFile,
           attached_file_content: fileContent || undefined,
           input_artifact_ids: selectedInputArtifacts.map((artifact) => artifact.id),
+          research_project_id: researchProjectId,
+          allow_external_research: allowExternalResearch,
+          allow_research_execution: allowResearchExecution,
+          allow_gee_fetch: allowGeeFetch,
         },
         {
           onStep: (event: AgentStreamEvent) => {
@@ -464,6 +481,14 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
     [knowledgeBases],
   )
 
+  const researchProjectOptions = useMemo(
+    () => researchProjects.map((project) => ({
+      label: `${project.name} · ${project.status}`,
+      value: project.id,
+    })),
+    [researchProjects],
+  )
+
   const sessionOptions = useMemo(
     () => sessions.map((item) => ({ label: sessionLabel(item), value: item.id })),
     [sessions],
@@ -520,6 +545,29 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
             )}
             className="chat-kb-select"
           />
+          <Select
+            allowClear
+            size="small"
+            placeholder="绑定研究项目"
+            value={researchProjectId}
+            options={researchProjectOptions}
+            className="chat-research-select"
+            onChange={(value) => {
+              if (value !== researchProjectId) {
+                handleNewSession()
+                setAllowExternalResearch(false)
+                setAllowResearchExecution(false)
+                setAllowGeeFetch(false)
+              }
+              setResearchProjectId(value)
+              if (!value) {
+                setAllowExternalResearch(false)
+                setAllowResearchExecution(false)
+                setAllowGeeFetch(false)
+              }
+            }}
+            disabled={isStreaming}
+          />
           <Segmented
             size="small"
             value={chatMode}
@@ -529,6 +577,33 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
               { label: 'Agent', value: 'agent' },
             ]}
           />
+          <Tooltip title="仅将研究问题发送给公开文献元数据接口；不会发送项目影像或凭据">
+            <Checkbox
+              checked={allowExternalResearch}
+              onChange={(event) => setAllowExternalResearch(event.target.checked)}
+              disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
+            >
+              允许外部文献搜索
+            </Checkbox>
+          </Tooltip>
+          <Tooltip title="允许 Agent 在确认后创建并排队 Python preview；不会执行 formal/IDL、修改公式或协议">
+            <Checkbox
+              checked={allowResearchExecution}
+              onChange={(event) => setAllowResearchExecution(event.target.checked)}
+              disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
+            >
+              允许 Agent 预览执行
+            </Checkbox>
+          </Tooltip>
+          <Tooltip title="仅允许 Agent 按 GEE 白名单获取数据并登记私有 DataAsset；不会冻结快照或运行实验">
+            <Checkbox
+              checked={allowGeeFetch}
+              onChange={(event) => setAllowGeeFetch(event.target.checked)}
+              disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
+            >
+              允许 Agent 获取 GEE
+            </Checkbox>
+          </Tooltip>
         </div>
         <div className="chat-toolbar-right">
           <Select

@@ -1,15 +1,40 @@
+import json
+from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.api.schemas import DashboardSummaryResponse
+from app.core.config import get_app_settings
 from app.db.database import get_db
 from app.db.models import ChatRequestLog, ChatSession, Chunk, Document, EvaluationReport, IndexJob, KnowledgeBase, User
 from app.services.embedding_service import get_embedding_status
 from app.services.runtime_metrics import runtime_metrics
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+def _external_worker_health() -> tuple[bool, dict[str, object]]:
+    settings = get_app_settings()
+    path = settings.index_worker_heartbeat_path
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return False, {}
+    if not isinstance(state, dict) or state.get("status") != "running":
+        return False, state if isinstance(state, dict) else {}
+    raw_timestamp = state.get("last_heartbeat_at")
+    if not isinstance(raw_timestamp, str):
+        return False, state
+    try:
+        heartbeat_at = datetime.fromisoformat(raw_timestamp)
+        if heartbeat_at.tzinfo is None:
+            heartbeat_at = heartbeat_at.replace(tzinfo=UTC)
+        age_seconds = (datetime.now(UTC) - heartbeat_at).total_seconds()
+    except ValueError:
+        return False, state
+    return 0 <= age_seconds <= settings.index_worker_heartbeat_timeout_seconds, state
 
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
@@ -135,6 +160,13 @@ def dashboard_summary(
     document_count = sum(int(value) for value in document_status_counts.values())
     worker = getattr(request.app.state, "index_worker", None)
     worker_state = getattr(request.app.state, "index_worker_state", {}) or {}
+    worker_mode = str(worker_state.get("mode") or ("embedded" if worker else "disabled"))
+    if worker_mode == "external":
+        worker_alive, external_state = _external_worker_health()
+        if external_state:
+            worker_state = external_state
+    else:
+        worker_alive = bool(worker and worker.is_alive())
     embedding_status = get_embedding_status()
     latest_eval_summary = latest_eval.summary_json if latest_eval is not None else {}
     return DashboardSummaryResponse(
@@ -152,7 +184,8 @@ def dashboard_summary(
         queued_index_job_count=int(job_status_counts.get("queued", 0)),
         processing_index_job_count=int(job_status_counts.get("processing", 0)),
         failed_index_job_count=int(job_status_counts.get("failed", 0)),
-        worker_alive=bool(worker and worker.is_alive()),
+        worker_alive=worker_alive,
+        worker_mode=worker_mode if worker_mode in {"embedded", "external", "disabled"} else "disabled",
         worker_last_error=worker_state.get("last_error"),
         embedding_fallback_active=bool(embedding_status.get("last_embedding_fallback") or fallback_document_count),
         embedding_last_error=embedding_status.get("last_embedding_error"),

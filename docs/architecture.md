@@ -12,7 +12,7 @@ flowchart LR
   Backend --> FTS[(SQLite FTS5)]
   Backend --> Lance[(LanceDB)]
   Backend --> RuntimeFiles[Local runtime files]
-  Backend --> IDL[Local IDL Workbench batch runner]
+  Backend --> IDL[Local licensed IDL command-line runner]
   Backend --> Providers[OpenAI-compatible providers]
 ```
 
@@ -28,7 +28,7 @@ The GitHub repository should contain source code, tests, documentation and confi
 | SQLite FTS5 | Keyword retrieval over indexed chunks. |
 | LanceDB | Vector index for semantic retrieval. |
 | Local files | Uploaded sources, parsed text, generated artifacts, IDL run logs and output images. |
-| Local IDL Workbench batch runner | Runs user-owned Chat `.pro` artifacts through `idlde.exe -batch` and collects image outputs. |
+| Local IDL batch runner | Runs user-owned Chat `.pro` artifacts through the configured licensed command-line executable (`idl.exe -batch` on Windows) and collects image outputs; Workbench/ENVI GUI and `idlrt` launchers are rejected. |
 | OpenAI-compatible providers | Chat, embedding and optional rerank endpoints. |
 
 ## Query lifecycle
@@ -63,7 +63,7 @@ sequenceDiagram
   participant F as Frontend
   participant A as FastAPI
   participant I as IdlExecutionService
-  participant D as idlde.exe
+  participant D as configured IDL executable
   participant S as Local storage
 
   U->>F: Click Run IDL on a .pro artifact
@@ -71,7 +71,7 @@ sequenceDiagram
   A->>I: Validate owner and .pro artifact
   I->>S: Create runs/{run_id}/source.pro and outputs/
   I->>S: Write __idlrag_runner.pro
-  I->>D: idlde.exe -batch __idlrag_runner.pro
+  I->>D: <executable> -batch __idlrag_runner.pro
   D->>S: Write images into outputs/
   I->>S: Read stdout.log, stderr.log and collect image files
   I->>A: Persist assistant message with idl_output artifacts

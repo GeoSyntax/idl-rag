@@ -14,6 +14,7 @@ from app.api.schemas import IdlRunResponse
 from app.core.config import get_app_settings
 from app.db.models import ChatMessage
 from app.services.agent_service import AgentService
+from app.services.idl_runtime import validate_project_pro_executable
 
 _ENTRYPOINT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _PROCEDURE_RE = re.compile(r"^\s*pro\s+([A-Za-z_][A-Za-z0-9_]*)\b", re.IGNORECASE | re.MULTILINE)
@@ -35,6 +36,9 @@ class IdlExecutionService:
         input_artifact_ids: list[str] | None = None,
     ) -> IdlRunResponse:
         settings = get_app_settings()
+        unsupported_reason = validate_project_pro_executable(settings.idl_executable)
+        if unsupported_reason:
+            raise ValueError(unsupported_reason)
         source_artifact = self.agent_service.get_artifact_metadata(db, session_id, artifact_id, owner_user_id)
         source_path, file_name, _media_type = self.agent_service.get_artifact_file(
             db, session_id, artifact_id, owner_user_id
@@ -273,4 +277,3 @@ class IdlExecutionService:
         if not path.is_file():
             return ""
         return path.read_text(encoding="utf-8", errors="ignore")
-

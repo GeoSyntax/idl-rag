@@ -9,10 +9,17 @@ def test_app_smoke_flow(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("IDLRAG_IMPORT_ROOTS", str(tmp_path))
 
     from app.core.config import get_app_settings
-    from app.db.database import get_engine, get_session_factory
+    from app.db.database import (
+        get_engine,
+        get_index_engine,
+        get_index_session_factory,
+        get_session_factory,
+    )
 
     get_app_settings.cache_clear()
     get_engine.cache_clear()
+    get_index_engine.cache_clear()
+    get_index_session_factory.cache_clear()
     get_session_factory.cache_clear()
 
     from app.main import create_app
@@ -92,7 +99,7 @@ def test_app_smoke_flow(monkeypatch, tmp_path: Path) -> None:
         assert len(payload["messages"]) == 2
         assert payload["citations"]
         assert payload["citations"][0]["knowledge_base_id"] == kb_id
-        assert payload["citations"][0]["source_strategy"] == "fts"
+        assert payload["citations"][0]["source_strategy"] == "fts_only"
 
         debug = client.post(
             "/api/chat/retrieve-debug",

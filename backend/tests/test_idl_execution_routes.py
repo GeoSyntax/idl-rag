@@ -79,7 +79,7 @@ def test_run_idl_artifact_collects_previewable_image(monkeypatch, tmp_path: Path
 
     def fake_run(args, cwd, stdout, stderr, timeout, shell):
         run_dir = Path(cwd)
-        assert args == ["idlde", "-batch", str(run_dir / "__idlrag_runner.pro")]
+        assert args == ["idl", "-batch", str(run_dir / "__idlrag_runner.pro")]
         assert (run_dir / "source.pro").is_file()
         runner = (run_dir / "__idlrag_runner.pro").read_text(encoding="utf-8")
         assert "output_dir =" in runner

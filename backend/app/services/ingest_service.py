@@ -63,10 +63,14 @@ _OCR_AVAILABLE: bool | None = None
 
 class IngestService:
     def __init__(self) -> None:
-        self.settings = get_app_settings()
         self.chunker = IdlChunker()
         self.retrieval_service = RetrievalService()
         self.full_text_store = SQLiteFullTextStore()
+
+    @property
+    def settings(self):
+        """Read current settings so long-lived worker/service instances do not retain stale test or process config."""
+        return get_app_settings()
 
     def import_path(
         self,
@@ -138,6 +142,41 @@ class IngestService:
                 destination.unlink(missing_ok=True)
                 skipped.append(f"{file_name}: {exc}")
         return ImportResult(imported=imported, skipped=skipped)
+
+    def queue_text_document(
+        self,
+        db: Session,
+        knowledge_base_id: int,
+        file_name: str,
+        content: str,
+        owner_user_id: int,
+    ) -> DocumentResponse:
+        """Queue a server-generated, provenance-bearing Markdown document.
+
+        This is intentionally narrower than ``upload_files``: callers must
+        already have a local, trusted text payload (for example public paper
+        metadata returned by an audited provider).  The content is written to
+        the same private source store and follows the normal indexing worker
+        path, so partial documents are removed when validation or queuing
+        fails.
+        """
+        self._get_owned_knowledge_base_or_raise(db, knowledge_base_id, owner_user_id)
+        safe_name = Path(file_name).name
+        if Path(safe_name).suffix.lower() not in {".md", ".markdown", ".txt"}:
+            raise ValueError("服务器生成的文献记录必须是 Markdown 或纯文本。")
+        if not content.strip():
+            raise ValueError("不能为知识库写入空的文献记录。")
+        target_dir = self.settings.source_dir / f"kb-{knowledge_base_id}"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        destination = self._make_unique_path(target_dir / safe_name)
+        destination.write_text(content, encoding="utf-8")
+        try:
+            self._validate_file_limits(destination)
+            document = self._queue_document(db, knowledge_base_id, destination)
+        except Exception:
+            destination.unlink(missing_ok=True)
+            raise
+        return self._to_document_response(db, document)
 
     def list_documents(self, db: Session, knowledge_base_id: int, owner_user_id: int) -> list[DocumentResponse]:
         self._get_owned_knowledge_base_or_raise(db, knowledge_base_id, owner_user_id)

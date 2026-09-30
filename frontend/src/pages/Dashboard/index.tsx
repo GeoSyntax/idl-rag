@@ -39,7 +39,7 @@ export function DashboardPage({ summary, loading }: DashboardPageProps) {
     { label: '待重建', value: summary?.stale_document_count ?? 0 },
     { label: '失败任务', value: summary?.failed_index_job_count ?? 0 },
     { label: '平均索引耗时', value: formatSeconds(summary?.avg_index_job_seconds), note: '当前记录为完整索引任务耗时' },
-    { label: 'Worker', value: summary?.worker_alive ? '正常' : '未运行' },
+    { label: 'Worker', value: summary?.worker_alive ? '正常' : '未运行', note: `模式：${summary?.worker_mode ?? 'embedded'}` },
   ]
 
   return (

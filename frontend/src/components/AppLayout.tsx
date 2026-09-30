@@ -1,5 +1,6 @@
 import {
   DatabaseOutlined,
+  ExperimentOutlined,
   FileTextOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -63,6 +64,7 @@ export function AppLayout({
 
   const menuItems = [
     { key: 'dashboard', icon: <DatabaseOutlined />, label: '概览' },
+    { key: 'research', icon: <ExperimentOutlined />, label: '研究项目' },
     { key: 'knowledge-bases', icon: <DatabaseOutlined />, label: '知识库' },
     { key: 'documents', icon: <FileTextOutlined />, label: '文档' },
     { key: 'chat', icon: <MessageOutlined />, label: '对话' },

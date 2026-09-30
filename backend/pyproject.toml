@@ -20,6 +20,9 @@ dependencies = [
   "jieba>=0.42.1",
   "langsmith>=0.2.0",
   "earthengine-api>=1.0.0",
+  "numpy>=2.0.0",
+  "rasterio>=1.4.0",
+  "matplotlib>=3.9.0",
 ]
 
 [dependency-groups]

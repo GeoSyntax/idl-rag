@@ -29,7 +29,7 @@ All backend variables use the `IDLRAG_` prefix and are loaded by `backend/app/co
 | `IDLRAG_MAX_UPLOAD_FILE_MB` | Max single file size. |
 | `IDLRAG_MAX_UPLOAD_TOTAL_MB` | Max total upload size. |
 | `IDLRAG_MAX_PDF_PAGES` | PDF page limit. |
-| `IDLRAG_IDL_EXECUTABLE` | Local IDL Workbench command used for user-triggered `.pro` artifact runs. Defaults to `idlde` and is called with `-batch`. |
+| `IDLRAG_IDL_EXECUTABLE` | Licensed command-line IDL/ENVI batch executable used for user-triggered `.pro` artifact runs. The default is `idl`; Workbench/ENVI GUI launchers (`idlde`, `envi_idl`) and `idlrt` are rejected for `.pro` execution. |
 | `IDLRAG_IDL_RUN_TIMEOUT_SECONDS` | Timeout for one local IDL run. |
 | `IDLRAG_IDL_RUN_MAX_STDOUT_CHARS` | Maximum stdout characters returned from one IDL run. |
 | `IDLRAG_IDL_RUN_MAX_STDERR_CHARS` | Maximum stderr characters returned from one IDL run. |
@@ -51,8 +51,21 @@ All backend variables use the `IDLRAG_` prefix and are loaded by `backend/app/co
 | `IDLRAG_GEE_MAX_BANDS` | Maximum number of selected bands in one GEE request. |
 | `IDLRAG_GEE_MIN_SCALE` | Minimum allowed GEE download scale. |
 | `IDLRAG_GEE_MAX_SCALE` | Maximum allowed GEE download scale. |
+| `IDLRAG_RESEARCH_STAC_SEARCH_TIMEOUT_SECONDS` | Timeout for one public STAC metadata search. |
+| `IDLRAG_RESEARCH_STAC_SEARCH_MAX_RESULTS` | Maximum STAC candidates retained from one search. |
+| `IDLRAG_RESEARCH_STAC_ALLOWED_HOSTS` | Comma-separated HTTPS host allowlist for STAC endpoints and assets; defaults to the two configured STAC services plus `*.blob.core.windows.net` for Planetary Computer objects. |
+| `IDLRAG_RESEARCH_STAC_DOWNLOAD_TIMEOUT_SECONDS` | Timeout for one public STAC object download. |
+| `IDLRAG_RESEARCH_STAC_MAX_DOWNLOAD_MB` | Maximum bytes downloaded before local crop/validation. Keep bounded; default is 100 MB. |
+| `IDLRAG_RESEARCH_STAC_MAX_OUTPUT_PIXELS` | Maximum pixels across all bands after crop/resample. |
+| `IDLRAG_RESEARCH_STAC_RANGE_CACHE_MB` | GDAL cache budget for COG HTTP Range reads. |
+| `IDLRAG_SEMANTIC_SCHOLAR_API_KEY` | Optional Semantic Scholar API key. Sent only as the `x-api-key` request header; never put it in query parameters, audit candidates, or generated RAG Markdown. |
+| `IDLRAG_RESEARCH_SEMANTIC_SCHOLAR_MIN_INTERVAL_SECONDS` | Minimum interval between in-process Semantic Scholar requests. Defaults to `0.25`; keep it bounded to respect public API rate limits. |
+| `IDLRAG_INDEX_WORKER_ENABLED` | Enables the in-process document index worker. Keep `true` for local development; Docker Compose sets it to `false` on the API and runs `app.index_worker` as a separate service. |
+| `IDLRAG_INDEX_WORKER_HEARTBEAT_TIMEOUT_SECONDS` | Maximum age of an external worker heartbeat before Dashboard reports it as stale. Defaults to 30 seconds. |
+| `IDLRAG_RESEARCH_RUN_TIMEOUT_MINUTES` | Operational timeout for a research run left in `running` after a worker/process interruption. The worker marks such runs `failed`, or `cancelled` when a cancellation request was already recorded, instead of leaving them permanently active; defaults to 120 minutes. |
 | `IDLRAG_DEFAULT_PROVIDER_NAME` | Default provider label shown in settings. |
 | `IDLRAG_DEFAULT_API_BASE_URL` | Default OpenAI-compatible API base URL. |
+| runtime `api_base_url` / `provider_name` | The Agent accepts keyless local OpenAI-compatible endpoints only when the host is `localhost`, `127.0.0.1`, `::1`, `host.docker.internal`, or the provider is explicitly `local`/`ollama`/`lmstudio`; public endpoints still require an API key. |
 | `IDLRAG_DEFAULT_CHAT_MODEL` | Default chat model name. |
 | `IDLRAG_DEFAULT_EMBEDDING_MODEL` | Default embedding model name. |
 | `IDLRAG_EMBEDDING_DIMENSIONS` | Embedding vector dimensions used for indexing. |
@@ -67,16 +80,34 @@ The frontend reads this value in `frontend/src/api/client.ts`.
 
 ## Local IDL execution
 
-`IDLRAG_IDL_EXECUTABLE` should point to the IDL Workbench launcher when using Windows IDL 8.8:
+`IDLRAG_IDL_EXECUTABLE` should point to the licensed command-line IDL interpreter when using Windows IDL 8.8:
 
 ```text
-IDLRAG_IDL_EXECUTABLE=D:\envi5.6\ENVI56\IDL88\bin\bin.x86_64\idlde.exe
+IDLRAG_IDL_EXECUTABLE=D:\envi5.6\ENVI56\IDL88\bin\bin.x86_64\idl.exe
 ```
 
-The backend executes generated Chat `.pro` artifacts with:
+The backend executes generated Chat `.pro` artifacts with the configured executable:
 
 ```text
-idlde.exe -batch <run_dir>/__idlrag_runner.pro
+idl.exe -batch <run_dir>/__idlrag_runner.pro
+```
+
+The same setting is used by the project-level Research IDLRunner. In this
+workspace, `envi_idl.exe` starts and exits as a Workbench launcher but does not
+produce the declared GeoTIFF; `idlde.exe` behaved similarly in a headless
+probe, while `idlrt.exe` is a SAV-only runtime. The runner rejects all three
+names before launching. The candidate `idl.exe` reaches the IDL process but the
+strict project probe currently returns `Failed to initialize IDL instance` and
+does not create `idl_probe.tif`, so the Run is reported as `unavailable` rather
+than accepted. Keep the `idl.exe` path explicit in `.env`, initialize the
+required ENVI batch runtime inside the `.pro` procedure when ENVI APIs are
+used, and verify the local license before enabling formal IDL experiments.
+
+The opt-in local acceptance probe can be repeated with:
+
+```powershell
+$env:IDLRAG_REAL_IDL_EXECUTABLE='D:\envi5.6\ENVI56\IDL88\bin\bin.x86_64\idl.exe'
+uv run --project backend pytest backend/tests/test_research_idl_runner.py -k real_local_probe -q
 ```
 
 For each run, the backend creates:
@@ -150,6 +181,12 @@ IDLRAG_GEE_SERVICE_ACCOUNT_KEY_JSON={...}
 
 Never commit `IDLRAG_GEE_SERVICE_ACCOUNT_KEY_JSON`, key files, token files, or downloaded GEE artifacts.
 
+## Public STAC research data
+
+The Research page can search the configured public STAC providers without sending private project data. A candidate may be registered as a remote `reference`, or explicitly downloaded into the private `research://assets/` store. Planetary Computer Azure Blob assets are authorized through its public SAS service; the short-lived SAS URL is used only for the download and is not persisted in the project database. Downloads are streamed with a size and timeout limit, validated as GeoTIFF/COG, optionally cropped from a WGS84 bbox, optionally resampled, hashed, and only then made eligible for a DataSnapshot and PythonRunner. `target_resolution` is expressed in metres at the API boundary; geographic CRS windows are converted from degrees using their latitude-dependent metre scale, while projected CRS windows use their CRS linear-unit factor. When a remote object is larger than the full-download limit but is a range-readable COG and a crop bbox is supplied, Rasterio/GDAL reads only the requested window; in that mode the DataAsset SHA-256 covers the stored crop output rather than the unmaterialized full source object.
+
+For production deployments, review `IDLRAG_RESEARCH_STAC_ALLOWED_HOSTS` and keep the list narrow. The default `*.blob.core.windows.net` entry is needed for Planetary Computer assets but should not be expanded to arbitrary schemes or domains.
+
 ### Smoke test
 
 After authentication and project configuration, test a small SRTM download before using the Chat UI:
@@ -201,7 +238,7 @@ IDLRAG_ENVIRONMENT=development
 IDLRAG_BASE_DIR=./data
 IDLRAG_AUTH_SECRET=replace-with-a-long-random-secret
 IDLRAG_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
-IDLRAG_IDL_EXECUTABLE=idlde
+IDLRAG_IDL_EXECUTABLE=idl
 IDLRAG_IDL_RUN_TIMEOUT_SECONDS=30
 VITE_API_BASE_URL=http://127.0.0.1:8000/api
 ```

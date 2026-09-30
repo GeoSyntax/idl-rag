@@ -38,7 +38,7 @@ flowchart LR
   end
 
   subgraph LocalIDL[本机 IDL]
-    IDLBatch[idlde.exe -batch]
+    IDLBatch[configured IDL executable -batch]
   end
 
   subgraph Providers[可选外部模型服务]
@@ -129,14 +129,14 @@ flowchart TD
 flowchart TD
   Artifact[Chat .pro artifact] --> Click[用户点击运行 IDL]
   Click --> Runner[后端生成 __idlrag_runner.pro]
-  Runner --> Batch[idlde.exe -batch runner]
+  Runner --> Batch[configured IDL executable -batch runner]
   Batch --> Output[outputs/ 图片结果]
   Batch --> Logs[stdout.log / stderr.log]
   Output --> Preview[Chat 图片缩略图与大图预览]
   Logs --> Summary[Chat 运行摘要卡片]
 ```
 
-当前 Windows IDL 8.8 使用 `idlde.exe -batch <runner.pro>` 执行完整 `.pro` 文件。后端只运行当前用户拥有的 Chat artifact，不接受任意 shell 命令，也不返回本地文件系统路径。
+当前 Windows ENVI/IDL 8.8 应使用受许可的命令行 `idl.exe -batch <runner.pro>` 执行完整 `.pro` 文件；`envi_idl.exe`/`idlde.exe` 是 Workbench 启动器，`idlrt.exe` 只适合 SAV，Runner 会拒绝这些入口。后端只运行当前用户拥有的 Chat artifact，不接受任意 shell 命令，也不返回本地文件系统路径。
 
 ## 6. 页面截图
 

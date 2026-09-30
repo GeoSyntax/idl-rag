@@ -38,7 +38,7 @@ flowchart LR
   end
 
   subgraph LocalIDL[Local IDL]
-    IDLBatch[idlde.exe -batch]
+    IDLBatch[configured IDL executable -batch]
   end
 
   subgraph Providers[Optional External Providers]
@@ -129,14 +129,14 @@ flowchart TD
 flowchart TD
   Artifact[Chat .pro artifact] --> Click[User clicks Run IDL]
   Click --> Runner[Backend writes __idlrag_runner.pro]
-  Runner --> Batch[idlde.exe -batch runner]
+  Runner --> Batch[configured IDL executable -batch runner]
   Batch --> Output[outputs/ image files]
   Batch --> Logs[stdout.log / stderr.log]
   Output --> Preview[Chat thumbnail and full-image preview]
   Logs --> Summary[Chat run summary card]
 ```
 
-On the verified Windows IDL 8.8 environment, complete `.pro` execution uses `idlde.exe -batch <runner.pro>`. The backend only runs Chat artifacts owned by the current user; it does not accept arbitrary shell commands and does not return local filesystem paths.
+On Windows ENVI/IDL 8.8, complete `.pro` execution must use a licensed command-line interpreter such as `idl.exe -batch <runner.pro>`. Workbench/ENVI GUI launchers and `idlrt.exe` are rejected for source execution. The backend only runs Chat artifacts owned by the current user; it does not accept arbitrary shell commands and does not return local filesystem paths.
 
 ## 6. Screenshots
 

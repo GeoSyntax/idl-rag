@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import KnowledgeBaseCreate, KnowledgeBaseResponse, KnowledgeBaseUpdate
-from app.db.models import Document, KnowledgeBase
+from app.db.models import Document, KnowledgeBase, ResearchKnowledgeSource
 from app.services.retrieve_service import RetrievalService
 from app.services.storage_stores import SQLiteFullTextStore
 
@@ -65,6 +65,9 @@ class KnowledgeBaseService:
         knowledge_base = self.get_owned_knowledge_base(db, knowledge_base_id, owner_user_id)
         self.retrieval_service.remove_knowledge_base(knowledge_base_id)
         self.full_text_store.remove_knowledge_base(db, knowledge_base_id)
+        db.query(ResearchKnowledgeSource).filter(
+            ResearchKnowledgeSource.knowledge_base_id == knowledge_base_id
+        ).delete(synchronize_session=False)
         db.delete(knowledge_base)
         db.commit()
 
