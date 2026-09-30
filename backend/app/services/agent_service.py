@@ -530,6 +530,9 @@ class AgentService:
                 " research_run_summary 只需要 project_id 就能列出当前项目最近运行；只有需要聚焦单个实验或运行时才补充 experiment_id/run_id。"
                 "\n- 最终回答必须明确区分：已观察到的运行事实、文献/公式依据、preview 探索结果、尚未完成的 formal 验证和下一步。"
                 "对于 preview、代理参考或候选参数，必须明确写出其不等于正式验证/最终科学结论，不能只说‘可行’而不加边界。"
+                "\n- 当用户要求证据包审计、运行完整性或 formal 可比性检查时，必须实际调用 research_verify_run；"
+                "只有在存在两个 completed formal runs 时才可能得到可比结果，但仍应调用 research_compare_runs 让工具返回可比性结论；"
+                "如果前置条件不足，不要只凭文字声称‘已检查’，应使用最近的 run_id/experiment_id 调用受控工具并如实报告拒绝原因。"
             )
 
         # 如果检测到修复意图且有历史代码，注入提示

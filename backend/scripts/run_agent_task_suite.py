@@ -234,6 +234,8 @@ def _run_task(db, task: dict[str, Any], *, owner_user_id: int, project_id: int) 
                 + "。如果已有 planned preview，请从上一回合 tool_result 中取 experiment_id 并继续该实验，"
                 + "不要重复调用已经成功的工具（尤其是 research_queue_preview 和 research_run_summary），"
                 + "也不要重复调用 research_create_preview_experiment；只有在任务明确要求且授权时才传 confirm=true。"
+                + "如果缺失项是 research_verify_run 或 research_compare_runs，即使前置条件可能不足，"
+                + "也要使用上一回合返回的最近 experiment_id/run_id 先实际调用工具，让工具给出拒绝或不可比原因，不能只用文字替代。"
             )
             continue
         break

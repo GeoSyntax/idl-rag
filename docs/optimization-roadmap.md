@@ -76,7 +76,9 @@
 - [x] 真实运行任务集 AR-001（只读项目审计）和 AR-010（越权拒绝）：两项均无异常；AR-001 工具契约 `passed`，AR-010 的 5 项拒绝边界经重新评估全部 `passed`。
 - [x] 任务集 runner 捕获 Agent SSE `error` 并标记失败，补全回合复用原 session，避免错误被算作成功或产生孤立会话。
 - [x] 真实运行任务集 AR-003（确认的 MNDWI Python preview）：Gemini2API 完成 `create_preview → queue_preview → run_summary`，Run 3/4 产生阶段 PNG；同一 Agent 回合重复排队会被幂等拦截。
+- [x] 完整 `agent-research-poyang-v1` 任务集 10/10 通过本地 Gemini2API 契约：AR-001..AR-010 均有 trace，`passed_contract=10`、`needs_review=0`、`failed_with_exception=0`。
 - [x] Agent 工具结果携带服务器生成的受控下一步提示；确认 preview 创建成功后会继续排队并查询摘要，不再停在 planned。
+- [x] 证据审计/正式可比性请求现在强制实际调用 `research_verify_run` / `research_compare_runs`；前置条件不足时由工具返回 `not_available` 或 formal 拒绝，不再用模型文字冒充检查。
 - [x] 用 `teacher_review_0930` 对 `/api/chat/agent-stream` 做端到端回归：普通 Agent 为 57 个 token、1 个 `done`、0 个 `error`；研究项目 Agent 为 182 个 token、1 个 `done`、1 个工具调用、0 个 `error`，无引用时返回空 citations。
 - [x] 配置层读取 `.env` 并兼容 `IDLRAG_BASE_DIR=./data`，避免任务 runner 与 Uvicorn 使用不同密钥加密 Gemini2API 配置而造成 SSE 401。
 - [x] `AppLayout` 改为按认证后懒加载；前端生产构建的最大共享 chunk 从约 632KB（gzip 205KB）降到 476KB（gzip 153KB），并消除了 Vite 500KB warning。

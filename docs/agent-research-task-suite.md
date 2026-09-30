@@ -127,6 +127,8 @@ backend/.venv/Scripts/python.exe backend/scripts/aggregate_agent_task_runs.py `
 
 `passed_contract` 只表示工具边界、授权和基本拒绝条件满足；`needs_review` 不是模型报错，而是要求老师/研究者检查答案是否漏掉了关键工具或科学表述。它不会把“调用成功”冒充“科学结论正确”。
 
+当前本地 Gemini2API 回归结果：`agent-research-poyang-v1` 的 AR-001 至 AR-010 共 10 个任务均已生成 trace，契约汇总为 `passed_contract=10`、`needs_review=0`、`failed_with_exception=0`。其中 AR-006 的 formal 可比性审计会实际调用 `research_verify_run` 和 `research_compare_runs`；当项目只有 preview 或缺少正式证据包时，工具明确返回 `not_available`/formal 不可比，而不是让模型用文字声称已经完成验证。
+
 本次实际演示的公开图件保存在 [`docs/assets/demos/`](assets/demos/)，完整叙述见 [`docs/agent-demo-result.md`](agent-demo-result.md)。本地运行中 AR-003 和 AR-004 的 preview worker 已返回 `completed`，但由于 Agent 创建时没有声明 `reference_asset_id` 或 `sample_validation`，这两个 preview 只有阶段影像和运行清单，没有 `validation_metrics`。这属于正确的受限结果，不能在 README 或课堂演示中写成“验证指标已经完成”。
 
 ## 任务集的科学边界
