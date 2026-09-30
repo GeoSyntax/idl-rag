@@ -144,37 +144,37 @@ flowchart TD
 
 展示资料状态、索引状态、工作进程状态和回退向量提示。
 
-![概览页](./assets/screenshots/dashboard.png)
+![概览页](./assets/showcase/workspace.png)
 
 ### 6.2 知识库页
 
 管理知识库、默认检索策略、`top_k` 和重排开关。
 
-![知识库页](./assets/screenshots/knowledge-bases.png)
+![知识库页](./assets/showcase/workspace.png)
 
 ### 6.3 文档页
 
 展示公开合成的 `demo_spectral_indices.pro` 文档、索引状态、分块数量和解析器信息。
 
-![文档页](./assets/screenshots/documents.png)
+![文档页](./assets/showcase/ingest.png)
 
 ### 6.4 对话页
 
 展示 `.pro` artifact 的本地 IDL 运行结果：运行摘要、退出码、耗时、输出图片数量、图片缩略图和大图预览。
 
-![对话页](./assets/screenshots/chat.png)
+![对话页](./assets/showcase/agent.png)
 
 ### 6.5 检索测试页
 
 对同一个问题运行检索测试，展示候选文本块、策略说明、分数和元数据入口。
 
-![检索测试页](./assets/screenshots/retrieval-lab.png)
+![检索测试页](./assets/showcase/evidence.png)
 
 ### 6.6 设置页
 
 配置模型服务、接口地址、模型名称、重排、LangSmith 和评测报告。
 
-![设置页](./assets/screenshots/settings.png)
+![设置页](./assets/showcase/settings.png)
 
 ## 7. 核心功能说明
 

@@ -70,20 +70,20 @@ Agent 会先检索相关资料，再整理数据、公式和参数，生成 Pyth
 
 <table>
   <tr>
-    <td><img src="./docs/assets/screenshots/dashboard.png" alt="工作台" /></td>
-    <td><img src="./docs/assets/screenshots/knowledge-bases.png" alt="知识库" /></td>
+    <td><img src="./docs/assets/showcase/workspace.png" alt="工作台" /></td>
+    <td><img src="./docs/assets/showcase/agent.png" alt="Agent 对话" /></td>
   </tr>
   <tr>
-    <td align="center">工作台：查看资料和运行状态</td>
-    <td align="center">知识库：管理论文、代码和遥感资料</td>
+    <td align="center">工作台：资料和项目，从这里开始</td>
+    <td align="center">Agent 对话：问题、引用、代码和结果</td>
   </tr>
   <tr>
-    <td><img src="./docs/assets/screenshots/chat.png" alt="Agent 对话" /></td>
-    <td><img src="./docs/assets/screenshots/retrieval-lab.png" alt="检索测试" /></td>
+    <td><img src="./docs/assets/showcase/evidence.png" alt="检索证据" /></td>
+    <td><img src="./docs/assets/showcase/result.png" alt="影像结果" /></td>
   </tr>
   <tr>
-    <td align="center">对话：生成脚本并查看运行结果</td>
-    <td align="center">检索测试：检查候选片段和引用依据</td>
+    <td align="center">检索证据：每条回答都有来源</td>
+    <td align="center">影像结果：阶段图和输出文件</td>
   </tr>
 </table>
 
@@ -123,5 +123,6 @@ npm run dev --prefix frontend
 - [本地演示步骤](./docs/demo.md)
 - [鄱阳湖真实案例](./docs/real-research-case-poyang.md)
 - [配置说明](./docs/configuration.md)
+- [GEE、IDL 与 Python 接入说明](./docs/integrations.md)
 - [安全与数据控制](./docs/security-and-data-control.md)
 - [项目展示说明](./docs/project-showcase.md)
