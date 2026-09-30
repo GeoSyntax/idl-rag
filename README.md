@@ -2,78 +2,94 @@
 
 语言版本：**中文** | [English](./README.en-US.md)
 
-**把论文、遥感资料和 IDL/Python 实验放进同一个可复现工作流**
+**给遥感研究用的资料、代码和实验工作台** 🛰️
 
-上传自己的资料，向 Agent 提问，生成并运行实验代码，查看引用、日志和每个处理阶段的影像结果。
+IDL RAG Panel 把论文、遥感资料、IDL 代码、Python 脚本和本地影像放到一个地方。你可以在页面里提问，找到资料依据，让 Agent 帮你整理方法和编写代码，然后在本地运行实验，查看图片、日志和输出文件。
 
-<p align="center">
-  <img src="./docs/assets/demos/idl-rag-panel-demo-poster.png" alt="IDL RAG Panel 平台预览" width="900" />
-</p>
+它不是只会聊天的问答框，也不是按一个按钮就替你下科学结论的黑盒。它更像一个研究助理：帮你找资料、理清代码、搭好实验，最后把每一步留给你检查。
 
-## Demo
+## 这个平台能做什么？
 
-这段视频展示完整的平台操作路径：进入工作台、管理知识库、使用 Agent 对话、查看检索证据、运行脚本并回看结果。
+### 📚 管理三类研究资料
 
-<video controls muted loop playsinline poster="./docs/assets/demos/idl-rag-panel-demo-poster.png" width="900">
-  <source src="./docs/assets/demos/idl-rag-panel-demo.mp4" type="video/mp4">
-</video>
+可以分别建立论文资料库、IDL 代码资料库和遥感资料库，也可以加入课题组内部文档。支持 PDF、Markdown、文本和 `.pro` / `.idl` 文件，回答时会带上来源和代码位置。
 
-[下载或打开平台演示视频](./docs/assets/demos/idl-rag-panel-demo.mp4)
+### 💬 从自然语言开始做实验
 
-## What you can do
+你不需要先选模板。直接描述问题，例如：
 
-- **整理研究资料：** 将论文、遥感文档、IDL `.pro` 文件和 Python 代码放入可检索的知识库。
-- **带依据地提问：** Agent 返回引用、代码片段和检索位置，方便老师或同学复核。
-- **生成实验代码：** 根据资料和问题生成 IDL 或 Python 处理脚本，不需要先选择固定模板。
-- **运行并查看结果：** 使用本地 IDL 或 Python/GDAL 执行 preview，查看日志、阶段影像和输出文件。
-- **比较检索效果：** 在检索测试页查看候选片段、分数、策略和原始元数据。
-- **管理私有数据：** 每个用户可以上传自己的资料和遥感数据，项目运行产物保留在本地。
+> “比较 MNDWI 在两个阈值下的水体提取效果，使用当前项目的数据，并把每个阶段的影像展示出来。”
 
-## 一个真实工作流
+Agent 会先检索相关资料，再整理数据、公式和参数，生成 Python 或 IDL 代码。你确认后才会运行。
 
-以 MNDWI 水体提取为例，平台中的一次任务会经历：
+### 🧪 把代码真正跑起来
+
+- Python 路线使用 Rasterio、GDAL、NumPy 等工具处理本地栅格数据；
+- IDL 路线可以调用用户电脑上已经安装的 IDL，作为教学或结果对照；
+- 也可以通过结构化参数获取小范围 GEE 数据；
+- 没有 IDL 时，主要研究流程仍然可以使用 Python 完成。
+
+### 🖼️ 每一步都能看到结果
+
+运行后可以查看输入影像、指数图、分类图、差异图、日志、GeoTIFF 和运行记录。这样老师可以检查过程，学生也能知道问题出在数据、公式还是代码。
+
+## 谁会用到它？
+
+| 使用者 | 可以怎么用 |
+|---|---|
+| 老师 / 课题组 | 把内部论文、实验规范和代码放进私有资料库，检查学生的依据、参数和结果。 |
+| 学生 | 用自然语言学习遥感方法，修改公式或阈值，观察不同方案的影像变化。 |
+| 研究人员 | 固定数据和公式版本，重复运行实验，比较 Python 与 IDL 或不同算法的输出。 |
+
+## 一次完整操作
 
 ```text
-研究问题
-  -> 检索论文、遥感资料与代码
-  -> 确认数据和公式
-  -> Agent 生成 Python / IDL 脚本
-  -> 用户确认后执行 preview
-  -> 查看阶段影像、日志和 GeoTIFF
-  -> 保存运行记录，继续修改公式或参数
+提出遥感问题
+  ↓
+检索论文、遥感资料和 IDL/Python 代码
+  ↓
+确认数据、公式和参数
+  ↓
+生成并运行实验代码
+  ↓
+查看阶段影像、指标、日志和输出文件
+  ↓
+修改公式或参数，继续下一次实验
 ```
 
-实际运行产生的阶段影像：
+例如 MNDWI 水体提取可以得到下面这样的中间结果：
 
 <p align="center">
   <img src="./docs/assets/demos/poyang-mndwi-preview-feature.png" alt="MNDWI 特征影像" width="45%" />
   <img src="./docs/assets/demos/poyang-mndwi-preview-mask.png" alt="水体分类结果" width="45%" />
 </p>
 
-这两张图是工作流的输出示例，不是平台演示视频的替代品。完整运行记录见 [`docs/agent-demo-result.md`](./docs/agent-demo-result.md)。
+这些图片只是实验结果的一部分。平台还会保留使用的资料、公式、参数、运行日志和输出文件，方便之后重新检查。
 
-## 页面一览
+## 页面长什么样？
 
 <table>
   <tr>
     <td><img src="./docs/assets/screenshots/dashboard.png" alt="工作台" /></td>
-    <td><img src="./docs/assets/screenshots/chat.png" alt="Agent 对话" /></td>
-  </tr>
-  <tr>
-    <td align="center">工作台：资料、索引与运行状态</td>
-    <td align="center">对话：生成脚本并查看运行结果</td>
-  </tr>
-  <tr>
     <td><img src="./docs/assets/screenshots/knowledge-bases.png" alt="知识库" /></td>
+  </tr>
+  <tr>
+    <td align="center">工作台：查看资料和运行状态</td>
+    <td align="center">知识库：管理论文、代码和遥感资料</td>
+  </tr>
+  <tr>
+    <td><img src="./docs/assets/screenshots/chat.png" alt="Agent 对话" /></td>
     <td><img src="./docs/assets/screenshots/retrieval-lab.png" alt="检索测试" /></td>
   </tr>
   <tr>
-    <td align="center">知识库：论文、遥感资料和 IDL 代码</td>
-    <td align="center">检索测试：候选片段与分数</td>
+    <td align="center">对话：生成脚本并查看运行结果</td>
+    <td align="center">检索测试：检查候选片段和引用依据</td>
   </tr>
 </table>
 
-## Install
+如果想快速浏览一遍页面，可以观看 [平台操作视频](./docs/assets/demos/idl-rag-panel-demo.mp4)。视频只是界面导览，真正的研究结果和执行记录见 [`docs/agent-demo-result.md`](./docs/agent-demo-result.md)。
+
+## 开始使用
 
 需要 Python 3.12、Node.js 18+ 和 `uv`。在项目目录执行：
 
@@ -83,7 +99,7 @@ uv sync --project backend
 npm install --prefix frontend
 ```
 
-分别启动后端和前端：
+打开两个终端，分别启动后端和前端：
 
 ```powershell
 uv run --project backend uvicorn app.main:app --app-dir backend --reload
@@ -93,18 +109,19 @@ uv run --project backend uvicorn app.main:app --app-dir backend --reload
 npm run dev --prefix frontend
 ```
 
-打开 <http://127.0.0.1:5173>，注册账号后即可创建知识库。需要容器部署时，执行 `docker compose up --build`。
+浏览器打开 <http://127.0.0.1:5173>，注册账号后就可以创建自己的知识库。需要容器部署时，执行 `docker compose up --build`。
 
-## Research boundary
+## 使用前需要知道
 
-- 平台负责检索、代码生成、受控执行和结果记录；公式是否合理、样本是否具有代表性以及结论是否成立，仍由研究者确认。
-- 本地 IDL 是可选兼容层。没有 IDL 环境时，仍可以使用 Python/GDAL 完成主要遥感实验。
-- 私有资料和运行数据默认保存在本地 `data/`，不会随代码提交到仓库。
+- 平台可以帮你找依据、写代码和跑实验，但公式是否合理、样本是否合适、结论是否成立，仍需要研究者判断。
+- 私有论文、代码和影像默认保存在本地 `data/`，不会自动上传到仓库。
+- IDL 是可选的兼容层。没有 IDL 环境时，Python/GDAL 仍然可以完成主要遥感处理。
 
-## Docs
+## 进一步了解
 
-- [研究工作流说明](./docs/research-workflow-platform-plan.md)
+- [研究工作流设计](./docs/research-workflow-platform-plan.md)
 - [本地演示步骤](./docs/demo.md)
-- [真实案例记录](./docs/real-research-case-poyang.md)
-- [配置与数据控制](./docs/configuration.md) · [安全说明](./docs/security-and-data-control.md)
-- [项目展示页](./docs/project-showcase.md)
+- [鄱阳湖真实案例](./docs/real-research-case-poyang.md)
+- [配置说明](./docs/configuration.md)
+- [安全与数据控制](./docs/security-and-data-control.md)
+- [项目展示说明](./docs/project-showcase.md)
