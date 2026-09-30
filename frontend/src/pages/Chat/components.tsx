@@ -108,6 +108,7 @@ export function MessageList({
   agentRunComplete,
   agentRunMeta,
   agentLiveStatus,
+  agentElapsedMs,
   isStreaming,
   streamingContent,
   streamError,
@@ -123,6 +124,7 @@ export function MessageList({
   agentRunComplete: boolean
   agentRunMeta: AgentRunMeta | null
   agentLiveStatus: string
+  agentElapsedMs: number
   isStreaming: boolean
   streamingContent: string
   streamError: string
@@ -142,7 +144,7 @@ export function MessageList({
     ? [...messages].reverse().find((message) => message.role === 'assistant')?.id
     : undefined
   const traceAttachedToMessage = lastAssistantMessageId !== undefined && traceSteps.length > 0
-  const showLiveStatus = isStreaming && traceSteps.length === 0 && !streamError
+  const showLiveStatus = isStreaming && !streamError
   return (
     <div className="chat-message-list">
       {messages.map((msg) => (
@@ -164,8 +166,13 @@ export function MessageList({
             <RobotOutlined />
           </div>
           <div className="chat-bubble chat-bubble-assistant">
+            {showLiveStatus ? (
+              <div className="chat-agent-live-status" role="status">
+                <span aria-live="polite">{agentLiveStatus || 'Agent 正在处理请求…'}</span>
+                <span className="chat-agent-live-elapsed" aria-hidden="true">已用时 {formatElapsed(agentElapsedMs)}</span>
+              </div>
+            ) : null}
             {traceSteps.length > 0 && <AgentStepList steps={traceSteps} />}
-            {showLiveStatus ? <div className="chat-agent-live-status">{agentLiveStatus || 'Agent 正在处理请求…'}</div> : null}
             {isStreaming ? (
               <div className="chat-streaming-text">
                 {streamingContent}
@@ -474,6 +481,13 @@ function AgentRunMetaSummary({ meta }: { meta: AgentRunMeta }) {
       {meta.streamId ? <span className="chat-agent-stream-id" title={`流 ID：${meta.streamId}`}>流 {meta.streamId}</span> : null}
     </div>
   )
+}
+
+function formatElapsed(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return minutes > 0 ? `${minutes}分${String(seconds).padStart(2, '0')}秒` : `${seconds}秒`
 }
 
 function getStepLabel(step: AgentStepItem): string {

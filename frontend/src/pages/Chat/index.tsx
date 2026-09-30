@@ -61,6 +61,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [streamError, setStreamError] = useState('')
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
   const [agentLiveStatus, setAgentLiveStatus] = useState('')
+  const [agentElapsedMs, setAgentElapsedMs] = useState(0)
   const [agentRunComplete, setAgentRunComplete] = useState(false)
   const [agentRunMeta, setAgentRunMeta] = useState<AgentRunMeta | null>(null)
   const [chatMode, setChatMode] = useState<'normal' | 'agent'>('normal')
@@ -99,6 +100,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const restoringSessionRef = useRef(false)
   const streamingBufferRef = useRef('')
   const streamingFlushRef = useRef<number | null>(null)
+  const agentStartedAtRef = useRef<number | null>(null)
 
   const clearStreamingBuffer = useCallback(() => {
     if (streamingFlushRef.current !== null && typeof window !== 'undefined') {
@@ -128,6 +130,16 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const { loading: documentsLoading, status: knowledgeStatus } = useKnowledgeStatus(selectedKBIds, showError)
 
   useEffect(() => () => clearStreamingBuffer(), [clearStreamingBuffer])
+
+  useEffect(() => {
+    if (!isStreaming || chatMode !== 'agent' || agentStartedAtRef.current === null) return
+    const timer = window.setInterval(() => {
+      if (agentStartedAtRef.current !== null) {
+        setAgentElapsedMs(Date.now() - agentStartedAtRef.current)
+      }
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [chatMode, isStreaming])
 
   const refreshSessions = async () => {
     setSessionsLoading(true)
@@ -212,6 +224,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setIsStreaming(false)
     setAgentSteps([])
     setAgentLiveStatus('')
+    setAgentElapsedMs(0)
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     setFixTarget(null)
@@ -242,6 +255,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setIsStreaming(false)
     setAgentSteps([])
     setAgentLiveStatus('')
+    setAgentElapsedMs(0)
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     setFixTarget(null)
@@ -268,6 +282,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setIsStreaming(false)
       setAgentSteps([])
       setAgentLiveStatus('')
+      setAgentElapsedMs(0)
       setAgentRunComplete(false)
       setAgentRunMeta(null)
       setFixTarget(null)
@@ -379,6 +394,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setStreamError('')
     setAgentSteps([])
     setAgentLiveStatus(chatMode === 'agent' ? 'Agent 正在处理请求…' : '')
+    agentStartedAtRef.current = chatMode === 'agent' ? Date.now() : null
+    setAgentElapsedMs(0)
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     stepIdRef.current = 0
@@ -408,6 +425,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const finishStream = () => {
     clearStreamingBuffer()
     setIsStreaming(false)
+    agentStartedAtRef.current = null
     setAgentLiveStatus('')
     // The final answer is loaded from the persisted session immediately after
     // `done`. Keep tool trace/run cards for inspection, but do not render the
@@ -517,9 +535,13 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               setAgentLiveStatus(stepEvent.content || '模型仍在响应，请稍候…')
               return
             }
-            setAgentLiveStatus(stepEvent.step === 'tool_call' && stepEvent.tool
-              ? `正在调用 ${stepEvent.tool}…`
-              : 'Agent 正在处理请求…')
+            if (stepEvent.step === 'tool_call' && stepEvent.tool) {
+              setAgentLiveStatus(`正在调用 ${describeAgentTool(stepEvent.tool)}…`)
+            } else if (stepEvent.step === 'tool_result' && stepEvent.tool) {
+              setAgentLiveStatus(`${describeAgentTool(stepEvent.tool)}已完成，正在整理下一步…`)
+            } else {
+              setAgentLiveStatus('Agent 正在处理请求…')
+            }
             stepIdRef.current += 1
             setAgentSteps((prev) => [
               ...prev,
@@ -570,6 +592,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     streamRequestIdRef.current += 1
     streamTerminalRef.current = true
     abortRef.current?.abort()
+    agentStartedAtRef.current = null
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     setStreamError('生成已停止，未保存完整回答。')
@@ -972,6 +995,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             agentRunComplete={agentRunComplete}
             agentRunMeta={agentRunMeta}
             agentLiveStatus={agentLiveStatus}
+            agentElapsedMs={agentElapsedMs}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             streamError={streamError}
@@ -1076,4 +1100,20 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
 function sessionLabel(session: ChatSession): string {
   const title = session.title?.trim() || `会话 ${session.id}`
   return `${title} · ${new Date(session.created_at).toLocaleString()}`
+}
+
+function describeAgentTool(tool: string): string {
+  const labels: Record<string, string> = {
+    retrieve_knowledge: '知识库检索',
+    public_literature_search: '公开文献搜索',
+    research_project_context: '研究项目上下文',
+    research_data_catalog: '研究数据目录',
+    research_run_summary: '运行摘要查询',
+    research_verify_run: '运行核验',
+    research_compare_runs: '运行对比',
+    research_create_preview: '预览任务创建',
+    research_queue_preview: '预览任务排队',
+    gee_fetch: 'GEE 数据获取',
+  }
+  return labels[tool] || tool.replace(/_/g, ' ')
 }

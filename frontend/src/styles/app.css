@@ -1309,12 +1309,20 @@ body { min-height: 100dvh; }
 }
 
 .chat-agent-live-status {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
   min-height: 24px;
   margin-bottom: 6px;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.chat-agent-live-elapsed {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .chat-agent-live-status::before {
@@ -1362,6 +1370,13 @@ body { min-height: 100dvh; }
 
 @keyframes cursor-blink {
   50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-agent-live-status::before,
+  .streaming-cursor {
+    animation: none;
+  }
 }
 
 /* ── Artifacts ── */
