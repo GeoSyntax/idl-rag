@@ -77,4 +77,6 @@
 - [x] 任务集 runner 捕获 Agent SSE `error` 并标记失败，补全回合复用原 session，避免错误被算作成功或产生孤立会话。
 - [x] 真实运行任务集 AR-003（确认的 MNDWI Python preview）：Gemini2API 完成 `create_preview → queue_preview → run_summary`，Run 3/4 产生阶段 PNG；同一 Agent 回合重复排队会被幂等拦截。
 - [x] Agent 工具结果携带服务器生成的受控下一步提示；确认 preview 创建成功后会继续排队并查询摘要，不再停在 planned。
+- [x] 用 `teacher_review_0930` 对 `/api/chat/agent-stream` 做端到端回归：普通 Agent 为 57 个 token、1 个 `done`、0 个 `error`；研究项目 Agent 为 182 个 token、1 个 `done`、1 个工具调用、0 个 `error`，无引用时返回空 citations。
+- [x] 配置层读取 `.env` 并兼容 `IDLRAG_BASE_DIR=./data`，避免任务 runner 与 Uvicorn 使用不同密钥加密 Gemini2API 配置而造成 SSE 401。
 - [ ] Ant Design 共享 chunk 仍约 632KB（gzip 约 205KB），后续再评估组件级拆分和缓存策略。
