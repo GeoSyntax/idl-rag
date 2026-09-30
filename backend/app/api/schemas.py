@@ -308,6 +308,7 @@ class ChatSessionResponse(BaseModel):
 
     id: int
     knowledge_base_id: int | None
+    research_project_id: int | None
     title: str | None
     created_at: datetime
 

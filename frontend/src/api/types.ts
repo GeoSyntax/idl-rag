@@ -283,6 +283,7 @@ export type IdlRunResponse = {
 export type ChatSession = {
   id: number
   knowledge_base_id: number | null
+  research_project_id: number | null
   title: string | null
   created_at: string
 }

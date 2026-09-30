@@ -26,6 +26,7 @@ _DOCUMENT_ALTER_STATEMENTS = {
 }
 _CHAT_SESSION_ALTER_STATEMENTS = {
     "owner_user_id": "ALTER TABLE chat_sessions ADD COLUMN owner_user_id INTEGER",
+    "research_project_id": "ALTER TABLE chat_sessions ADD COLUMN research_project_id INTEGER",
 }
 _CHAT_MESSAGE_ALTER_STATEMENTS = {
     "artifacts_json": "ALTER TABLE chat_messages ADD COLUMN artifacts_json JSON NOT NULL DEFAULT '[]'",

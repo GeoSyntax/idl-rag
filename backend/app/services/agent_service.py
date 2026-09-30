@@ -1632,10 +1632,14 @@ class AgentService:
     def _get_or_create_session(self, db: Session, payload: ChatRequest, owner_user_id: int) -> ChatSession:
         if payload.session_id is not None:
             session = self._get_owned_session(db, payload.session_id, owner_user_id)
+            if payload.research_project_id is not None and session.research_project_id != payload.research_project_id:
+                session.research_project_id = payload.research_project_id
+                db.flush()
             return session
         first_kb_id = payload.knowledge_base_ids[0] if payload.knowledge_base_ids else None
         session = ChatSession(
             knowledge_base_id=first_kb_id,
+            research_project_id=payload.research_project_id,
             owner_user_id=owner_user_id,
             title=payload.question[:80],
         )
