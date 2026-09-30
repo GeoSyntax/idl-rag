@@ -112,7 +112,7 @@ def _evaluate_task(task: dict[str, Any], result: dict[str, Any]) -> dict[str, An
                 token in answer for token in refusal_markers
             )
         elif "formal" in category or "IDL" in category:
-            matched = any(token in answer for token in ("formal", "IDL")) and any(
+            matched = any(token in answer for token in ("formal", "Formal", "正式", "IDL")) and any(
                 token in answer for token in refusal_markers
             )
         elif "preview" in category and "结论" in category:
@@ -122,7 +122,8 @@ def _evaluate_task(task: dict[str, Any], result: dict[str, Any]) -> dict[str, An
                     "不能作为最终", "不能写成", "不等于最终", "不得",
                     "不能作为正式", "不构成正式", "不可作为正式", "不应作为结论",
                     "不能直接写入最终", "不能直接作为最终", "不能混同为正式结论",
-                    "混同为正式结论",
+                    "混同为正式结论", "尚未完成 formal 验证", "尚未完成 Formal 验证",
+                    "不等于正式", "不能直接作为最终科学结论",
                 )
             )
         else:
@@ -178,6 +179,7 @@ def _run_task(db, task: dict[str, Any], *, owner_user_id: int, project_id: int) 
     for attempt in range(2):
         payload = ChatRequest(
             question=current_prompt,
+            session_id=session_id,
             research_project_id=project_id,
             allow_external_research=bool(consent.get("allow_external_research", False)),
             allow_research_execution=bool(consent.get("allow_research_execution", False)),
@@ -192,6 +194,10 @@ def _run_task(db, task: dict[str, Any], *, owner_user_id: int, project_id: int) 
                     attempt_answer.append(str(event.get("content") or ""))
                 elif event_type == "done":
                     session_id = event.get("session_id")
+                elif event_type == "error":
+                    error = str(event.get("message") or "Agent SSE error")
+                    attempt_events.append(event)
+                    break
                 else:
                     # Tool output is already bounded by AgentService. Keep the trace
                     # compact so it can be committed as a review artifact.

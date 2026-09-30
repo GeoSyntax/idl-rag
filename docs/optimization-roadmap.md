@@ -73,4 +73,6 @@
 - [x] SSE 客户端在正常结束、Abort、异常回调和截断响应后显式 cancel reader，再释放锁，避免连续 Agent 会话残留流读取器。
 - [x] Agent 模型异常不再静默降级为“未配置模型”：SSE 返回可识别错误，路由记录 `has_error`，失败请求不落盘空助手消息。
 - [x] 重启当前本地后端后，用 `teacher_review_0930` + Gemini2API 真实执行研究 Run 查询：HTTP 200、SSE 终止事件唯一且为 `done`，无 `error` 事件。
+- [x] 真实运行任务集 AR-001（只读项目审计）和 AR-010（越权拒绝）：两项均无异常；AR-001 工具契约 `passed`，AR-010 的 5 项拒绝边界经重新评估全部 `passed`。
+- [x] 任务集 runner 捕获 Agent SSE `error` 并标记失败，补全回合复用原 session，避免错误被算作成功或产生孤立会话。
 - [ ] Ant Design 共享 chunk 仍约 632KB（gzip 约 205KB），后续再评估组件级拆分和缓存策略。
