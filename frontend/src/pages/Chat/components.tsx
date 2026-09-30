@@ -49,6 +49,7 @@ export function MessageList({
   agentSteps,
   isStreaming,
   streamingContent,
+  streamError,
   messagesEndRef,
   onDownloadArtifact,
   onStartFix,
@@ -60,6 +61,7 @@ export function MessageList({
   agentSteps: AgentStepItem[]
   isStreaming: boolean
   streamingContent: string
+  streamError: string
   messagesEndRef: RefObject<HTMLDivElement>
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
@@ -80,7 +82,7 @@ export function MessageList({
           runningArtifactId={runningArtifactId}
         />
       ))}
-      {(isStreaming || agentSteps.length > 0) && (
+      {(isStreaming || agentSteps.length > 0 || Boolean(streamError)) && (
         <div className="chat-msg chat-msg-assistant">
           <div className="chat-avatar chat-avatar-assistant">
             <RobotOutlined />
@@ -91,6 +93,12 @@ export function MessageList({
               <div className="chat-streaming-text">
                 {streamingContent}
                 <span className="streaming-cursor">|</span>
+              </div>
+            ) : null}
+            {streamError ? (
+              <div className="chat-stream-error">
+                <CloseCircleOutlined />
+                <span>{streamError}</span>
               </div>
             ) : null}
           </div>

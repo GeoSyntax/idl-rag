@@ -1115,6 +1115,26 @@ body { min-height: 100dvh; }
   word-break: break-word;
 }
 
+.chat-stream-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  background: var(--error-light);
+  color: var(--error);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.chat-stream-error .anticon {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
 .streaming-cursor {
   display: inline-block;
   margin-left: 1px;
