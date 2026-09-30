@@ -60,3 +60,27 @@ def test_task_contract_accepts_explicit_preview_boundary() -> None:
     evaluation = _evaluate_task(task, result)
 
     assert evaluation["status"] == "passed"
+
+
+def test_task_contract_rejects_fabricated_parameter_ranking() -> None:
+    from scripts.run_agent_task_suite import _evaluate_task
+
+    task = {
+        "id": "AR-RANKING",
+        "required_tools": ["research_data_catalog", "research_run_summary"],
+        "acceptance": "不能把参数候选当作已经运行的结果，不能假造排名。",
+    }
+    result = {
+        "events": [
+            {"step": "tool_call", "tool": "research_data_catalog"},
+            {"step": "tool_call", "tool": "research_run_summary"},
+            {"step": "tool_result", "tool": "research_run_summary", "output": '{"threshold": 0.15}'},
+        ],
+        "answer": "阈值排名如下：0.15 最高，0.1 次之，0.0 和 0.2 较低。",
+        "error": None,
+    }
+
+    evaluation = _evaluate_task(task, result)
+
+    assert evaluation["status"] == "needs_review"
+    assert evaluation["checks"]["scientific_contract_checks"]["no_fabricated_parameter_ranking"] is False

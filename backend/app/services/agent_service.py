@@ -533,6 +533,8 @@ class AgentService:
                 "\n- 当用户要求证据包审计、运行完整性或 formal 可比性检查时，必须实际调用 research_verify_run；"
                 "只有在存在两个 completed formal runs 时才可能得到可比结果，但仍应调用 research_compare_runs 让工具返回可比性结论；"
                 "如果前置条件不足，不要只凭文字声称‘已检查’，应使用最近的 run_id/experiment_id 调用受控工具并如实报告拒绝原因。"
+                "\n- 参数候选、阈值 sweep 或模型选择不能凭经验生成 F1/OA/IoU 排名；只有工具实际返回每个候选的 validation_metrics 时才可排序。"
+                "如果缺少某些候选运行或指标，必须明确说‘当前无法排名’，把候选交回研究页 parameter sweep，不能用常识补齐数字或顺序。"
             )
 
         # 如果检测到修复意图且有历史代码，注入提示
