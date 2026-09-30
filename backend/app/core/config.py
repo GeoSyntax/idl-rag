@@ -79,7 +79,16 @@ class AppSettings(BaseSettings):
     gee_min_scale: int = 1
     gee_max_scale: int = 10000
 
-    model_config = SettingsConfigDict(env_prefix="IDLRAG_", extra="ignore")
+    # Keep the API process, task runner and local maintenance scripts on the
+    # same configuration source.  Without loading the project .env, a runner
+    # could encrypt the Gemini2API key with the fallback secret while Uvicorn
+    # used IDLRAG_AUTH_SECRET from the shell, causing SSE-only 401 failures.
+    model_config = SettingsConfigDict(
+        env_prefix="IDLRAG_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     @property
     def is_default_auth_secret(self) -> bool:
@@ -109,7 +118,14 @@ class AppSettings(BaseSettings):
     @property
     def project_root(self) -> Path:
         if self.base_dir:
-            return Path(self.base_dir)
+            configured = Path(self.base_dir).expanduser()
+            # The public .env template documents IDLRAG_BASE_DIR=./data as
+            # the runtime data directory, while older local launch commands
+            # pass the project root itself. Support both forms so loading
+            # .env does not accidentally resolve to data/data.
+            if configured.name.lower() == "data":
+                return configured.parent
+            return configured
         return Path(__file__).resolve().parents[3]
 
     @property
