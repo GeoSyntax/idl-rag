@@ -62,6 +62,61 @@ def test_agent_remote_stream_forwards_plain_final_content(monkeypatch) -> None:
     assert streamed == ["MND", "WI"]
 
 
+def test_gemini2api_agent_uses_tools_free_final_stream(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
+
+    from app.api.schemas import ChatRequest
+    from app.core.config import get_app_settings
+    from app.db.database import get_engine, get_session_factory, init_database
+    from app.db.models import User
+    from app.services.agent_service import AgentService
+
+    get_app_settings.cache_clear()
+    get_engine.cache_clear()
+    get_session_factory.cache_clear()
+    init_database()
+    db = get_session_factory()()
+    try:
+        user = User(username="gemini-final-stream", password_hash="hash", role="user", is_active=True)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        service = AgentService()
+        monkeypatch.setattr(
+            "app.services.agent_service.get_runtime_settings",
+            lambda _db: type("Settings", (), {"api_key": "configured", "provider_name": "gemini2api"})(),
+        )
+        monkeypatch.setattr(
+            service.llm_service,
+            "agent_generate",
+            lambda *_args, **_kwargs: {"final_answer": "候选草稿"},
+        )
+
+        streamed: list[str] = []
+
+        def final_stream(_db, _messages, _draft, on_content):
+            on_content("真实")
+            on_content("流式")
+            return "真实流式"
+
+        monkeypatch.setattr(service.llm_service, "agent_final_answer_stream", final_stream)
+        events = list(
+            service.agent_answer_stream(
+                db,
+                ChatRequest(question="测试最终流"),
+                owner_user_id=user.id,
+                token_callback=streamed.append,
+            )
+        )
+
+        assert streamed == ["真实", "流式"]
+        assert [event.get("type") for event in events if event.get("type") == "token"] == []
+        assert events[-1]["type"] == "done"
+        assert service.list_messages(db, events[-1]["session_id"], user.id)[-1].content == "真实流式"
+    finally:
+        db.close()
+
+
 @pytest.mark.asyncio
 async def test_agent_async_stream_emits_heartbeat_while_sync_provider_waits(monkeypatch) -> None:
     from app.services.agent_service import AgentService

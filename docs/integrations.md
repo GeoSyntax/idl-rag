@@ -55,7 +55,7 @@ API Key：填写 gemin2api/config.json 中 api_keys 的值
 
 保存并测试连接后，普通 Chat 和 Agent 的回答都会通过该 OpenAI 兼容接口进行 SSE 流式生成。API Key 只保存在本地数据库的加密设置项中，不要写入 Git、README 或截图。若 `gemin2api` 尚未启动，平台会显示模型服务连接失败，并停止当前流，不会伪造“未连接云端模型”的正常回答。
 
-Agent 的工具决策需要完整 JSON 才能安全校验参数。普通 OpenAI-compatible 网关在支持“工具 + stream”时，最终纯文本会实时转发；当前 `gemin2api` 能稳定流式处理普通 Chat，但会对带工具定义的 `stream=true` 请求返回 502，因此平台会根据 Provider 自动走稳定的非流式工具决策，并通过 SSE 心跳保持界面可观察，不会每次先浪费一轮上游超时。后端每 8 秒发送一次 `waiting` 状态，前端在同一个回答气泡内显示“模型仍在响应”，而不是生成第二条回答。真正的 `done`/`error` 仍然只发送一次；点击停止后，迟到的模型结果不会继续写入会话。
+Agent 的工具决策需要完整 JSON 才能安全校验参数。普通 OpenAI-compatible 网关在支持“工具 + stream”时，最终纯文本会实时转发；当前 `gemin2api` 能稳定流式处理普通 Chat，但会对带工具定义的 `stream=true` 请求返回 502，因此平台会自动使用两阶段模式：第一阶段用稳定的 JSON 工具决策，第二阶段去掉 `tools` 后用 Gemini2API 原生 Chat SSE 输出最终答案。后端每 8 秒发送一次 `waiting` 状态，前端在同一个回答气泡内显示“模型仍在响应”，而不是生成第二条回答。真正的 `done`/`error` 仍然只发送一次；点击停止后，迟到的模型结果不会继续写入会话。
 
 `gemin2api` 当前提供的是聊天兼容接口（`/v1/chat/completions`），不等于 Embedding 服务。设置页的 **Embedding** 卡片需要单独填写一个实现了 `/v1/embeddings` 的本地或 OpenAI-compatible 服务；留空时平台会兼容性地复用聊天地址，但如果该网关没有 Embedding 路由，测试会明确返回 401/404，而不会把聊天连接误判为向量服务。没有可用 Embedding 时，默认检索会退回 FTS/规则排序，`vector_only` 仅用于诊断。
 

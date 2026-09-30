@@ -746,6 +746,72 @@ class LlmService:
             return {**parsed, "_streamed": bool(streamable)}
         return {"final_answer": content, "_streamed": bool(streamable)}
 
+    def agent_final_answer_stream(
+        self,
+        db: Session,
+        messages: list[dict[str, str]],
+        draft: str,
+        on_content: Callable[[str], None],
+    ) -> str:
+        """Stream a final Agent answer through a tools-free Chat request.
+
+        Gemini2API accepts ordinary Chat streaming but not the combination of
+        ``tools`` and ``stream=true``. The Agent therefore makes its bounded
+        tool decision first, then this second phase asks the same provider for
+        plain answer text only. The draft is included as context so this phase
+        does not invent a new task or lose the verified tool facts.
+        """
+        settings = get_runtime_settings(db)
+        if not (settings.api_key or _is_local_compatible_endpoint(settings)):
+            return draft
+        final_messages = [
+            *messages,
+            {
+                "role": "user",
+                "content": (
+                    "请根据以上已完成的 Agent 分析和工具事实，直接输出给用户的最终回答正文。"
+                    "不要输出 JSON、工具调用、分析过程或新的任务；保留确实有依据的 [n] 引用标记。\n"
+                    f"候选草稿：\n{draft[:12000]}"
+                ),
+            },
+        ]
+        payload = {
+            "model": settings.chat_model,
+            "temperature": min(settings.temperature, 0.2),
+            "stream": True,
+            "messages": final_messages,
+        }
+        parts: list[str] = []
+        with httpx.Client(timeout=120.0) as client:
+            with client.stream(
+                "POST",
+                f"{settings.api_base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else {},
+                json=payload,
+            ) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+                    choices = chunk.get("choices") or []
+                    if not choices:
+                        continue
+                    content = (choices[0].get("delta") or {}).get("content") or ""
+                    if content:
+                        parts.append(content)
+                        on_content(content)
+        answer = "".join(parts).strip()
+        if not answer:
+            raise ValueError("模型最终流没有返回文本。")
+        return answer
+
     def _agent_generate_local(self, messages: list[dict[str, str]]) -> dict:
         # 本地降级：从最后一条用户消息提取信息，直接返回 final_answer
         user_messages = [m for m in messages if m.get("role") == "user"]

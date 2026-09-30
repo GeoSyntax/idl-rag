@@ -476,6 +476,8 @@ class AgentService:
         if payload.research_project_id is not None:
             self._validate_research_project(db, payload.research_project_id, owner_user_id)
         settings_from_svc = get_runtime_settings(db)
+        provider_name = str(getattr(settings_from_svc, "provider_name", "") or "").strip().lower()
+        needs_tools_free_final_stream = provider_name in {"gemini2api", "gemin2api", "gemini2api-local"}
         if not settings_from_svc.api_key and not _is_local_compatible_endpoint(settings_from_svc):
             # 先降级，再创建消息。旧实现先写入一条 user message，随后
             # answer_stream 又写入一条，页面会看到重复请求/回答。
@@ -603,10 +605,13 @@ class AgentService:
                 return self.llm_service.agent_generate(db, llm_messages)
 
             marker_filter = _CitationMarkerStreamFilter(len(all_citations))
+            streamed_to_client = False
 
             def emit_content(content: str) -> None:
+                nonlocal streamed_to_client
                 safe_content = marker_filter.feed(content)
                 if safe_content:
+                    streamed_to_client = True
                     token_callback(safe_content)
 
             result = self.llm_service.agent_generate(
@@ -614,6 +619,20 @@ class AgentService:
                 llm_messages,
                 on_content=emit_content,
             )
+            if result.get("final_answer") and needs_tools_free_final_stream and not result.get("_streamed"):
+                try:
+                    result["final_answer"] = self.llm_service.agent_final_answer_stream(
+                        db,
+                        llm_messages,
+                        result["final_answer"],
+                        emit_content,
+                    )
+                    result["_streamed"] = True
+                except Exception:
+                    # A failed second phase is safe to fall back to the
+                    # already-complete draft only if no partial answer escaped.
+                    if streamed_to_client:
+                        raise
             if result.get("_streamed"):
                 tail = marker_filter.finish()
                 if tail:
