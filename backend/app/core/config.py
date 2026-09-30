@@ -85,8 +85,10 @@ class AppSettings(BaseSettings):
     # used IDLRAG_AUTH_SECRET from the shell, causing SSE-only 401 failures.
     model_config = SettingsConfigDict(
         env_prefix="IDLRAG_",
-        env_file=".env",
-        env_file_encoding="utf-8",
+        # Direct AppSettings(...) construction stays deterministic for tests,
+        # health checks and embedding probes. The application entry point
+        # explicitly opts into the project .env below.
+        env_file=None,
         extra="ignore",
     )
 
@@ -187,7 +189,7 @@ class AppSettings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_app_settings() -> AppSettings:
-    settings = AppSettings()
+    settings = AppSettings(_env_file=".env", _env_file_encoding="utf-8")
     for path in [
         settings.data_dir,
         settings.source_dir,

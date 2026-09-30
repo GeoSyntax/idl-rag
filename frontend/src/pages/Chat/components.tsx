@@ -33,7 +33,7 @@ export function KnowledgeStatusBar({
           {status.active > 0 ? <span>索引中 {status.active}</span> : null}
           {status.stale > 0 ? <span>stale {status.stale}</span> : null}
           {status.failed > 0 ? <span>失败 {status.failed}</span> : null}
-          {status.fallback > 0 ? <span>fallback embedding {status.fallback} · vector quality degraded</span> : null}
+          {status.fallback > 0 ? <span>fallback embedding {status.fallback} · 默认 hybrid 已切换 FTS（vector_only 仅用于诊断）</span> : null}
           {retrievalConfig ? (
             <span>{retrievalConfig.strategy} · top_k {retrievalConfig.topK} · {retrievalConfig.rerank ? 'rerank on' : 'rerank off'}{retrievalConfig.note ? ` · ${retrievalConfig.note}` : ''}</span>
           ) : null}

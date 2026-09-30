@@ -29,6 +29,9 @@ class EmbeddingService:
     def __init__(self) -> None:
         self.app_settings = get_app_settings()
         self.is_fallback = False
+        # 记录最近一次查询是否使用了 fallback。检索层用它避免把
+        # hash 向量误当作语义向量参与默认 hybrid 排序。
+        self.last_query_fallback = False
 
     def embed_texts(self, db: Session, texts: str | list[str]) -> tuple[list[list[float]], bool]:
         """返回 (embeddings, is_fallback)。"""
@@ -67,7 +70,8 @@ class EmbeddingService:
         return [self._fallback_embedding(text) for text in texts], True
 
     def embed_query(self, db: Session, text: str) -> list[float]:
-        embeddings, _ = self.embed_texts(db, text)
+        embeddings, is_fallback = self.embed_texts(db, text)
+        self.last_query_fallback = is_fallback
         return embeddings[0] if embeddings else self._fallback_embedding(text)
 
     def get_dimensions(self) -> int:

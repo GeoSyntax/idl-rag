@@ -203,3 +203,37 @@ def test_search_multiple_uses_global_ranking(monkeypatch: pytest.MonkeyPatch, re
     citations = service.search_multiple(db, [kb_id, kb_id + 1], "query", top_k=1)
 
     assert citations[0].file_name == "second.md"
+
+
+def test_hybrid_skips_hash_fallback_vectors(monkeypatch: pytest.MonkeyPatch, retrieval_env: tuple[Session, int]) -> None:
+    db, kb_id = retrieval_env
+    service = RetrievalService()
+    fts_rows = [{
+        "chunk_id": 1,
+        "document_id": 1,
+        "file_name": "fts.md",
+        "file_path": "fts.md",
+        "title": "FTS result",
+        "section": None,
+        "symbol_name": None,
+        "chunk_kind": "paragraph",
+        "excerpt": "deterministic text match",
+    }]
+    vector_rows = [{
+        "chunk_id": 2,
+        "document_id": 2,
+        "file_name": "fallback.md",
+        "file_path": "fallback.md",
+        "title": "Hash fallback result",
+        "section": None,
+        "symbol_name": None,
+        "chunk_kind": "paragraph",
+        "excerpt": "not a semantic match",
+    }]
+    monkeypatch.setattr(service, "_search_fts", lambda *_args: fts_rows)
+    monkeypatch.setattr(service, "_search_vectors", lambda *_args: vector_rows)
+    monkeypatch.setattr(service.embedding_service, "last_query_fallback", True)
+
+    rows = service._hybrid_ranked_rows(db, kb_id, "query", candidate_limit=10)
+
+    assert [row["chunk_id"] for row in rows] == [1]

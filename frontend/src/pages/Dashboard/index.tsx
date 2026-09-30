@@ -50,8 +50,8 @@ export function DashboardPage({ summary, loading }: DashboardPageProps) {
       {summary?.embedding_fallback_active ? (
         <Alert
           type="warning"
-          message="当前存在 fallback embedding"
-          description={summary.embedding_last_error ?? '部分文档或最近一次向量化使用了 hash fallback，语义检索质量会下降。'}
+          message="Embedding 服务不可用，已保护性降级"
+          description={summary.embedding_last_error ?? '部分文档或最近一次向量化使用了 hash fallback；默认 hybrid 会使用 FTS + 规则排序，vector_only 仅用于诊断。'}
           showIcon={false}
         />
       ) : null}

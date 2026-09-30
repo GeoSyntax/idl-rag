@@ -105,3 +105,11 @@
 - [x] 完成态 Agent 气泡显示“服务端耗时 / 首 token / 流 ID”摘要；切换会话、停止、失败和重新发送会清除旧摘要，避免旧运行信息串到新回答。
 - [x] 用本地 Gemini2API 做真实 Agent SSE 回归：HTTP 200、39 个事件、1 个 `done`、0 个 `error`，`stream_id` 长度 12，服务端耗时 48786.8ms、首 token 48677.0ms，未发现私有信息泄露。
 - [x] 后端目标测试 28 项通过，ruff 通过，前端生产构建通过；Lighthouse 快照 32/32 通过（Accessibility / Best Practices / SEO / Agentic Browsing 均 100）。
+
+## 当前轮次进度（无 embedding 服务时的检索降级）
+
+- [x] 默认 `hybrid_rrf` / `hybrid_rrf_no_rerank` 检测最近一次查询是否使用 hash fallback embedding；检测到 fallback 时只使用 FTS + 规则排序，不再把伪向量混入默认候选融合。
+- [x] `vector_only` 仍保留为显式诊断策略，用来验证 embedding 服务是否真正可用；系统不会把诊断结果冒充为默认语义检索质量。
+- [x] 新增回归测试覆盖“fallback 向量不进入默认 hybrid”边界；15 项检索策略测试和 17 项 Agent/SSE 测试通过。
+- [x] 使用本地运行中的 Gemini2API/工作台真实调用 `/api/chat/retrieve-debug`：`hybrid_rrf_no_rerank` 返回的 3 个候选均标记 `source_strategy=fts`，未混入 fallback vector 结果。
+- [x] 配置读取边界收紧：`AppSettings(...)` 直接实例化不再隐式读取项目 `.env`，应用入口 `get_app_settings()` 仍显式加载 `.env`；全量后端回归恢复为 148 passed、1 skipped。

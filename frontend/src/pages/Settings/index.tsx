@@ -229,7 +229,8 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
         />
         {settings && !settings.has_api_key ? (
           <Alert
-            message="当前未配置模型 API Key，索引时会使用 hash fallback embedding；该模式仅适合临时测试，语义检索质量会下降。"
+            message="当前未配置模型 API Key，索引将使用 hash fallback embedding"
+            description="默认 hybrid 会保护性切换到 FTS + 规则排序；vector_only 仅适合诊断，不代表真实语义检索质量。"
             type="warning"
             showIcon={false}
           />

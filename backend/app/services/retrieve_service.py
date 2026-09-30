@@ -543,13 +543,17 @@ class RetrievalService:
         query: str,
         candidate_limit: int,
     ) -> list[dict[str, Any]]:
-        return self._rank_rows(
-            query,
-            [
-                self._search_fts(db, knowledge_base_id, query, candidate_limit),
-                self._search_vectors(db, knowledge_base_id, query, candidate_limit),
-            ],
-        )[:candidate_limit]
+        fts_rows = self._search_fts(db, knowledge_base_id, query, candidate_limit)
+        vector_rows = self._search_vectors(db, knowledge_base_id, query, candidate_limit)
+
+        # Gemini2API 等本地聊天网关可能没有 /embeddings。此时 EmbeddingService
+        # 会生成 hash fallback，它只能保持向量表结构，不能表达语义相似度。
+        # 默认 hybrid 不应让这种伪向量稀释 FTS 的确定性结果；vector_only 仍
+        # 保留为显式诊断路径，方便用户验证 embedding 服务是否可用。
+        ranked_lists = [fts_rows]
+        if not self.embedding_service.last_query_fallback:
+            ranked_lists.append(vector_rows)
+        return self._rank_rows(query, ranked_lists)[:candidate_limit]
 
     def _rank_rows(self, query: str, ranked_lists: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
         merged: dict[int, dict[str, Any]] = {}
