@@ -694,33 +694,35 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               { label: 'Agent', value: 'agent' },
             ]}
           />
-          <Tooltip title="仅将研究问题发送给公开文献元数据接口；不会发送项目影像或凭据">
-            <Checkbox
-              checked={allowExternalResearch}
-              onChange={(event) => setAllowExternalResearch(event.target.checked)}
-              disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
-            >
-              允许外部文献搜索
-            </Checkbox>
-          </Tooltip>
-          <Tooltip title="允许 Agent 在确认后创建并排队 Python preview；不会执行 formal/IDL、修改公式或协议">
-            <Checkbox
-              checked={allowResearchExecution}
-              onChange={(event) => setAllowResearchExecution(event.target.checked)}
-              disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
-            >
-              允许 Agent 预览执行
-            </Checkbox>
-          </Tooltip>
-          <Tooltip title="仅允许 Agent 按 GEE 白名单获取数据并登记私有 DataAsset；不会冻结快照或运行实验">
-            <Checkbox
-              checked={allowGeeFetch}
-              onChange={(event) => setAllowGeeFetch(event.target.checked)}
-              disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
-            >
-              允许 Agent 获取 GEE
-            </Checkbox>
-          </Tooltip>
+          <div className="chat-research-permissions" aria-label="研究 Agent 授权选项">
+            <Tooltip title="仅将研究问题发送给公开文献元数据接口；不会发送项目影像或凭据">
+              <Checkbox
+                checked={allowExternalResearch}
+                onChange={(event) => setAllowExternalResearch(event.target.checked)}
+                disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
+              >
+                允许外部文献搜索
+              </Checkbox>
+            </Tooltip>
+            <Tooltip title="允许 Agent 在确认后创建并排队 Python preview；不会执行 formal/IDL、修改公式或协议">
+              <Checkbox
+                checked={allowResearchExecution}
+                onChange={(event) => setAllowResearchExecution(event.target.checked)}
+                disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
+              >
+                允许 Agent 预览执行
+              </Checkbox>
+            </Tooltip>
+            <Tooltip title="仅允许 Agent 按 GEE 白名单获取数据并登记私有 DataAsset；不会冻结快照或运行实验">
+              <Checkbox
+                checked={allowGeeFetch}
+                onChange={(event) => setAllowGeeFetch(event.target.checked)}
+                disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
+              >
+                允许 Agent 获取 GEE
+              </Checkbox>
+            </Tooltip>
+          </div>
         </div>
         <div className="chat-toolbar-right">
           <Select

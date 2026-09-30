@@ -407,10 +407,13 @@ function ArtifactImagePreview({
 }
 
 function AgentStepList({ steps }: { steps: AgentStepItem[] }) {
+  const latestResearchSummaryId = [...steps]
+    .reverse()
+    .find((step) => step.step === 'tool_result' && step.metadata?.research_run)?.id
   const items = steps.map((step) => ({
     key: String(step.id),
     label: getStepLabel(step),
-    children: <StepContent step={step} />,
+    children: <StepContent step={step} showResearchSummary={step.id === latestResearchSummaryId} />,
   }))
   return <Collapse items={items} size="small" className="chat-agent-collapse" defaultActiveKey={items.length ? [items[items.length - 1].key] : []} />
 }
@@ -424,7 +427,7 @@ function getStepLabel(step: AgentStepItem): string {
   return step.step
 }
 
-function StepContent({ step }: { step: AgentStepItem }) {
+function StepContent({ step, showResearchSummary = false }: { step: AgentStepItem; showResearchSummary?: boolean }) {
   if (step.step === 'thinking' || step.step === 'answer' || step.step === 'error') {
     return <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{step.content}</p>
   }
@@ -432,11 +435,22 @@ function StepContent({ step }: { step: AgentStepItem }) {
     return step.args ? <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>{JSON.stringify(step.args, null, 2)}</pre> : null
   }
   if (step.step === 'tool_result') {
+    const isResearchRun = Boolean(step.metadata?.research_run)
     return (
       <div>
         <Tag color="green" style={{ marginBottom: 4 }}>{step.tool}</Tag>
-        {step.metadata?.research_run ? <ResearchRunSummary metadata={step.metadata} /> : null}
-        <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>{step.output}</pre>
+        {isResearchRun && showResearchSummary ? <ResearchRunSummary metadata={step.metadata ?? {}} /> : null}
+        {isResearchRun && !showResearchSummary ? (
+          <div className="chat-agent-step-note">运行摘要已更新，详情显示在最后一次运行查询中。</div>
+        ) : null}
+        {isResearchRun ? (
+          <details className="chat-agent-tool-details">
+            <summary>查看原始工具结果</summary>
+            <pre>{step.output}</pre>
+          </details>
+        ) : (
+          <pre className="chat-agent-tool-output">{step.output}</pre>
+        )}
       </div>
     )
   }
@@ -494,8 +508,9 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
             </div>
           ) : null}
           {projectId > 0 && run.outputs?.length ? (
-            <div className="chat-research-run-outputs">
-              {run.outputs.map((output) => (
+            <>
+              <div className="chat-research-run-outputs">
+                {run.outputs.filter((output) => output.previewable).map((output) => (
                 <ResearchRunOutputPreview
                   key={`${run.run_id}-${output.file_name}`}
                   projectId={projectId}
@@ -503,8 +518,14 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
                   runId={run.run_id}
                   output={output}
                 />
-              ))}
-            </div>
+                ))}
+              </div>
+              {run.outputs.some((output) => !output.previewable) ? (
+                <div className="chat-research-run-other-outputs">
+                  其余产物：{run.outputs.filter((output) => !output.previewable).map((output) => output.file_name).join('、')}
+                </div>
+              ) : null}
+            </>
           ) : null}
         </div>
       ))}

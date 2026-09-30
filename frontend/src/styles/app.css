@@ -859,6 +859,23 @@ body { min-height: 100dvh; }
   min-width: 180px;
 }
 
+.chat-research-permissions {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.chat-research-permissions .ant-checkbox-wrapper {
+  max-width: 100%;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 .chat-kb-select .ant-select-selector {
   background: var(--surface) !important;
 }
@@ -1451,6 +1468,43 @@ body { min-height: 100dvh; }
   overflow: hidden;
 }
 
+.chat-agent-tool-output,
+.chat-agent-tool-details pre {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.chat-agent-tool-details {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.chat-agent-tool-details summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.chat-agent-tool-details pre {
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.chat-agent-step-note {
+  margin: 2px 0 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .chat-research-run-summary {
   display: grid;
   gap: 8px;
@@ -1533,6 +1587,15 @@ body { min-height: 100dvh; }
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-secondary);
+}
+
+.chat-research-run-other-outputs {
+  min-width: 0;
+  padding-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .chat-research-run-output img {
@@ -1972,6 +2035,12 @@ body { min-height: 100dvh; }
     flex: 1 1 100%;
   }
 
+  .chat-research-permissions {
+    flex-basis: 100%;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
   .chat-toolbar-right {
     justify-content: flex-start;
     flex-wrap: wrap;
@@ -2060,6 +2129,16 @@ body { min-height: 100dvh; }
 
   .chat-kb-select .ant-select-selection-overflow {
     flex-wrap: wrap;
+  }
+
+  .chat-research-permissions {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .chat-research-permissions .ant-checkbox-wrapper {
+    white-space: normal;
   }
 
   .chat-message-list {
