@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 
 import { api } from '../../api/client'
-import type { ChatArtifact, ChatMessage, Citation, ResearchProject, ResearchProtocolReadiness } from '../../api/types'
+import type { ChatArtifact, ChatMessage, Citation, ResearchProject, ResearchProtocolReadiness, ResearchRun } from '../../api/types'
 import { DisplayPlaceholder, FileTypeBadge, MetricSummary } from '../../components/DisplayPrimitives'
 import type { AgentRunMeta, AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
 
@@ -572,15 +572,64 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
     const item = value as Record<string, unknown>
     return Number.isFinite(Number(item.run_id)) && Number.isFinite(Number(item.experiment_id)) && typeof item.status === 'string'
   })
+  const activeRunKey = runs
+    .filter((run) => run.status === 'queued' || run.status === 'running')
+    .map((run) => `${run.experiment_id}:${run.run_id}`)
+    .join(',')
+  const [liveRuns, setLiveRuns] = useState<ResearchRunCardData[] | null>(null)
+
+  useEffect(() => {
+    if (projectId <= 0 || !activeRunKey) {
+      setLiveRuns(null)
+      return undefined
+    }
+
+    let active = true
+    let timer: number | undefined
+    const baseByRun = new Map(runs.map((run) => [run.run_id, run]))
+    const experimentIds = [...new Set(runs
+      .filter((run) => run.status === 'queued' || run.status === 'running')
+      .map((run) => run.experiment_id))]
+
+    const refresh = async () => {
+      try {
+        const responses = await Promise.all(experimentIds.map((experimentId) => api.listResearchRuns(projectId, experimentId)))
+        if (!active) return
+        const refreshed = responses
+          .flatMap((items) => items)
+          .filter((item) => baseByRun.has(item.id))
+          .map((item) => mergeResearchRunCard(baseByRun.get(item.id), item))
+        if (!refreshed.length) return
+        setLiveRuns(refreshed)
+        if (refreshed.some((run) => run.status === 'queued' || run.status === 'running')) {
+          timer = window.setTimeout(() => void refresh(), 5000)
+        }
+      } catch {
+        // The original tool result remains visible when a transient poll fails.
+        if (active) timer = window.setTimeout(() => void refresh(), 10000)
+      }
+    }
+
+    void refresh()
+    return () => {
+      active = false
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
+  }, [activeRunKey, projectId])
 
   if (!runs.length) {
     return <div className="chat-research-run-empty">尚未有可展示的运行记录；queued 任务完成后可再次查询阶段产物。</div>
   }
 
+  const displayRuns = liveRuns || runs
+
   return (
     <div className="chat-research-run-summary">
-      <div className="chat-research-run-title">研究运行追踪</div>
-      {runs.map((run) => (
+      <div className="chat-research-run-title">
+        研究运行追踪
+        {activeRunKey ? <span className="chat-research-run-refreshing">自动刷新中</span> : null}
+      </div>
+      {displayRuns.map((run) => (
         <div className="chat-research-run-card" key={`${run.experiment_id}-${run.run_id}`}>
           <div className="chat-research-run-meta">
             <strong>Run #{run.run_id}</strong>
@@ -639,6 +688,25 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
       ))}
     </div>
   )
+}
+
+function mergeResearchRunCard(base: ResearchRunCardData | undefined, item: ResearchRun): ResearchRunCardData {
+  const manifest = item.manifest || {}
+  const metrics = manifest.validation_metrics || manifest.metrics
+  return {
+    ...(base || { run_id: item.id, experiment_id: item.experiment_id, status: item.status }),
+    run_id: item.id,
+    experiment_id: item.experiment_id,
+    status: item.status,
+    output_count: item.outputs.length,
+    outputs: item.outputs.map((output) => ({
+      file_name: output.file_name,
+      kind: output.kind,
+      size: output.size,
+      previewable: /\.(png|jpe?g|webp)$/i.test(output.file_name),
+    })),
+    validation_metrics: metrics && typeof metrics === 'object' ? metrics as Record<string, unknown> : base?.validation_metrics,
+  }
 }
 
 function formatRunMetric(value: unknown): string {
