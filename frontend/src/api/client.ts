@@ -132,6 +132,60 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return response.json() as Promise<T>
 }
 
+type SseEvent = StreamEvent | AgentStreamEvent
+
+async function consumeSse<T extends SseEvent>(
+  response: Response,
+  onEvent: (event: T) => void,
+): Promise<void> {
+  if (!response.body) {
+    throw new Error('模型服务没有返回流式响应。')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let terminal = false
+
+  const consumeBlock = (block: string) => {
+    const data = block
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trimStart())
+      .join('\n')
+    if (!data || terminal) return
+
+    let event: T
+    try {
+      event = JSON.parse(data) as T
+    } catch (error) {
+      throw new Error(`模型服务返回了无法解析的 SSE 数据：${String(error)}`)
+    }
+    if (event.type === 'done' || event.type === 'error') {
+      terminal = true
+    }
+    onEvent(event)
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const blocks = buffer.split(/\r?\n\r?\n/)
+      buffer = blocks.pop() ?? ''
+      blocks.forEach(consumeBlock)
+    }
+    buffer += decoder.decode()
+    if (buffer.trim()) consumeBlock(buffer)
+    if (!terminal) {
+      throw new Error('流式连接在收到完成事件前关闭，请重试。')
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
 export const api = {
   register: (payload: RegisterRequest) =>
     request<LoginResponse>('/auth/register', {
@@ -675,36 +729,15 @@ export const api = {
       throw new Error(message)
     }
 
-    const reader = response.body!.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()!
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          try {
-            const event: StreamEvent = JSON.parse(line.slice(6))
-            if (event.type === 'token') {
-              callbacks.onToken(event.content)
-            } else if (event.type === 'done') {
-              callbacks.onDone(event.session_id, event.citations, event.artifacts)
-            } else if (event.type === 'error') {
-              callbacks.onError(event.message)
-            }
-          } catch {
-            // skip malformed SSE lines
-          }
-        }
+    await consumeSse<StreamEvent>(response, (event) => {
+      if (event.type === 'token') {
+        callbacks.onToken(event.content)
+      } else if (event.type === 'done') {
+        callbacks.onDone(event.session_id, event.citations, event.artifacts)
+      } else if (event.type === 'error') {
+        callbacks.onError(event.message)
       }
-    } finally {
-      reader.releaseLock()
-    }
+    })
   },
   agentStream: async (
     payload: {
@@ -749,38 +782,17 @@ export const api = {
       throw new Error(message)
     }
 
-    const reader = response.body!.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()!
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          try {
-            const event = JSON.parse(line.slice(6)) as AgentStreamEvent
-            if (event.type === 'step') {
-              callbacks.onStep(event)
-            } else if (event.type === 'token') {
-              callbacks.onToken(event.content)
-            } else if (event.type === 'done') {
-              callbacks.onDone(event.session_id, event.citations, event.artifacts)
-            } else if (event.type === 'error') {
-              callbacks.onError(event.message)
-            }
-          } catch {
-            // skip malformed SSE lines
-          }
-        }
+    await consumeSse<AgentStreamEvent>(response, (event) => {
+      if (event.type === 'step') {
+        callbacks.onStep(event)
+      } else if (event.type === 'token') {
+        callbacks.onToken(event.content)
+      } else if (event.type === 'done') {
+        callbacks.onDone(event.session_id, event.citations, event.artifacts)
+      } else if (event.type === 'error') {
+        callbacks.onError(event.message)
       }
-    } finally {
-      reader.releaseLock()
-    }
+    })
   },
   uploadTempFile: async (file: File): Promise<{ file_name: string; content: string }> => {
     const accessToken = getStoredAccessToken()

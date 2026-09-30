@@ -284,3 +284,19 @@ def test_keyless_local_openai_compatible_endpoint_is_allowed() -> None:
     assert not _is_local_compatible_endpoint(
         type("Settings", (), {"provider_name": "openai-compatible", "api_base_url": "https://api.openai.com/v1"})()
     )
+
+
+def test_only_answered_citation_markers_are_kept() -> None:
+    from app.api.schemas import Citation
+    from app.services.agent_service import AgentService
+
+    citations = [
+        Citation(chunk_id=1, document_id=1, file_name="first.md", file_path="first.md", excerpt="first"),
+        Citation(chunk_id=2, document_id=1, file_name="second.md", file_path="second.md", excerpt="second"),
+        Citation(chunk_id=3, document_id=1, file_name="third.md", file_path="third.md", excerpt="third"),
+    ]
+
+    kept = AgentService._citations_used_by_answer("结论来自 [2]。", citations)
+
+    assert [item.chunk_id for item in kept] == [2]
+    assert AgentService._citations_used_by_answer("没有引用标记。", citations) == []

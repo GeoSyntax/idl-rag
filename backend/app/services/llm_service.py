@@ -690,15 +690,27 @@ class LlmService:
         """真异步流式生成回答 — 使用 httpx.AsyncClient + async for。"""
         settings = get_runtime_settings(db)
         history = recent_messages or []
-        if settings.api_key:
+        if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
                 async for token in self._generate_remote_answer_stream_async(
                     settings, question, citations, history, attached_file_content,
                 ):
                     yield token
                 return
-            except Exception:  # noqa: BLE001
-                pass
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                if status_code == 401:
+                    raise ValueError("API Key 无效或已过期，请在设置页更新。") from exc
+                if status_code == 429:
+                    raise ValueError("模型服务限流，请稍后重试。") from exc
+                raise ValueError(f"模型服务异常（HTTP {status_code}），请稍后重试。") from exc
+            except httpx.TimeoutException as exc:
+                raise ValueError("模型服务响应超时，请稍后重试或检查 API 地址配置。") from exc
+            except httpx.ConnectError as exc:
+                raise ValueError("无法连接到模型服务，请检查 API 地址配置。") from exc
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("异步 LLM 调用失败")
+                raise ValueError("模型服务调用失败，请检查模型配置和服务日志。") from exc
         # 本地降级：一次性 yield 全部内容
         yield self._generate_local_answer(question, citations, history)
 

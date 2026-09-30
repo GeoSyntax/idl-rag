@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -32,6 +34,7 @@ from app.services.retrieve_service import RetrievalService
 from app.services.runtime_metrics import runtime_metrics
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 service = AgentService()
 gee_service = GeeService()
 idl_execution_service = IdlExecutionService()
@@ -208,9 +211,12 @@ async def ask_question_stream(
                     citation_count = len(token.get("citations", []))
                     artifact_count = len(token.get("artifacts", []))
                 yield f"data: {json.dumps(token, ensure_ascii=False)}\n\n"
-        except ValueError as exc:
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
             has_error = True
-            error_event = {"type": "error", "message": str(exc)}
+            logger.exception("ask-stream failed")
+            error_event = {"type": "error", "message": str(exc) or "流式请求失败"}
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
@@ -265,9 +271,12 @@ async def agent_stream(
                     citation_count = len(event.get("citations", []))
                     artifact_count = len(event.get("artifacts", []))
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-        except ValueError as exc:
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
             has_error = True
-            error_event = {"type": "error", "message": str(exc)}
+            logger.exception("agent-stream failed")
+            error_event = {"type": "error", "message": str(exc) or "Agent 流式请求失败"}
             yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(

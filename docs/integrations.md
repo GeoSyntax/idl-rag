@@ -35,6 +35,26 @@ uv run --project backend uvicorn app.main:app --app-dir backend --reload
 npm run dev --prefix frontend
 ```
 
+### 1.1 本地使用 gemin2api
+
+如果本机已经运行 `gemin2api` 的 OpenAI 兼容服务，Chat 和 Agent 不需要再接入云端 OpenAI。当前开发机使用的实例是：
+
+```text
+API Base URL: http://127.0.0.1:8081/v1
+聊天模型：gemini-3.6-flash
+```
+
+在平台“设置”页填写：
+
+```text
+Provider 名称：gemin2api-local
+API Base URL：http://127.0.0.1:8081/v1
+聊天模型：gemini-3.6-flash
+API Key：填写 gemin2api/config.json 中 api_keys 的值
+```
+
+保存并测试连接后，普通 Chat 和 Agent 的回答都会通过该 OpenAI 兼容接口进行 SSE 流式生成。API Key 只保存在本地数据库的加密设置项中，不要写入 Git、README 或截图。若 `gemin2api` 尚未启动，平台会显示模型服务连接失败，并停止当前流，不会伪造“未连接云端模型”的正常回答。
+
 ## 2. 接入 Google Earth Engine
 
 ### 2.1 准备 Google Cloud 项目

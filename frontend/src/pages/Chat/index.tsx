@@ -67,6 +67,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   const [inputValue, setInputValue] = useState('')
 
   const abortRef = useRef<AbortController | null>(null)
+  const streamTerminalRef = useRef(false)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const stepIdRef = useRef(0)
@@ -134,6 +135,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
 
   const handleNewSession = () => {
     abortRef.current?.abort()
+    streamTerminalRef.current = true
     setMessages([])
     setSessionId(null)
     setStreamingContent('')
@@ -148,6 +150,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
 
   const handleLoadSession = async (targetSessionId: number) => {
     const session = sessions.find((item) => item.id === targetSessionId)
+    abortRef.current?.abort()
+    streamTerminalRef.current = true
     setSessionsLoading(true)
     try {
       const fullMessages = await api.listMessages(targetSessionId)
@@ -235,6 +239,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   const handleSubmit = () => {
     const question = inputValue.trim()
     if (!question) return
+    if (isStreaming) return
     if (selectedKBIds.length === 0 && !attachedFile && !researchProjectId) {
       messageApi.warning('请至少选择一个知识库，或上传一个文件')
       return
@@ -253,6 +258,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, userMessage])
+    streamTerminalRef.current = false
     setIsStreaming(true)
     setStreamingContent('')
     setAgentSteps([])
@@ -300,11 +306,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   }
 
   const handleStreamError = (errorMsg: string) => {
+    if (streamTerminalRef.current) return
+    streamTerminalRef.current = true
     messageApi.error(errorMsg)
     finishStream()
   }
 
   const handleStreamException = (err: unknown, fallback: string) => {
+    if (streamTerminalRef.current && (err as Error).name !== 'AbortError') return
+    streamTerminalRef.current = true
     if ((err as Error).name !== 'AbortError') {
       messageApi.error((err as Error).message || fallback)
     }
@@ -325,8 +335,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
           input_artifact_ids: selectedInputArtifacts.map((artifact) => artifact.id),
         },
         {
-          onToken: (content: string) => setStreamingContent((prev) => prev + content),
+          onToken: (content: string) => {
+            if (!streamTerminalRef.current) setStreamingContent((prev) => prev + content)
+          },
           onDone: (newSessionId: number) => {
+            if (streamTerminalRef.current) return
+            streamTerminalRef.current = true
+            // 先移除临时流，再加载已落盘消息，避免同一答案短暂出现两次。
+            setAgentSteps([])
+            finishStream()
             void loadCompletedSession(newSessionId)
           },
           onError: handleStreamError,
@@ -357,6 +374,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
         },
         {
           onStep: (event: AgentStreamEvent) => {
+            if (streamTerminalRef.current) return
             const stepEvent = event as AgentStepItem & { type: string }
             stepIdRef.current += 1
             setAgentSteps((prev) => [
@@ -371,8 +389,14 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
               },
             ])
           },
-          onToken: (content: string) => setStreamingContent((prev) => prev + content),
+          onToken: (content: string) => {
+            if (!streamTerminalRef.current) setStreamingContent((prev) => prev + content)
+          },
           onDone: (newSessionId: number) => {
+            if (streamTerminalRef.current) return
+            streamTerminalRef.current = true
+            setAgentSteps([])
+            finishStream()
             void loadCompletedSession(newSessionId)
           },
           onError: handleStreamError,
@@ -392,6 +416,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   }
 
   const handleCancelStream = () => {
+    streamTerminalRef.current = true
     abortRef.current?.abort()
     finishStream()
     messageApi.info('已停止生成')

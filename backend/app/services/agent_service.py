@@ -111,6 +111,18 @@ class AgentService:
         self.retrieval_service = RetrievalService()
         self.llm_service = LlmService()
 
+    @staticmethod
+    def _citations_used_by_answer(answer: str, citations: list) -> list:
+        """只保留回答中实际引用的检索片段。
+
+        检索候选不是引用本身。模型没有输出 ``[n]`` 标记时，不能把全部
+        候选片段误展示成“参考来源”。
+        """
+        referenced = {int(value) for value in re.findall(r"\[(\d+)\]", answer or "")}
+        if not referenced:
+            return []
+        return [citation for index, citation in enumerate(citations, start=1) if index in referenced]
+
     def answer(self, db: Session, payload: ChatRequest, owner_user_id: int) -> ChatResponse:
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
@@ -146,6 +158,9 @@ class AgentService:
         else:
             answer = self.llm_service.generate_answer(db, payload.question, citations, recent_messages,
                                                        attached_file_content=payload.attached_file_content)
+
+        if not payload.generate_pro_file:
+            citations = self._citations_used_by_answer(answer, citations)
 
         assistant_message = ChatMessage(
             session_id=session.id,
@@ -243,6 +258,9 @@ class AgentService:
             answer = "".join(full_answer)
             artifacts_json = []
 
+        if not payload.generate_pro_file:
+            citations = self._citations_used_by_answer(answer, citations)
+
         # Phase 3: 收尾 — 保存完整消息到数据库
         assistant_message = ChatMessage(
             session_id=session.id,
@@ -321,6 +339,9 @@ class AgentService:
             answer = "".join(full_answer)
             artifacts_json = []
 
+        if not payload.generate_pro_file:
+            citations = self._citations_used_by_answer(answer, citations)
+
         assistant_message = ChatMessage(
             session_id=session.id,
             role="assistant",
@@ -350,6 +371,13 @@ class AgentService:
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         if payload.research_project_id is not None:
             self._validate_research_project(db, payload.research_project_id, owner_user_id)
+        settings_from_svc = get_runtime_settings(db)
+        if not settings_from_svc.api_key and not _is_local_compatible_endpoint(settings_from_svc):
+            # 先降级，再创建消息。旧实现先写入一条 user message，随后
+            # answer_stream 又写入一条，页面会看到重复请求/回答。
+            yield from self.answer_stream(db, payload, owner_user_id)
+            return
+
         session = self._get_or_create_session(db, payload, owner_user_id)
         input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
@@ -365,13 +393,6 @@ class AgentService:
         db.refresh(user_message)
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
-        settings_from_svc = get_runtime_settings(db)
-
-        # 无 API Key 时降级为简单流程
-        if not settings_from_svc.api_key and not _is_local_compatible_endpoint(settings_from_svc):
-            yield from self.answer_stream(db, payload, owner_user_id)
-            return
-
         # 检测代码修复意图
         fix_intent = self._detect_fix_intent(payload.question)
         last_artifact_code = ""
@@ -562,6 +583,9 @@ class AgentService:
         if not all_citations and not artifacts_json and kb_ids:
             retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
             all_citations = self._search_knowledge_bases(db, kb_ids, retrieval_query, payload.top_k, payload.strategy)
+
+        if not artifacts_json:
+            all_citations = self._citations_used_by_answer(answer_text, all_citations)
 
         # 保存 assistant message
         assistant_message = ChatMessage(

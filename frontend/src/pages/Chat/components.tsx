@@ -80,27 +80,19 @@ export function MessageList({
           runningArtifactId={runningArtifactId}
         />
       ))}
-      {agentSteps.length > 0 && !streamingContent ? (
-        <div className="chat-msg chat-msg-assistant">
-          <div className="chat-avatar chat-avatar-assistant">
-            <RobotOutlined />
-          </div>
-          <div className="chat-bubble chat-bubble-assistant">
-            <AgentStepList steps={agentSteps} />
-          </div>
-        </div>
-      ) : null}
-      {isStreaming && (
+      {(isStreaming || agentSteps.length > 0) && (
         <div className="chat-msg chat-msg-assistant">
           <div className="chat-avatar chat-avatar-assistant">
             <RobotOutlined />
           </div>
           <div className="chat-bubble chat-bubble-assistant">
             {agentSteps.length > 0 && <AgentStepList steps={agentSteps} />}
-            <div className="chat-streaming-text">
-              {streamingContent}
-              <span className="streaming-cursor">|</span>
-            </div>
+            {isStreaming ? (
+              <div className="chat-streaming-text">
+                {streamingContent}
+                <span className="streaming-cursor">|</span>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -125,6 +117,9 @@ function MessageBubble({
   runningArtifactId: string | null
 }) {
   const isUser = message.role === 'user'
+  const visibleCitations = message.citations
+    .map((citation, index) => ({ citation, index }))
+    .filter(({ index }) => new RegExp(`\\[${index + 1}\\]`).test(message.content))
   return (
     <div className={`chat-msg ${isUser ? 'chat-msg-user' : 'chat-msg-assistant'}`}>
       {!isUser && (
@@ -155,7 +150,7 @@ function MessageBubble({
             ))}
           </div>
         )}
-        {message.citations.length > 0 && <CitationList citations={message.citations} />}
+        {visibleCitations.length > 0 && <CitationList citations={visibleCitations} />}
       </div>
       {isUser && (
         <div className="chat-avatar chat-avatar-user">
@@ -397,18 +392,18 @@ function StepContent({ step }: { step: AgentStepItem }) {
   return null
 }
 
-function CitationList({ citations }: { citations: Citation[] }) {
+function CitationList({ citations }: { citations: Array<{ citation: Citation; index: number }> }) {
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null)
 
   return (
     <div className="chat-citations">
       <div className="chat-citations-label">参考来源</div>
       <div className="chat-citation-grid">
-        {citations.map((c, i) => {
+        {citations.map(({ citation: c, index }, i) => {
           const meta = citationMeta(c)
           return (
             <button key={`${c.chunk_id}-${i}`} className="chat-citation-card" onClick={() => setSelectedCitation(c)} type="button">
-              <span className="chat-citation-num">[{i + 1}]</span>
+              <span className="chat-citation-num">[{index + 1}]</span>
               <span className="chat-citation-title">{c.symbol_name || c.title || c.file_name}</span>
               {meta.length > 0 && <span className="chat-citation-meta">{meta.join(' · ')}</span>}
               <span className="chat-citation-excerpt">{c.excerpt.slice(0, 80)}...</span>
