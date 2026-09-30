@@ -147,6 +147,7 @@ npm run dev --prefix frontend
 - [研究工作流设计](./docs/research-workflow-platform-plan.md)
 - [Workflow 架构图与数据流](./docs/workflow-architecture.md)
 - [本地演示步骤](./docs/demo.md)
+- [手动验收任务](./docs/manual-test-plan.md)
 - [鄱阳湖真实案例](./docs/real-research-case-poyang.md)
 - [配置说明](./docs/configuration.md)
 - [GEE、IDL 与 Python 接入说明](./docs/integrations.md)
