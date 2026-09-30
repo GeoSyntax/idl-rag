@@ -269,6 +269,7 @@ class AgentService:
         db: Session,
         payload: ChatRequest,
         owner_user_id: int,
+        cancel_event: threading.Event | None = None,
     ) -> Generator[dict, None, None]:
         """流式回答 — 分三阶段 yield 事件。
 
@@ -306,8 +307,12 @@ class AgentService:
             # .pro 文件生成：也走流式，让用户实时看到代码生成过程
             full_code: list[str] = []
             for token in self.llm_service.generate_answer_stream(db, generation_question, citations, recent_messages):
+                if cancel_event is not None and cancel_event.is_set():
+                    return
                 full_code.append(token)
                 yield {"type": "token", "content": token}
+            if cancel_event is not None and cancel_event.is_set():
+                return
             code = "".join(full_code)
             # 本地降级时，generate_answer_stream 可能返回的是回答文本而非代码
             # 这里尝试用 generate_pro_file 的逻辑兜底
@@ -330,13 +335,21 @@ class AgentService:
             full_answer: list[str] = []
             for token in self.llm_service.generate_answer_stream(db, payload.question, citations, recent_messages,
                                                                   attached_file_content=payload.attached_file_content):
+                if cancel_event is not None and cancel_event.is_set():
+                    return
                 full_answer.append(token)
                 yield {"type": "token", "content": token}
+            if cancel_event is not None and cancel_event.is_set():
+                return
             answer = "".join(full_answer)
             artifacts_json = []
 
         if not payload.generate_pro_file:
             citations = self._citations_used_by_answer(answer, citations)
+            answer = self._sanitize_citation_markers(answer, citations)
+
+        if cancel_event is not None and cancel_event.is_set():
+            return
 
         # Phase 3: 收尾 — 保存完整消息到数据库
         assistant_message = ChatMessage(
@@ -460,7 +473,7 @@ class AgentService:
         if not settings_from_svc.api_key and not _is_local_compatible_endpoint(settings_from_svc):
             # 先降级，再创建消息。旧实现先写入一条 user message，随后
             # answer_stream 又写入一条，页面会看到重复请求/回答。
-            yield from self.answer_stream(db, payload, owner_user_id)
+            yield from self.answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
             return
 
         session = self._get_or_create_session(db, payload, owner_user_id)
