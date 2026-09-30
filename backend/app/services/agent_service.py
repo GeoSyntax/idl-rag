@@ -338,14 +338,20 @@ class AgentService:
         else:
             # Phase 2: 流式生成（逐块 yield）
             full_answer: list[str] = []
+            marker_filter = _CitationMarkerStreamFilter(len(citations))
             for token in self.llm_service.generate_answer_stream(db, payload.question, citations, recent_messages,
                                                                   attached_file_content=payload.attached_file_content):
                 if cancel_event is not None and cancel_event.is_set():
                     return
                 full_answer.append(token)
-                yield {"type": "token", "content": token}
+                filtered = marker_filter.feed(token)
+                if filtered:
+                    yield {"type": "token", "content": filtered}
             if cancel_event is not None and cancel_event.is_set():
                 return
+            filtered_tail = marker_filter.finish()
+            if filtered_tail:
+                yield {"type": "token", "content": filtered_tail}
             answer = "".join(full_answer)
             artifacts_json = []
 
@@ -478,6 +484,15 @@ class AgentService:
         settings_from_svc = get_runtime_settings(db)
         provider_name = str(getattr(settings_from_svc, "provider_name", "") or "").strip().lower()
         needs_tools_free_final_stream = provider_name in {"gemini2api", "gemin2api", "gemini2api-local"}
+        fix_intent = self._detect_fix_intent(payload.question)
+        if self._should_use_direct_stream(payload, fix_intent, kb_ids):
+            yield {
+                "type": "step",
+                "step": "direct_stream",
+                "content": "当前问题不需要工具，正在直接流式回答…",
+            }
+            yield from self.answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
+            return
         if not settings_from_svc.api_key and not _is_local_compatible_endpoint(settings_from_svc):
             # 先降级，再创建消息。旧实现先写入一条 user message，随后
             # answer_stream 又写入一条，页面会看到重复请求/回答。
@@ -500,7 +515,6 @@ class AgentService:
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         # 检测代码修复意图
-        fix_intent = self._detect_fix_intent(payload.question)
         last_artifact_code = ""
         if fix_intent:
             last_artifact_code = self._find_last_artifact_code(db, session.id, owner_user_id)
@@ -1477,6 +1491,30 @@ class AgentService:
         """检测用户是否想要修复代码。"""
         lower_q = question.lower()
         return any(kw in lower_q for kw in _FIX_INTENT_KEYWORDS)
+
+    @staticmethod
+    def _should_use_direct_stream(payload: ChatRequest, fix_intent: bool, kb_ids: list[int]) -> bool:
+        """Use the fast normal-chat stream when no Agent tool is implied.
+
+        Agent mode remains available in the UI, but a plain explanatory
+        question should not pay for a tools JSON round trip. Tool-like intent,
+        research permissions and artifacts stay on the full ReAct path.
+        """
+        if kb_ids or payload.research_project_id is not None:
+            return False
+        if payload.allow_external_research:
+            return False
+        if payload.allow_research_execution or payload.allow_gee_fetch:
+            return False
+        if payload.input_artifact_ids or payload.generate_pro_file or fix_intent:
+            return False
+        tool_intent_keywords = (
+            "论文", "文献", "crossref", "openalex", "semantic scholar", "外部资料",
+            "搜索", "检索", "gee", "earth engine", "实验", "preview", "数据资产",
+            "工具", "代码", "脚本", "python", "idl", "gdal", "rasterio", ".pro", "函数",
+        )
+        question = (payload.question or "").lower()
+        return not any(keyword in question for keyword in tool_intent_keywords)
 
     def _find_last_artifact_code(self, db: Session, session_id: int, owner_user_id: int) -> str:
         """查找会话中最近一次生成的 .pro 文件内容。"""

@@ -103,7 +103,7 @@ def test_gemini2api_agent_uses_tools_free_final_stream(monkeypatch, tmp_path: Pa
         events = list(
             service.agent_answer_stream(
                 db,
-                ChatRequest(question="测试最终流"),
+                ChatRequest(question="搜索 MNDWI 论文"),
                 owner_user_id=user.id,
                 token_callback=streamed.append,
             )
@@ -115,6 +115,41 @@ def test_gemini2api_agent_uses_tools_free_final_stream(monkeypatch, tmp_path: Pa
         assert service.list_messages(db, events[-1]["session_id"], user.id)[-1].content == "真实流式"
     finally:
         db.close()
+
+
+def test_agent_fast_path_only_bypasses_tools_for_plain_questions() -> None:
+    from app.api.schemas import ChatRequest
+    from app.services.agent_service import AgentService
+
+    assert AgentService._should_use_direct_stream(ChatRequest(question="解释 MNDWI 公式"), False, [])
+    assert not AgentService._should_use_direct_stream(ChatRequest(question="搜索 MNDWI 论文"), False, [])
+    assert not AgentService._should_use_direct_stream(ChatRequest(question="帮我生成 Python 代码"), False, [])
+    assert not AgentService._should_use_direct_stream(
+        ChatRequest(question="解释 MNDWI", allow_research_execution=True), False, []
+    )
+    assert not AgentService._should_use_direct_stream(ChatRequest(question="解释 MNDWI"), True, [])
+    assert not AgentService._should_use_direct_stream(ChatRequest(question="解释 MNDWI"), False, [1])
+
+
+def test_agent_fast_path_delegates_to_one_normal_stream(monkeypatch) -> None:
+    from app.api.schemas import ChatRequest
+    from app.services.agent_service import AgentService
+
+    service = AgentService()
+    monkeypatch.setattr(
+        "app.services.agent_service.get_runtime_settings",
+        lambda _db: type("Settings", (), {"api_key": "configured", "provider_name": "gemini2api"})(),
+    )
+
+    def normal_stream(*_args, **_kwargs):
+        yield {"type": "token", "content": "快速回答"}
+        yield {"type": "done", "session_id": 42, "citations": [], "artifacts": []}
+
+    monkeypatch.setattr(service, "answer_stream", normal_stream)
+    events = list(service.agent_answer_stream(None, ChatRequest(question="解释 MNDWI"), owner_user_id=1))
+
+    assert events[0]["step"] == "direct_stream"
+    assert [event["type"] for event in events[1:]] == ["token", "done"]
 
 
 @pytest.mark.asyncio
