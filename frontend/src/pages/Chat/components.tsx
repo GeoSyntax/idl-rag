@@ -127,6 +127,12 @@ export function MessageList({
   onUseArtifactAsInput: ArtifactAction
   runningArtifactId: string | null
 }) {
+  // Thinking/answer are transport status events, not persisted assistant
+  // messages. Rendering them as a second Collapse makes a completed answer
+  // look duplicated while the session is being reloaded. Keep only the
+  // inspectable tool trace here; the live response is shown below it.
+  const traceSteps = agentSteps.filter((step) => ['tool_call', 'tool_result'].includes(step.step))
+  const showLiveStatus = isStreaming && traceSteps.length === 0 && !streamError
   return (
     <div className="chat-message-list">
       {messages.map((msg) => (
@@ -146,7 +152,8 @@ export function MessageList({
             <RobotOutlined />
           </div>
           <div className="chat-bubble chat-bubble-assistant">
-            {agentSteps.length > 0 && <AgentStepList steps={agentSteps} />}
+            {traceSteps.length > 0 && <AgentStepList steps={traceSteps} />}
+            {showLiveStatus ? <div className="chat-agent-live-status">Agent 正在处理请求…</div> : null}
             {isStreaming ? (
               <div className="chat-streaming-text">
                 {streamingContent}
