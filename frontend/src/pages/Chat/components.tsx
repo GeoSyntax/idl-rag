@@ -107,6 +107,7 @@ export function MessageList({
   agentSteps,
   agentRunComplete,
   agentRunMeta,
+  agentLiveStatus,
   isStreaming,
   streamingContent,
   streamError,
@@ -121,6 +122,7 @@ export function MessageList({
   agentSteps: AgentStepItem[]
   agentRunComplete: boolean
   agentRunMeta: AgentRunMeta | null
+  agentLiveStatus: string
   isStreaming: boolean
   streamingContent: string
   streamError: string
@@ -163,7 +165,7 @@ export function MessageList({
           </div>
           <div className="chat-bubble chat-bubble-assistant">
             {traceSteps.length > 0 && <AgentStepList steps={traceSteps} />}
-            {showLiveStatus ? <div className="chat-agent-live-status">Agent 正在处理请求…</div> : null}
+            {showLiveStatus ? <div className="chat-agent-live-status">{agentLiveStatus || 'Agent 正在处理请求…'}</div> : null}
             {isStreaming ? (
               <div className="chat-streaming-text">
                 {streamingContent}

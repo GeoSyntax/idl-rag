@@ -55,6 +55,8 @@ API Key：填写 gemin2api/config.json 中 api_keys 的值
 
 保存并测试连接后，普通 Chat 和 Agent 的回答都会通过该 OpenAI 兼容接口进行 SSE 流式生成。API Key 只保存在本地数据库的加密设置项中，不要写入 Git、README 或截图。若 `gemin2api` 尚未启动，平台会显示模型服务连接失败，并停止当前流，不会伪造“未连接云端模型”的正常回答。
 
+Agent 的工具决策接口本身是一次一次的 JSON 请求；本地模型首 token 较慢时，后端会每 8 秒发送一次 `waiting` 状态，前端在同一个回答气泡内显示“模型仍在响应”，而不是生成第二条回答。真正的 `done`/`error` 仍然只发送一次；点击停止后，迟到的模型结果不会继续写入会话。
+
 `gemin2api` 当前提供的是聊天兼容接口（`/v1/chat/completions`），不等于 Embedding 服务。设置页的 **Embedding** 卡片需要单独填写一个实现了 `/v1/embeddings` 的本地或 OpenAI-compatible 服务；留空时平台会兼容性地复用聊天地址，但如果该网关没有 Embedding 路由，测试会明确返回 401/404，而不会把聊天连接误判为向量服务。没有可用 Embedding 时，默认检索会退回 FTS/规则排序，`vector_only` 仅用于诊断。
 
 在“对话 → Agent”中打开“允许外部文献搜索”后，即使没有选择研究项目，也可以明确要求 Agent 查询 Crossref、OpenAlex 或 Semantic Scholar 的公开论文元数据。这个入口只发送整理后的公开检索词，返回候选标题、作者、年份、DOI 和来源链接，不上传影像、私有路径、项目文件或密钥，也不会自动写入项目审计、证据卡或 RAG。需要导入项目、形成可复核证据链时，再到研究页绑定项目并使用项目内的文献搜索。

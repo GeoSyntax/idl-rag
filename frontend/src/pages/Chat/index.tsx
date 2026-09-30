@@ -60,6 +60,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [streamingContent, setStreamingContent] = useState('')
   const [streamError, setStreamError] = useState('')
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
+  const [agentLiveStatus, setAgentLiveStatus] = useState('')
   const [agentRunComplete, setAgentRunComplete] = useState(false)
   const [agentRunMeta, setAgentRunMeta] = useState<AgentRunMeta | null>(null)
   const [chatMode, setChatMode] = useState<'normal' | 'agent'>('normal')
@@ -210,6 +211,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setStreamError('')
     setIsStreaming(false)
     setAgentSteps([])
+    setAgentLiveStatus('')
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     setFixTarget(null)
@@ -239,6 +241,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setStreamError('')
     setIsStreaming(false)
     setAgentSteps([])
+    setAgentLiveStatus('')
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     setFixTarget(null)
@@ -264,6 +267,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setStreamError('')
       setIsStreaming(false)
       setAgentSteps([])
+      setAgentLiveStatus('')
       setAgentRunComplete(false)
       setAgentRunMeta(null)
       setFixTarget(null)
@@ -371,6 +375,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     clearStreamingBuffer()
     setStreamError('')
     setAgentSteps([])
+    setAgentLiveStatus(chatMode === 'agent' ? 'Agent 正在处理请求…' : '')
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     stepIdRef.current = 0
@@ -400,6 +405,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const finishStream = () => {
     clearStreamingBuffer()
     setIsStreaming(false)
+    setAgentLiveStatus('')
     // The final answer is loaded from the persisted session immediately after
     // `done`. Keep tool trace/run cards for inspection, but do not render the
     // transient thinking/answer status as a second assistant response.
@@ -504,6 +510,13 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           onStep: (event: AgentStreamEvent) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             const stepEvent = event as AgentStepItem & { type: string }
+            if (stepEvent.step === 'waiting') {
+              setAgentLiveStatus(stepEvent.content || '模型仍在响应，请稍候…')
+              return
+            }
+            setAgentLiveStatus(stepEvent.step === 'tool_call' && stepEvent.tool
+              ? `正在调用 ${stepEvent.tool}…`
+              : 'Agent 正在处理请求…')
             stepIdRef.current += 1
             setAgentSteps((prev) => [
               ...prev,
@@ -953,6 +966,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             agentSteps={agentSteps}
             agentRunComplete={agentRunComplete}
             agentRunMeta={agentRunMeta}
+            agentLiveStatus={agentLiveStatus}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             streamError={streamError}

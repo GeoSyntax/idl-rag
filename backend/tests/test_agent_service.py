@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,27 @@ def test_agent_model_error_is_not_silently_downgraded(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="工具调用"):
         service.agent_generate(None, [])
+
+
+@pytest.mark.asyncio
+async def test_agent_async_stream_emits_heartbeat_while_sync_provider_waits(monkeypatch) -> None:
+    from app.services.agent_service import AgentService
+
+    service = AgentService()
+    monkeypatch.setattr("app.services.agent_service._AGENT_HEARTBEAT_INTERVAL_SECONDS", 0.01)
+
+    def delayed_stream(*_args, **_kwargs):
+        def events():
+            time.sleep(0.04)
+            yield {"type": "done", "session_id": 1, "citations": [], "artifacts": []}
+
+        return events()
+
+    monkeypatch.setattr(service, "agent_answer_stream", delayed_stream)
+    events = [event async for event in service.agent_answer_stream_async(None, None, 1)]
+
+    assert any(event["step"] == "waiting" for event in events)
+    assert any(event["type"] == "done" for event in events)
 
 
 def test_agent_stream_emits_error_without_empty_assistant_message(monkeypatch, tmp_path: Path) -> None:

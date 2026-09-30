@@ -52,6 +52,7 @@ _MAX_TOOL_QUERY_CHARS = 500
 _MAX_TOOL_CODE_CHARS = 20000
 _MAX_TOOL_CONTEXT_CHARS = 6000
 _MAX_ARTIFACT_ID_CHARS = 64
+_AGENT_HEARTBEAT_INTERVAL_SECONDS = 8.0
 
 
 class _CitationMarkerStreamFilter:
@@ -819,9 +820,30 @@ class AgentService:
         # 在线程池中逐个消费同步 generator 的值，yield 到 async generator。
         # 客户端断开时设置事件；当前正在进行的同步 HTTP 调用会自然结束，
         # 但 generator 随后会在所有副作用点之前停止。
+        pending = None
         try:
             while True:
-                has_event, event = await loop.run_in_executor(None, next_event)
+                if pending is None:
+                    pending = loop.run_in_executor(None, next_event)
+                try:
+                    # The synchronous provider call can legitimately take a
+                    # while (especially on a local Gemini2API gateway). Keep
+                    # the HTTP/SSE connection observable instead of making
+                    # the browser look frozen or letting a proxy time out.
+                    has_event, event = await asyncio.wait_for(
+                        asyncio.shield(pending),
+                        timeout=_AGENT_HEARTBEAT_INTERVAL_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    if cancel_event.is_set():
+                        return
+                    yield {
+                        "type": "step",
+                        "step": "waiting",
+                        "content": "模型仍在响应，正在等待下一步…",
+                    }
+                    continue
+                pending = None
                 if not has_event:
                     break
                 yield event
