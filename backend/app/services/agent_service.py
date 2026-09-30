@@ -579,8 +579,12 @@ class AgentService:
                     if "final_answer" in result:
                         full_answer_parts.append(result["final_answer"])
                         yield {"type": "step", "step": "answer", "content": "正在生成最终回答..."}
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as exc:  # noqa: BLE001
+                    yield {
+                        "type": "error",
+                        "message": str(exc) or "Agent 模型调用失败。",
+                    }
+                    return
                 break
 
             # 调用 LLM
@@ -589,8 +593,11 @@ class AgentService:
             except Exception as exc:  # noqa: BLE001
                 if cancel_event is not None and cancel_event.is_set():
                     return
-                yield {"type": "step", "step": "error", "content": f"模型调用失败：{exc}"}
-                break
+                yield {
+                    "type": "error",
+                    "message": str(exc) or "Agent 模型调用失败。",
+                }
+                return
 
             # The synchronous provider call cannot be force-killed safely. Once
             # it returns, however, cancellation must prevent the result from

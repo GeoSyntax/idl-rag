@@ -582,8 +582,20 @@ class LlmService:
         if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
                 return self._agent_generate_remote(settings, messages)
-            except Exception:  # noqa: BLE001
-                pass
+            except httpx.HTTPStatusError as exc:
+                status_code = exc.response.status_code
+                if status_code == 401:
+                    raise ValueError("Agent 模型认证失败，请检查 API Key 或本地代理鉴权配置。") from exc
+                if status_code == 429:
+                    raise ValueError("Agent 模型服务限流，请稍后重试。") from exc
+                raise ValueError(f"Agent 模型服务异常（HTTP {status_code}）。") from exc
+            except httpx.TimeoutException as exc:
+                raise ValueError("Agent 模型响应超时，请检查 Gemini2API 是否仍在运行。") from exc
+            except httpx.ConnectError as exc:
+                raise ValueError("无法连接 Agent 模型服务，请检查 API 地址和 Gemini2API 端口。") from exc
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Agent 模型调用异常")
+                raise ValueError("Agent 模型调用失败，请检查模型是否支持工具调用和 JSON 响应。") from exc
         return self._agent_generate_local(messages)
 
     def _agent_generate_remote(self, settings, messages: list[dict[str, str]]) -> dict:

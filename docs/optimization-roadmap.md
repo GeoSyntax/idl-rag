@@ -71,4 +71,6 @@
 - [x] App 页面改为按路由按需加载；构建产物由单个约 1.36MB 主 JS 拆成多个页面 chunk，Chat/Research 不再随首屏同时加载。
 - [x] Chat 普通流和 Agent 流的 token 更新改为按浏览器帧批量刷新；取消、切会话、错误和卸载都会清空待刷新缓冲，长回答不会为每个 token 触发一次渲染。
 - [x] SSE 客户端在正常结束、Abort、异常回调和截断响应后显式 cancel reader，再释放锁，避免连续 Agent 会话残留流读取器。
+- [x] Agent 模型异常不再静默降级为“未配置模型”：SSE 返回可识别错误，路由记录 `has_error`，失败请求不落盘空助手消息。
+- [x] 重启当前本地后端后，用 `teacher_review_0930` + Gemini2API 真实执行研究 Run 查询：HTTP 200、SSE 终止事件唯一且为 `done`，无 `error` 事件。
 - [ ] Ant Design 共享 chunk 仍约 632KB（gzip 约 205KB），后续再评估组件级拆分和缓存策略。

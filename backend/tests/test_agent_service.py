@@ -1,5 +1,74 @@
 from pathlib import Path
 
+import pytest
+
+
+def test_agent_model_error_is_not_silently_downgraded(monkeypatch) -> None:
+    from app.services.llm_service import LlmService
+
+    service = LlmService()
+    monkeypatch.setattr(
+        "app.services.llm_service.get_runtime_settings",
+        lambda _db: type("Settings", (), {"api_key": "", "api_base_url": "http://127.0.0.1:8081/v1"})(),
+    )
+
+    def fail_remote(*_args, **_kwargs):
+        raise RuntimeError("tool calling is unavailable")
+
+    monkeypatch.setattr(service, "_agent_generate_remote", fail_remote)
+
+    with pytest.raises(ValueError, match="工具调用"):
+        service.agent_generate(None, [])
+
+
+def test_agent_stream_emits_error_without_empty_assistant_message(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
+
+    from app.api.schemas import ChatRequest
+    from app.core.config import get_app_settings
+    from app.db.database import get_engine, get_session_factory, init_database
+    from app.db.models import ChatMessage, KnowledgeBase, User
+    from app.services.agent_service import AgentService
+
+    get_app_settings.cache_clear()
+    get_engine.cache_clear()
+    get_session_factory.cache_clear()
+    init_database()
+
+    db = get_session_factory()()
+    try:
+        user = User(username="agent-error", password_hash="hash", role="admin", is_active=True)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        knowledge_base = KnowledgeBase(name="Agent error KB", owner_user_id=user.id)
+        db.add(knowledge_base)
+        db.commit()
+
+        service = AgentService()
+        monkeypatch.setattr(
+            "app.services.agent_service.get_runtime_settings",
+            lambda _db: type("Settings", (), {"api_key": "configured", "api_base_url": "https://model.test/v1"})(),
+        )
+        def fail_agent(*_args, **_kwargs):
+            raise ValueError("模型服务不可用")
+
+        monkeypatch.setattr(service.llm_service, "agent_generate", fail_agent)
+
+        events = list(
+            service.agent_answer_stream(
+                db,
+                ChatRequest(knowledge_base_ids=[knowledge_base.id], question="测试模型错误"),
+                owner_user_id=user.id,
+            )
+        )
+
+        assert events[-1] == {"type": "error", "message": "模型服务不可用"}
+        assert not any(event.get("type") == "done" for event in events)
+        assert db.query(ChatMessage).filter(ChatMessage.role == "assistant").count() == 0
+    finally:
+        db.close()
+
 
 def test_agent_service_uses_recent_context_for_follow_up(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))

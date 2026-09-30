@@ -206,6 +206,8 @@ async def ask_question_stream(
             async for token in service.answer_stream_async(db, payload, current_user.id):
                 if token.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
+                if token.get("type") == "error":
+                    has_error = True
                 if token.get("type") == "done":
                     result_session_id = token.get("session_id")
                     citation_count = len(token.get("citations", []))
@@ -267,6 +269,8 @@ async def agent_stream(
             async for event in service.agent_answer_stream_async(db, payload, current_user.id):
                 if event.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
+                if event.get("type") == "error":
+                    has_error = True
                 if event.get("type") == "done":
                     result_session_id = event.get("session_id")
                     citation_count = len(event.get("citations", []))
