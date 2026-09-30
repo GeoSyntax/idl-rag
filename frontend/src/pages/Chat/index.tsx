@@ -351,7 +351,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     const question = inputValue.trim()
     if (!question) return
     if (isStreaming) return
-    if (selectedKBIds.length === 0 && !attachedFile && !researchProjectId) {
+    // Agent supports a lightweight no-context path for general questions.
+    // Normal chat still requires a knowledge base or an uploaded file so it
+    // cannot silently look like a grounded answer without evidence.
+    if (chatMode !== 'agent' && selectedKBIds.length === 0 && !attachedFile && !researchProjectId) {
       messageApi.warning('请至少选择一个知识库，或上传一个文件')
       return
     }
@@ -945,7 +948,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             <DisplayEmpty
               illustration="chat"
               title="开始提问"
-              description="选择知识库后，可以直接询问 ENVI/IDL 文档、函数、代码片段或处理流程。"
+              description={chatMode === 'agent'
+                ? 'Agent 可以直接回答方法问题；选择知识库后，会结合你的 ENVI/IDL 资料给出有依据的回答。'
+                : '选择知识库或上传文件后，可以直接询问 ENVI/IDL 文档、函数、代码片段或处理流程。'}
             >
               <div className="chat-empty-hints">
                 <button className="chat-hint-btn" onClick={() => setInputValue('ENVI 如何打开栅格数据？')}>

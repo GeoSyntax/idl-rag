@@ -24,7 +24,7 @@ export function KnowledgeStatusBar({
       {loading ? (
         <span>正在读取文档状态...</span>
       ) : selectedCount === 0 ? (
-        <span>未选择知识库，可上传文件后直接提问。</span>
+        <span>未选择知识库：Agent 可直接回答一般问题；普通聊天请上传文件或选择知识库。</span>
       ) : status.total === 0 ? (
         <span>当前知识库还没有文档，请先导入资料再提问。</span>
       ) : (

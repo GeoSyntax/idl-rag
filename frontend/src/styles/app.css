@@ -879,6 +879,7 @@ body { min-height: 100dvh; }
   height: 100%;
   min-height: 0;
   min-width: 0;
+  container: chat-page / inline-size;
   overflow: hidden;
   background: var(--surface);
 }
@@ -2386,5 +2387,42 @@ body { min-height: 100dvh; }
 
   .section-card .ant-card-body {
     padding: 12px;
+  }
+}
+
+/* The sidebar reduces the chat pane before the viewport reaches the global
+   breakpoints. Use the pane's real inline size so controls never compete for
+   a row that is too narrow. */
+@container chat-page (max-width: 1000px) {
+  .chat-toolbar {
+    align-items: stretch;
+  }
+
+  .chat-toolbar-left,
+  .chat-toolbar-right {
+    flex: 1 1 100%;
+  }
+
+  .chat-toolbar-right {
+    justify-content: flex-start;
+  }
+
+  .chat-session-select {
+    width: min(320px, 100%);
+    flex: 1 1 220px;
+  }
+}
+
+@container chat-page (max-width: 640px) {
+  .chat-toolbar-left {
+    align-items: stretch;
+  }
+
+  .chat-kb-select,
+  .chat-research-select,
+  .chat-session-select {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 100%;
   }
 }
