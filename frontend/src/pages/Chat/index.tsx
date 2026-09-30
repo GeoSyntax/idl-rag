@@ -538,7 +538,12 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             if (stepEvent.step === 'tool_call' && stepEvent.tool) {
               setAgentLiveStatus(`正在调用 ${describeAgentTool(stepEvent.tool)}…`)
             } else if (stepEvent.step === 'tool_result' && stepEvent.tool) {
-              setAgentLiveStatus(`${describeAgentTool(stepEvent.tool)}已完成，正在整理下一步…`)
+              setAgentLiveStatus(
+                describeResearchRunProgress(stepEvent.metadata) ||
+                (stepEvent.metadata?.research_experiment
+                  ? '已创建 Python preview 计划，等待确认排队…'
+                  : `${describeAgentTool(stepEvent.tool)}已完成，正在整理下一步…`),
+              )
             } else {
               setAgentLiveStatus('Agent 正在处理请求…')
             }
@@ -1104,16 +1109,49 @@ function sessionLabel(session: ChatSession): string {
 
 function describeAgentTool(tool: string): string {
   const labels: Record<string, string> = {
-    retrieve_knowledge: '知识库检索',
+    kb_search: '知识库检索',
+    grep_search: '代码文本检索',
+    symbol_search: '代码符号检索',
+    read_context: '读取代码上下文',
+    find_callers: '查找调用方',
+    find_callees: '查找被调用方',
+    analyze_code: '代码分析',
+    read_artifact: '读取输入文件',
+    fix_code: '生成修复建议',
+    lint_code: '代码检查',
     public_literature_search: '公开文献搜索',
     research_project_context: '研究项目上下文',
+    research_rag_search: '研究资料检索',
+    research_protocol_draft: '研究协议草案',
+    research_protocol_readiness: '协议就绪检查',
     research_data_catalog: '研究数据目录',
     research_run_summary: '运行摘要查询',
     research_verify_run: '运行核验',
     research_compare_runs: '运行对比',
-    research_create_preview: '预览任务创建',
+    research_create_preview_experiment: 'Python 预览任务创建',
     research_queue_preview: '预览任务排队',
-    gee_fetch: 'GEE 数据获取',
+    research_literature_search: '项目文献搜索',
+    research_fetch_gee_asset: 'GEE 数据获取',
   }
   return labels[tool] || tool.replace(/_/g, ' ')
+}
+
+function describeResearchRunProgress(metadata?: Record<string, unknown>): string | null {
+  if (!metadata || metadata.research_run !== true || !Array.isArray(metadata.runs)) return null
+  const statuses = metadata.runs
+    .map((run) => (run && typeof run === 'object' ? String((run as Record<string, unknown>).status || '') : ''))
+    .filter(Boolean)
+  if (statuses.length === 0) return '研究运行状态已更新，正在整理下一步…'
+  const counts = statuses.reduce<Record<string, number>>((result, status) => {
+    result[status] = (result[status] || 0) + 1
+    return result
+  }, {})
+  if (counts.running) return `研究运行：${counts.running} 个正在执行，阶段图和指标将在完成后可查看…`
+  if (counts.queued) return `研究运行：${counts.queued} 个已排队，等待 worker 执行…`
+  if (counts.failed || counts.cancelled || counts.unavailable) {
+    const failed = (counts.failed || 0) + (counts.cancelled || 0) + (counts.unavailable || 0)
+    return `研究运行：${failed} 个未完成，请检查运行日志和输入条件…`
+  }
+  if (counts.completed) return `研究运行：${counts.completed} 个已完成，正在整理阶段图和验证指标…`
+  return '研究运行状态已更新，正在整理下一步…'
 }
