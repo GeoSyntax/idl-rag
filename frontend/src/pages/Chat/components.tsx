@@ -128,10 +128,14 @@ export function MessageList({
   runningArtifactId: string | null
 }) {
   // Thinking/answer are transport status events, not persisted assistant
-  // messages. Rendering them as a second Collapse makes a completed answer
-  // look duplicated while the session is being reloaded. Keep only the
-  // inspectable tool trace here; the live response is shown below it.
+  // messages. Rendering them as a second assistant bubble makes a completed
+  // answer look duplicated. Attach the inspectable tool trace to the final
+  // persisted answer; only an in-flight request gets a temporary trace bubble.
   const traceSteps = agentSteps.filter((step) => ['tool_call', 'tool_result'].includes(step.step))
+  const lastAssistantMessageId = !isStreaming
+    ? [...messages].reverse().find((message) => message.role === 'assistant')?.id
+    : undefined
+  const traceAttachedToMessage = lastAssistantMessageId !== undefined && traceSteps.length > 0
   const showLiveStatus = isStreaming && traceSteps.length === 0 && !streamError
   return (
     <div className="chat-message-list">
@@ -139,6 +143,7 @@ export function MessageList({
         <MessageBubble
           key={msg.role + msg.id}
           message={msg}
+          agentSteps={msg.id === lastAssistantMessageId ? traceSteps : []}
           onDownloadArtifact={onDownloadArtifact}
           onStartFix={onStartFix}
           onRunArtifact={onRunArtifact}
@@ -146,7 +151,7 @@ export function MessageList({
           runningArtifactId={runningArtifactId}
         />
       ))}
-      {(isStreaming || agentSteps.length > 0 || Boolean(streamError)) && (
+      {(isStreaming || (agentSteps.length > 0 && !traceAttachedToMessage) || Boolean(streamError)) && (
         <div className="chat-msg chat-msg-assistant">
           <div className="chat-avatar chat-avatar-assistant">
             <RobotOutlined />
@@ -176,6 +181,7 @@ export function MessageList({
 
 function MessageBubble({
   message,
+  agentSteps = [],
   onDownloadArtifact,
   onStartFix,
   onRunArtifact,
@@ -183,6 +189,7 @@ function MessageBubble({
   runningArtifactId,
 }: {
   message: ChatMessage
+  agentSteps?: AgentStepItem[]
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
@@ -224,6 +231,11 @@ function MessageBubble({
           </div>
         )}
         {visibleCitations.length > 0 && <CitationList citations={visibleCitations} />}
+        {agentSteps.length > 0 && (
+          <div className="chat-agent-trace-attached">
+            <AgentStepList steps={agentSteps} />
+          </div>
+        )}
       </div>
       {isUser && (
         <div className="chat-avatar chat-avatar-user">

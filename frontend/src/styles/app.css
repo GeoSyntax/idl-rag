@@ -1585,6 +1585,12 @@ body { min-height: 100dvh; }
   min-width: 0;
 }
 
+.chat-agent-trace-attached {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
 .chat-agent-collapse .ant-collapse-content-box {
   max-height: 240px;
   overflow: auto;
