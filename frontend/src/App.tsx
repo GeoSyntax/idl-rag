@@ -33,6 +33,7 @@ export const queryClient = new QueryClient()
 export default function App() {
   const [activePage, setActivePage] = useState<PageKey>('dashboard')
   const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<number>()
+  const [initialResearchProjectId, setInitialResearchProjectId] = useState<number>()
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
 
@@ -74,6 +75,7 @@ export default function App() {
       queryClient.clear()
       setCurrentUser(null)
       setSelectedKnowledgeBaseId(undefined)
+      setInitialResearchProjectId(undefined)
       setActivePage('dashboard')
       setAuthLoading(false)
     })
@@ -161,6 +163,7 @@ export default function App() {
     queryClient.clear()
     setCurrentUser(value.user)
     setSelectedKnowledgeBaseId(undefined)
+    setInitialResearchProjectId(undefined)
     setActivePage('dashboard')
     setAuthLoading(false)
   }
@@ -170,6 +173,7 @@ export default function App() {
     queryClient.clear()
     setCurrentUser(null)
     setSelectedKnowledgeBaseId(undefined)
+    setInitialResearchProjectId(undefined)
     setActivePage('dashboard')
     setAuthLoading(false)
   }
@@ -233,7 +237,15 @@ export default function App() {
       case 'dashboard':
         return <DashboardPage summary={dashboardQuery.data} loading={dashboardQuery.isLoading} />
       case 'research':
-        return <ResearchPage currentUserId={currentUser.id} />
+        return (
+          <ResearchPage
+            currentUserId={currentUser.id}
+            onOpenAgent={(projectId) => {
+              setInitialResearchProjectId(projectId)
+              setActivePage('chat')
+            }}
+          />
+        )
       case 'knowledge-bases':
         return (
           <KnowledgeBasesPage
@@ -258,7 +270,13 @@ export default function App() {
           />
         )
       case 'chat':
-        return <ChatPage knowledgeBases={knowledgeBasesQuery.data ?? []} initialKnowledgeBaseId={selectedKnowledgeBaseId} />
+        return (
+          <ChatPage
+            knowledgeBases={knowledgeBasesQuery.data ?? []}
+            initialKnowledgeBaseId={selectedKnowledgeBaseId}
+            initialResearchProjectId={initialResearchProjectId}
+          />
+        )
       case 'retrieval-lab':
         return <RetrievalLabPage knowledgeBases={knowledgeBasesQuery.data ?? []} initialKnowledgeBaseId={selectedKnowledgeBaseId} />
       case 'settings':

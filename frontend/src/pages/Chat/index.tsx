@@ -14,15 +14,27 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api/client'
-import type { AgentStreamEvent, ChatArtifact, ChatMessage, ChatSession, GeeFetchRequest, KnowledgeBase, ResearchProject } from '../../api/types'
+import type {
+  AgentStreamEvent,
+  ChatArtifact,
+  ChatMessage,
+  ChatSession,
+  GeeFetchRequest,
+  KnowledgeBase,
+  ResearchDataAsset,
+  ResearchKnowledgeSource,
+  ResearchProject,
+  ResearchProtocolReadiness,
+} from '../../api/types'
 import { DisplayEmpty, InlineIllustration } from '../../components/DisplayPrimitives'
-import { KnowledgeStatusBar, MessageList } from './components'
+import { KnowledgeStatusBar, MessageList, ResearchContextBar } from './components'
 import { useKnowledgeStatus } from './hooks'
 import type { AgentStepItem, AttachedFile } from './types'
 
 type ChatPageProps = {
   knowledgeBases: KnowledgeBase[]
   initialKnowledgeBaseId?: number
+  initialResearchProjectId?: number
 }
 
 type GeeFetchFormValues = {
@@ -37,7 +49,7 @@ type GeeFetchFormValues = {
   label?: string
 }
 
-export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPageProps) {
+export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResearchProjectId }: ChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [sessions, setSessions] = useState<ChatSession[]>([])
@@ -60,6 +72,14 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   const [selectedKBIds, setSelectedKBIds] = useState<number[]>([])
   const [researchProjects, setResearchProjects] = useState<ResearchProject[]>([])
   const [researchProjectId, setResearchProjectId] = useState<number | undefined>()
+  const [researchContext, setResearchContext] = useState<{
+    project: ResearchProject
+    readiness: ResearchProtocolReadiness | null
+    sources: ResearchKnowledgeSource[]
+    assets: ResearchDataAsset[]
+    loading: boolean
+    error: string
+  } | null>(null)
   const [allowExternalResearch, setAllowExternalResearch] = useState(false)
   const [allowResearchExecution, setAllowResearchExecution] = useState(false)
   const [allowGeeFetch, setAllowGeeFetch] = useState(false)
@@ -101,12 +121,53 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
   }, [])
 
   useEffect(() => {
+    const project = researchProjects.find((item) => item.id === researchProjectId)
+    if (!project) {
+      setResearchContext(null)
+      return
+    }
+
+    let active = true
+    setResearchContext({ project, readiness: null, sources: [], assets: [], loading: true, error: '' })
+    Promise.all([
+      api.getResearchProtocolReadiness(project.id),
+      api.listResearchRagSources(project.id),
+      api.listResearchDataAssets(project.id),
+    ])
+      .then(([readiness, sources, assets]) => {
+        if (active) setResearchContext({ project, readiness, sources, assets, loading: false, error: '' })
+      })
+      .catch((err) => {
+        if (active) {
+          setResearchContext({
+            project,
+            readiness: null,
+            sources: [],
+            assets: [],
+            loading: false,
+            error: (err as Error).message || '研究项目上下文加载失败',
+          })
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [researchProjectId, researchProjects])
+
+  useEffect(() => {
     if (initialKnowledgeBaseId && knowledgeBases.some((kb) => kb.id === initialKnowledgeBaseId)) {
       setSelectedKBIds([initialKnowledgeBaseId])
     } else if (knowledgeBases.length > 0 && selectedKBIds.length === 0) {
       setSelectedKBIds([knowledgeBases[0].id])
     }
   }, [initialKnowledgeBaseId, knowledgeBases])
+
+  useEffect(() => {
+    if (!initialResearchProjectId || !researchProjects.some((project) => project.id === initialResearchProjectId)) return
+    setResearchProjectId((current) => current === initialResearchProjectId ? current : initialResearchProjectId)
+    setChatMode('agent')
+  }, [initialResearchProjectId, researchProjects])
 
   useEffect(() => {
     if (restoringSessionRef.current) {
@@ -776,6 +837,17 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId }: ChatPagePro
         status={knowledgeStatus}
         retrievalConfig={selectedRetrievalConfig}
       />
+      {researchContext ? (
+        <ResearchContextBar
+          project={researchContext.project}
+          readiness={researchContext.readiness}
+          sourceCount={researchContext.sources.length}
+          assetCount={researchContext.assets.length}
+          loading={researchContext.loading}
+          error={researchContext.error}
+          agentEnabled={chatMode === 'agent'}
+        />
+      ) : null}
 
       {/* 消息区域 */}
       <div className="chat-messages">

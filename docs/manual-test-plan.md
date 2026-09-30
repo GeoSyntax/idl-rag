@@ -83,6 +83,13 @@ MNDWI spectral index B03 B11
 5. 页面能显示运行状态和阶段影像；
 6. 未配置参考样本时，页面明确提示没有定量验证指标。
 
+如果本地已经存在 `演示 · 鄱阳湖 MNDWI Agent` 项目，可以直接选择它。选中后点击项目卡片右上角的“在 Agent 中打开”，预期：
+
+- 页面自动进入“对话”；
+- 聊天模式自动切换为 Agent；
+- 顶部显示研究项目名称、`private-local`、协议待补充项、项目 RAG 来源数和数据资产数；
+- 项目上下文加载失败时显示明确错误，但普通知识库对话仍可继续。
+
 ## 任务 7：测试 GEE 接入
 
 GEE 默认关闭。需要先按 [`integrations.md`](./integrations.md) 配置 Google Cloud 项目、Earth Engine API 和 ADC。

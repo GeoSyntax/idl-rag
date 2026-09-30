@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 
 import { api } from '../../api/client'
-import type { ChatArtifact, ChatMessage, Citation } from '../../api/types'
+import type { ChatArtifact, ChatMessage, Citation, ResearchProject, ResearchProtocolReadiness } from '../../api/types'
 import { DisplayPlaceholder, FileTypeBadge, MetricSummary } from '../../components/DisplayPrimitives'
 import type { AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
 
@@ -39,6 +39,48 @@ export function KnowledgeStatusBar({
           ) : null}
           {status.ready === 0 ? <span>暂无 ready 文档，回答质量会受影响。</span> : null}
         </>
+      )}
+    </div>
+  )
+}
+
+export function ResearchContextBar({
+  project,
+  readiness,
+  sourceCount,
+  assetCount,
+  loading,
+  error,
+  agentEnabled,
+}: {
+  project: ResearchProject
+  readiness: ResearchProtocolReadiness | null
+  sourceCount: number
+  assetCount: number
+  loading: boolean
+  error: string
+  agentEnabled: boolean
+}) {
+  return (
+    <div className="chat-research-context">
+      <div className="chat-research-context-main">
+        <span className="chat-research-context-kicker">研究上下文</span>
+        <strong>{project.name}</strong>
+        <span className="chat-research-context-policy">private-local</span>
+        {!agentEnabled ? <span className="chat-research-context-muted">切换到 Agent 后才会使用项目工具</span> : null}
+      </div>
+      {loading ? (
+        <span className="chat-research-context-muted">正在读取协议与项目资料...</span>
+      ) : error ? (
+        <span className="chat-research-context-error">{error}</span>
+      ) : (
+        <div className="chat-research-context-metrics">
+          <span className={readiness?.ready ? 'is-ready' : 'is-warning'}>
+            {readiness?.ready ? '协议已就绪' : `协议待补充${readiness ? ` · ${readiness.missing.length} 项` : ''}`}
+          </span>
+          <span>项目 RAG {sourceCount} 个</span>
+          <span>数据资产 {assetCount} 个</span>
+        </div>
       )}
     </div>
   )

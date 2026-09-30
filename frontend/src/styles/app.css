@@ -903,6 +903,76 @@ body { min-height: 100dvh; }
   color: var(--warning);
 }
 
+.chat-research-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: #f0fdfa;
+  color: var(--text-secondary);
+  font-size: 12px;
+  min-width: 0;
+}
+
+.chat-research-context-main,
+.chat-research-context-metrics {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.chat-research-context-main strong {
+  max-width: min(360px, 60vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.chat-research-context-kicker {
+  color: var(--primary-hover);
+  font-weight: 600;
+}
+
+.chat-research-context-policy {
+  padding: 1px 6px;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  color: #0f766e;
+  background: #ccfbf1;
+  font-size: 11px;
+}
+
+.chat-research-context-muted {
+  color: var(--text-muted);
+}
+
+.chat-research-context-metrics span {
+  padding-left: 8px;
+  border-left: 1px solid #a7f3d0;
+  white-space: nowrap;
+}
+
+.chat-research-context-metrics .is-ready {
+  color: var(--success);
+}
+
+.chat-research-context-metrics .is-warning,
+.chat-research-context-error {
+  color: var(--warning);
+}
+
+.chat-research-context-error {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 /* ── Messages area ── */
 .chat-messages {
   flex: 1;
@@ -1789,6 +1859,11 @@ body { min-height: 100dvh; }
     padding: 8px 12px;
   }
 
+  .chat-research-context {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
   .chat-toolbar-left,
   .chat-toolbar-right {
     flex: 1 1 100%;
@@ -1837,6 +1912,18 @@ body { min-height: 100dvh; }
 
   .app-user-panel {
     gap: 8px;
+  }
+
+  .research-page .section-card .ant-card-head {
+    height: auto;
+    min-height: 48px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .research-page .section-card .ant-card-extra {
+    width: 100%;
+    margin-inline-start: 0;
   }
 
   .retrieval-lab-grid,

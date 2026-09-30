@@ -16,6 +16,7 @@ import {
   Tag,
   message,
 } from 'antd'
+import { MessageOutlined } from '@ant-design/icons'
 import { useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api/client'
@@ -425,7 +426,7 @@ function RunOutputPreview({ projectId, experimentId, run }: { projectId: number;
   )
 }
 
-export function ResearchPage({ currentUserId }: { currentUserId: number }) {
+export function ResearchPage({ currentUserId, onOpenAgent }: { currentUserId: number; onOpenAgent?: (projectId: number) => void }) {
   const [messageApi, contextHolder] = message.useMessage()
   const [projectForm] = Form.useForm<ProjectFormValues>()
   const [protocolForm] = Form.useForm<ProtocolFormValues>()
@@ -1130,7 +1131,17 @@ export function ResearchPage({ currentUserId }: { currentUserId: number }) {
         <Card
           className="section-card"
           title={selectedProject.name}
-          extra={<Space><Tag>{selectedProject.entry_mode === 'open' ? '开放研究' : '研究模板'}</Tag><FileTypeBadge label="private-local" /></Space>}
+          extra={(
+            <Space wrap>
+              <Tag>{selectedProject.entry_mode === 'open' ? '开放研究' : '研究模板'}</Tag>
+              <FileTypeBadge label="private-local" />
+              {onOpenAgent ? (
+                <Button size="small" icon={<MessageOutlined />} onClick={() => onOpenAgent(selectedProject.id)}>
+                  在 Agent 中打开
+                </Button>
+              ) : null}
+            </Space>
+          )}
         >
           <Descriptions
             size="small"
