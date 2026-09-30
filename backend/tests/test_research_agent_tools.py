@@ -493,6 +493,11 @@ def test_research_run_summary_exposes_safe_output_references(tmp_path: Path) -> 
         assert summary["outputs"][0]["previewable"] is True
         assert summary["outputs"][1]["previewable"] is False
         assert summary["validation_metrics"]["f1"] == 0.8
+        assert summary["parameters"] == {}
+        assert summary["formula"]["name"] == "summary formula"
+        assert summary["data_snapshot"]["id"] == snapshot.id
+        assert summary["data_snapshot"]["asset_count"] == 0
+        assert summary["input_assets"] == []
         assert "C:/private" not in json.dumps(result.metadata, ensure_ascii=False)
         assert "C:/private" not in result.output
 

@@ -943,6 +943,15 @@ body { min-height: 100dvh; }
   min-width: 0;
 }
 
+.chat-research-context-side {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 .chat-research-context-main strong {
   max-width: min(360px, 60vw);
   overflow: hidden;
@@ -983,6 +992,32 @@ body { min-height: 100dvh; }
 .chat-research-context-metrics .is-warning,
 .chat-research-context-error {
   color: var(--warning);
+}
+
+.chat-research-consents {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-research-consents span:not(.chat-research-consents-label) {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.chat-research-consents .is-enabled {
+  border-color: #99f6e4;
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.chat-research-consents-label {
+  color: var(--text-muted);
 }
 
 .chat-research-context-error {
@@ -1564,6 +1599,31 @@ body { min-height: 100dvh; }
   color: #075985;
 }
 
+.chat-research-run-provenance {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-research-run-provenance summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.chat-research-run-provenance-grid {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 7px 8px;
+  border-left: 2px solid #bae6fd;
+  background: #f8fafc;
+  overflow-wrap: anywhere;
+}
+
+.chat-research-run-provenance-grid b {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 .chat-research-run-outputs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
@@ -2028,6 +2088,11 @@ body { min-height: 100dvh; }
   .chat-research-context {
     padding-right: 12px;
     padding-left: 12px;
+  }
+
+  .chat-research-context-side {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .chat-toolbar-left,

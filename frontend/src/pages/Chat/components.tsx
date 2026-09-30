@@ -52,6 +52,9 @@ export function ResearchContextBar({
   loading,
   error,
   agentEnabled,
+  allowExternalResearch,
+  allowResearchExecution,
+  allowGeeFetch,
 }: {
   project: ResearchProject
   readiness: ResearchProtocolReadiness | null
@@ -60,6 +63,9 @@ export function ResearchContextBar({
   loading: boolean
   error: string
   agentEnabled: boolean
+  allowExternalResearch: boolean
+  allowResearchExecution: boolean
+  allowGeeFetch: boolean
 }) {
   return (
     <div className="chat-research-context">
@@ -74,12 +80,22 @@ export function ResearchContextBar({
       ) : error ? (
         <span className="chat-research-context-error">{error}</span>
       ) : (
-        <div className="chat-research-context-metrics">
-          <span className={readiness?.ready ? 'is-ready' : 'is-warning'}>
-            {readiness?.ready ? '协议已就绪' : `协议待补充${readiness ? ` · ${readiness.missing.length} 项` : ''}`}
-          </span>
-          <span>项目 RAG {sourceCount} 个</span>
-          <span>数据资产 {assetCount} 个</span>
+        <div className="chat-research-context-side">
+          <div className="chat-research-context-metrics">
+            <span className={readiness?.ready ? 'is-ready' : 'is-warning'}>
+              {readiness?.ready ? '协议已就绪' : `协议待补充${readiness ? ` · ${readiness.missing.length} 项` : ''}`}
+            </span>
+            <span>项目 RAG {sourceCount} 个</span>
+            <span>数据资产 {assetCount} 个</span>
+          </div>
+          {agentEnabled ? (
+            <div className="chat-research-consents" aria-label="本次 Agent 授权状态">
+              <span className="chat-research-consents-label">本次授权</span>
+              <span className={allowExternalResearch ? 'is-enabled' : ''}>文献{allowExternalResearch ? '已开' : '未开'}</span>
+              <span className={allowResearchExecution ? 'is-enabled' : ''}>Preview{allowResearchExecution ? '已开' : '未开'}</span>
+              <span className={allowGeeFetch ? 'is-enabled' : ''}>GEE{allowGeeFetch ? '已开' : '未开'}</span>
+            </div>
+          ) : null}
         </div>
       )}
     </div>
@@ -470,6 +486,23 @@ type ResearchRunCardData = {
   experiment_name?: string
   status: string
   execution_mode?: string
+  parameters?: Record<string, unknown>
+  validation_plan?: Record<string, unknown>
+  visualization_contract?: string[]
+  formula?: {
+    id?: number
+    name?: string
+    version?: number
+    status?: string
+    operation?: string
+  }
+  data_snapshot?: {
+    id?: number
+    name?: string
+    snapshot_hash?: string
+    asset_count?: number
+  }
+  input_assets?: Array<{ id?: number; name?: string; asset_kind?: string; source_type?: string }>
   output_count?: number
   validation_metrics?: Record<string, unknown>
   outputs?: ResearchRunOutputCardData[]
@@ -500,6 +533,25 @@ function ResearchRunSummary({ metadata }: { metadata: Record<string, unknown> })
             <span>{run.experiment_name || `实验 #${run.experiment_id}`}</span>
             <span>{run.output_count ?? run.outputs?.length ?? 0} 个产物</span>
           </div>
+          {(run.formula || run.parameters || run.data_snapshot || run.input_assets?.length) ? (
+            <details className="chat-research-run-provenance">
+              <summary>查看公式、参数与输入</summary>
+              <div className="chat-research-run-provenance-grid">
+                {run.formula ? (
+                  <span><b>公式</b>：{run.formula.name || '-'}{run.formula.operation ? ` · ${run.formula.operation}` : ''}</span>
+                ) : null}
+                {run.parameters && Object.keys(run.parameters).length > 0 ? (
+                  <span><b>参数</b>：{formatRunParams(run.parameters)}</span>
+                ) : <span><b>参数</b>：默认</span>}
+                {run.data_snapshot ? (
+                  <span><b>快照</b>：{run.data_snapshot.name || `#${run.data_snapshot.id}`} · {run.data_snapshot.asset_count ?? 0} 个资产</span>
+                ) : null}
+                {run.input_assets?.length ? (
+                  <span><b>输入</b>：{run.input_assets.map((asset) => asset.name || `#${asset.id}`).join('、')}</span>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
           {run.validation_metrics && Object.keys(run.validation_metrics).length > 0 ? (
             <div className="chat-research-run-metrics">
               {Object.entries(run.validation_metrics).slice(0, 8).map(([key, value]) => (
@@ -537,6 +589,13 @@ function formatRunMetric(value: unknown): string {
   if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(4)
   if (typeof value === 'string') return value
   return JSON.stringify(value) ?? String(value)
+}
+
+function formatRunParams(parameters: Record<string, unknown>): string {
+  return Object.entries(parameters)
+    .slice(0, 8)
+    .map(([key, value]) => `${key}=${formatRunMetric(value)}`)
+    .join(' · ')
 }
 
 function runStatusColor(status: string): string {

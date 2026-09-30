@@ -853,6 +853,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           loading={researchContext.loading}
           error={researchContext.error}
           agentEnabled={chatMode === 'agent'}
+          allowExternalResearch={allowExternalResearch}
+          allowResearchExecution={allowResearchExecution}
+          allowGeeFetch={allowGeeFetch}
         />
       ) : null}
 

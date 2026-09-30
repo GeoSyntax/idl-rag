@@ -850,6 +850,9 @@ def tool_research_run_summary(
     run_summaries = []
     for item in runs:
         item_experiment = service._get_owned_experiment(db, project_id, item.experiment_id, owner_user_id)
+        formula_spec = service._get_formula_spec(db, project_id, item_experiment.formula_spec_id)
+        snapshot = service._get_snapshot(db, project_id, item_experiment.data_snapshot_id)
+        snapshot_assets = service._get_snapshot_assets(db, project_id, snapshot)
         safe_item = _safe_run_payload(item, item_experiment)
         output_refs = []
         for output in safe_item.get("outputs", []):
@@ -871,6 +874,31 @@ def tool_research_run_summary(
             "experiment_name": item_experiment.name,
             "status": item.status,
             "execution_mode": item_experiment.execution_mode,
+            "parameters": _safe_research_value(item_experiment.parameters_json or {}),
+            "validation_plan": _safe_research_value(item_experiment.validation_plan_json or {}),
+            "visualization_contract": _safe_research_value(item_experiment.visualization_contract_json or []),
+            "formula": {
+                "id": formula_spec.id,
+                "name": formula_spec.name,
+                "version": formula_spec.version,
+                "status": formula_spec.status,
+                "operation": _safe_research_value((formula_spec.spec_json or {}).get("operation")),
+            },
+            "data_snapshot": {
+                "id": snapshot.id,
+                "name": snapshot.name,
+                "snapshot_hash": snapshot.snapshot_hash,
+                "asset_count": len(snapshot.asset_ids_json or []),
+            },
+            "input_assets": [
+                {
+                    "id": asset.id,
+                    "name": asset.name,
+                    "asset_kind": asset.asset_kind,
+                    "source_type": asset.source_type,
+                }
+                for asset in snapshot_assets
+            ],
             "output_count": len(output_refs),
             "outputs": output_refs,
         }
