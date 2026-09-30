@@ -230,6 +230,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  testEmbeddingConnection: (payload: SystemSettingsPayload) =>
+    request<TestConnectionResponse>('/settings/test-embedding-connection', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   testLangSmithConnection: (payload: SystemSettingsPayload) =>
     request<TestConnectionResponse>('/settings/test-langsmith-connection', {
       method: 'POST',

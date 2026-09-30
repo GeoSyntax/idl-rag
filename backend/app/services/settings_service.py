@@ -14,13 +14,15 @@ from app.db.models import Document, SystemSetting
 
 logger = logging.getLogger(__name__)
 
-_SENSITIVE_KEYS = {"api_key", "rerank_api_key", "langsmith_api_key"}
+_SENSITIVE_KEYS = {"api_key", "embedding_api_key", "rerank_api_key", "langsmith_api_key"}
 
 _SETTING_KEYS = [
     "provider_name",
     "api_base_url",
     "api_key",
     "chat_model",
+    "embedding_api_base_url",
+    "embedding_api_key",
     "embedding_model",
     "system_prompt",
     "temperature",
@@ -42,6 +44,8 @@ def get_runtime_settings(db: Session) -> SystemSettingsPayload:
         "api_base_url": defaults.default_api_base_url,
         "api_key": "",
         "chat_model": defaults.default_chat_model,
+        "embedding_api_base_url": "",
+        "embedding_api_key": "",
         "embedding_model": defaults.default_embedding_model,
         "system_prompt": defaults.default_system_prompt,
         "temperature": 0.2,
@@ -100,6 +104,7 @@ def get_current_settings(db: Session) -> SystemSettingsResponse:
     runtime_settings = get_runtime_settings(db)
     data = runtime_settings.model_dump()
     data["has_api_key"] = bool(data.get("api_key"))
+    data["has_embedding_api_key"] = bool(data.get("embedding_api_key"))
     data["has_rerank_api_key"] = bool(data.get("rerank_api_key"))
     data["has_langsmith_api_key"] = bool(data.get("langsmith_api_key"))
     for key in _SENSITIVE_KEYS:
@@ -122,7 +127,10 @@ def save_settings(db: Session, payload: SystemSettingsPayload) -> SystemSettings
         else:
             db.add(SystemSetting(key=key, value=str(value)))
 
-    if previous_settings.embedding_model != payload.embedding_model:
+    if (
+        previous_settings.embedding_model != payload.embedding_model
+        or previous_settings.embedding_api_base_url != payload.embedding_api_base_url
+    ):
         db.execute(
             update(Document)
             .where(Document.status == "ready")
@@ -152,6 +160,35 @@ def test_connection(db: Session, payload: SystemSettingsPayload) -> TestConnecti
         )
     except Exception as exc:  # noqa: BLE001
         return TestConnectionResponse(ok=False, message=f"连接失败：{exc}")
+
+
+def test_embedding_connection(db: Session, payload: SystemSettingsPayload) -> TestConnectionResponse:
+    """用最小输入验证独立 embedding 服务，而不是只探测聊天 /models。"""
+    runtime = payload.model_copy()
+    current = get_runtime_settings(db)
+    base_url = (runtime.embedding_api_base_url or current.embedding_api_base_url or runtime.api_base_url or current.api_base_url).rstrip("/")
+    api_key = runtime.embedding_api_key or current.embedding_api_key or runtime.api_key or current.api_key
+    if not api_key:
+        return TestConnectionResponse(ok=False, message="请先填写 Embedding API Key，或复用聊天 API Key。")
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(
+                f"{base_url}/embeddings",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={"model": runtime.embedding_model or current.embedding_model, "input": ["embedding health check"]},
+            )
+        if not response.is_success:
+            return TestConnectionResponse(
+                ok=False,
+                message=f"Embedding 连接失败：HTTP {response.status_code} {response.text[:160]}",
+            )
+        payload_data = response.json().get("data", [])
+        vector = payload_data[0].get("embedding") if payload_data else None
+        if not isinstance(vector, list) or not vector:
+            return TestConnectionResponse(ok=False, message="Embedding 服务返回格式不正确。")
+        return TestConnectionResponse(ok=True, message=f"Embedding 连接成功，返回 {len(vector)} 维向量。")
+    except Exception as exc:  # noqa: BLE001
+        return TestConnectionResponse(ok=False, message=f"Embedding 连接失败：{exc}")
 
 
 def test_langsmith_connection(db: Session, payload: SystemSettingsPayload) -> TestConnectionResponse:

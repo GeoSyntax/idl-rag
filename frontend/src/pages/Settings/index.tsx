@@ -108,7 +108,7 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
     mutationFn: api.updateSettings,
     onSuccess: (value) => {
       onSaved(value)
-      form.setFieldsValue({ api_key: '', rerank_api_key: '', langsmith_api_key: '' })
+      form.setFieldsValue({ api_key: '', embedding_api_key: '', rerank_api_key: '', langsmith_api_key: '' })
       messageApi.success('设置已保存')
     },
     onError: (error: Error) => {
@@ -118,6 +118,20 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
 
   const testMutation = useMutation({
     mutationFn: api.testSettingsConnection,
+    onSuccess: (value) => {
+      if (value.ok) {
+        messageApi.success(value.message)
+      } else {
+        messageApi.warning(value.message)
+      }
+    },
+    onError: (error: Error) => {
+      messageApi.error(error.message)
+    },
+  })
+
+  const embeddingTestMutation = useMutation({
+    mutationFn: api.testEmbeddingConnection,
     onSuccess: (value) => {
       if (value.ok) {
         messageApi.success(value.message)
@@ -252,9 +266,6 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
               <Form.Item label="聊天模型" name="chat_model" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
-              <Form.Item label="嵌入模型" name="embedding_model" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
               <Form.Item
                 label="API Key"
                 name="api_key"
@@ -269,6 +280,27 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
             <Form.Item label="系统提示词" name="system_prompt" rules={[{ required: true }]}>
               <Input.TextArea rows={5} />
             </Form.Item>
+          </Card>
+
+          <Card className="section-card" loading={loading} title="Embedding 配置（可与聊天服务分离）">
+            <p className="auth-subtext" style={{ marginTop: 0, marginBottom: 16 }}>
+              Gemini2API 只负责聊天时，可在这里接入本地 sentence-transformers 或其他 OpenAI-compatible embedding 服务。API Base URL 留空会复用聊天接口。
+            </p>
+            <div className="grid-two">
+              <Form.Item label="Embedding API Base URL" name="embedding_api_base_url">
+                <Input placeholder="留空复用聊天 API Base URL" />
+              </Form.Item>
+              <Form.Item label="Embedding 模型" name="embedding_model" rules={[{ required: true }]}>
+                <Input placeholder="例如 bge-m3 / text-embedding-3-small" />
+              </Form.Item>
+              <Form.Item
+                label="Embedding API Key"
+                name="embedding_api_key"
+                extra={settings?.has_embedding_api_key ? '已配置。留空则保留当前 Key。' : '留空则复用聊天 API Key。'}
+              >
+                <Input.Password placeholder={settings?.has_embedding_api_key ? '留空则保持当前 Key' : '留空复用聊天 API Key'} />
+              </Form.Item>
+            </div>
           </Card>
 
           <Card className="section-card" loading={loading} title="Rerank 配置（可选）">
@@ -331,6 +363,15 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
               loading={testMutation.isPending}
             >
               测试模型连接
+            </Button>
+            <Button
+              onClick={async () => {
+                const values = await form.validateFields()
+                embeddingTestMutation.mutate(values)
+              }}
+              loading={embeddingTestMutation.isPending}
+            >
+              测试 Embedding
             </Button>
             <Button
               onClick={async () => {

@@ -20,6 +20,9 @@ class SystemSettingsPayload(BaseModel):
     api_base_url: str = "https://api.openai.com/v1"
     api_key: str = ""
     chat_model: str = "gpt-4.1-mini"
+    # 可与聊天服务分离。留空时向后兼容，沿用 api_base_url/api_key。
+    embedding_api_base_url: str = ""
+    embedding_api_key: str = ""
     embedding_model: str = "text-embedding-3-small"
     system_prompt: str = (
         "你是一个 ENVI/IDL 资料助手。回答必须优先基于检索到的资料，不确定时要明确说明。"
@@ -37,9 +40,11 @@ class SystemSettingsPayload(BaseModel):
 
 class SystemSettingsResponse(SystemSettingsPayload):
     api_key: str = ""
+    embedding_api_key: str = ""
     rerank_api_key: str = ""
     langsmith_api_key: str = ""
     has_api_key: bool = False
+    has_embedding_api_key: bool = False
     has_rerank_api_key: bool = False
     has_langsmith_api_key: bool = False
 

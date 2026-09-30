@@ -113,3 +113,10 @@
 - [x] 新增回归测试覆盖“fallback 向量不进入默认 hybrid”边界；15 项检索策略测试和 17 项 Agent/SSE 测试通过。
 - [x] 使用本地运行中的 Gemini2API/工作台真实调用 `/api/chat/retrieve-debug`：`hybrid_rrf_no_rerank` 返回的 3 个候选均标记 `source_strategy=fts`，未混入 fallback vector 结果。
 - [x] 配置读取边界收紧：`AppSettings(...)` 直接实例化不再隐式读取项目 `.env`，应用入口 `get_app_settings()` 仍显式加载 `.env`；全量后端回归恢复为 148 passed、1 skipped。
+
+## 当前轮次进度（聊天与 Embedding 通道解耦）
+
+- [x] 系统设置新增独立 `embedding_api_base_url` / `embedding_api_key`，留空时向后兼容复用聊天通道；Gemini2API 可继续负责聊天，Embedding 可接入本地或其他 OpenAI-compatible 服务。
+- [x] 文档重建条件覆盖 embedding endpoint 或模型变化，避免旧向量索引被错误复用；敏感 embedding key 与聊天 key 一样加密存储、接口响应只返回 `has_*` 标志。
+- [x] 设置页增加独立“测试 Embedding”按钮，真实请求 `/embeddings` 并校验返回向量维度；聊天 `/models` 成功不再被误认为 embedding 服务可用。
+- [x] 独立通道的保存/加密/保留和连接测试回归通过；前端构建通过。

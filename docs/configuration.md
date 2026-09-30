@@ -70,6 +70,15 @@ All backend variables use the `IDLRAG_` prefix and are loaded by `backend/app/co
 | `IDLRAG_DEFAULT_EMBEDDING_MODEL` | Default embedding model name. |
 | `IDLRAG_EMBEDDING_DIMENSIONS` | Embedding vector dimensions used for indexing. |
 
+Runtime model settings can separate the two OpenAI-compatible channels:
+
+| Setting | Purpose |
+|---|---|
+| `api_base_url` / `api_key` / `chat_model` | Chat and Agent generation. The local setup uses Gemini2API here. |
+| `embedding_api_base_url` / `embedding_api_key` / `embedding_model` | Document/query embeddings. Leave the base URL and key empty to reuse the chat channel; configure them separately for a local embedding server. |
+
+The Settings page provides independent connection checks. A successful chat check does not imply that `/embeddings` is available. If the embedding check fails, the default hybrid retrieval protects quality by using FTS + rule ranking; `vector_only` remains a diagnostic strategy.
+
 ## Frontend variables
 
 | Variable | Purpose |

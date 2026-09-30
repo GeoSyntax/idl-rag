@@ -3,6 +3,8 @@ export type SystemSettingsPayload = {
   api_base_url: string
   api_key: string
   chat_model: string
+  embedding_api_base_url: string
+  embedding_api_key: string
   embedding_model: string
   system_prompt: string
   temperature: number
@@ -18,6 +20,7 @@ export type SystemSettingsPayload = {
 
 export type SystemSettingsResponse = SystemSettingsPayload & {
   has_api_key: boolean
+  has_embedding_api_key: boolean
   has_rerank_api_key: boolean
   has_langsmith_api_key: boolean
 }

@@ -8,6 +8,7 @@ from app.db.models import User
 from app.services.settings_service import (
     get_current_settings,
     save_settings,
+    test_embedding_connection,
     test_connection,
     test_langsmith_connection,
 )
@@ -39,6 +40,15 @@ def test_settings_connection(
     _: User = Depends(require_admin),
 ) -> TestConnectionResponse:
     return test_connection(db, payload)
+
+
+@router.post("/test-embedding-connection", response_model=TestConnectionResponse)
+def test_settings_embedding_connection(
+    payload: SystemSettingsPayload,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> TestConnectionResponse:
+    return test_embedding_connection(db, payload)
 
 
 @router.post("/test-langsmith-connection", response_model=TestConnectionResponse)

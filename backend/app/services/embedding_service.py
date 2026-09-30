@@ -41,13 +41,15 @@ class EmbeddingService:
             return [], False
 
         settings = get_runtime_settings(db)
-        fallback_error = "未配置模型 API Key。"
-        if settings.api_key:
+        base_url = (settings.embedding_api_base_url or settings.api_base_url).rstrip("/")
+        api_key = settings.embedding_api_key or settings.api_key
+        fallback_error = "未配置 Embedding API Key。"
+        if api_key:
             try:
                 with httpx.Client(timeout=60.0) as client:
                     response = client.post(
-                        f"{settings.api_base_url.rstrip('/')}/embeddings",
-                        headers={"Authorization": f"Bearer {settings.api_key}"},
+                        f"{base_url}/embeddings",
+                        headers={"Authorization": f"Bearer {api_key}"},
                         json={
                             "model": settings.embedding_model,
                             "input": texts,
@@ -120,9 +122,11 @@ class EmbeddingService:
         if not texts:
             return [], False
         settings = get_runtime_settings(db)
-        if not settings.api_key:
+        base_url = (settings.embedding_api_base_url or settings.api_base_url).rstrip("/")
+        api_key = settings.embedding_api_key or settings.api_key
+        if not api_key:
             self.is_fallback = True
-            self._record_status(ok=False, fallback=True, error="未配置模型 API Key。")
+            self._record_status(ok=False, fallback=True, error="未配置 Embedding API Key。")
             return [self._fallback_embedding(text) for text in texts], True
 
         all_embeddings: list[list[float]] = []
@@ -132,8 +136,8 @@ class EmbeddingService:
                 for i in range(0, len(texts), batch_size):
                     batch = texts[i : i + batch_size]
                     response = await client.post(
-                        f"{settings.api_base_url.rstrip('/')}/embeddings",
-                        headers={"Authorization": f"Bearer {settings.api_key}"},
+                        f"{base_url}/embeddings",
+                        headers={"Authorization": f"Bearer {api_key}"},
                         json={"model": settings.embedding_model, "input": batch},
                     )
                     response.raise_for_status()
