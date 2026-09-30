@@ -50,6 +50,63 @@ _MAX_TOOL_QUERY_CHARS = 500
 _MAX_TOOL_CODE_CHARS = 20000
 _MAX_TOOL_CONTEXT_CHARS = 6000
 _MAX_ARTIFACT_ID_CHARS = 64
+
+
+class _CitationMarkerStreamFilter:
+    """Filter unsupported numeric citation markers without buffering a response.
+
+    LLM streaming chunks can split ``[1]`` across several chunks. The filter
+    therefore keeps only a possible trailing ``[digits`` prefix in memory and
+    flushes all other text immediately. Valid markers are left intact; invalid
+    markers are removed before they reach the SSE client.
+    """
+
+    _COMPLETE_MARKER = re.compile(r"\[(\d+)\]")
+    _PARTIAL_MARKER = re.compile(r"\[(\d*)$")
+
+    def __init__(self, citation_count: int) -> None:
+        self.citation_count = citation_count
+        self._pending = ""
+
+    def feed(self, chunk: str, *, final: bool = False) -> str:
+        text = self._pending + (chunk or "")
+        self._pending = ""
+        if not text:
+            return ""
+
+        output: list[str] = []
+        cursor = 0
+        while cursor < len(text):
+            match = self._COMPLETE_MARKER.search(text, cursor)
+            if match is None:
+                tail = text[cursor:]
+                partial = self._PARTIAL_MARKER.search(tail)
+                if partial is not None and not final:
+                    output.append(tail[:partial.start()])
+                    self._pending = tail[partial.start():]
+                else:
+                    output.append(tail)
+                break
+
+            prefix = text[cursor:match.start()]
+            partial = self._PARTIAL_MARKER.search(prefix)
+            if partial is not None and not final:
+                output.append(prefix[:partial.start()])
+                self._pending = prefix[partial.start():] + text[match.start():]
+                break
+
+            output.append(prefix)
+            index = int(match.group(1))
+            if 1 <= index <= self.citation_count:
+                output.append(match.group(0))
+            cursor = match.end()
+
+        return "".join(output)
+
+    def finish(self) -> str:
+        return self.feed("", final=True)
+
+
 _ALLOWED_AGENT_TOOLS = {
     "kb_search",
     "grep_search",
@@ -349,17 +406,24 @@ class AgentService:
             artifacts_json: list[dict[str, str | int]] = [artifact]
         else:
             full_answer: list[str] = []
+            marker_filter = _CitationMarkerStreamFilter(len(citations))
             async for token in self.llm_service.generate_answer_stream_async(
                 db, payload.question, citations, recent_messages,
                 attached_file_content=payload.attached_file_content,
             ):
                 full_answer.append(token)
-                yield {"type": "token", "content": token}
+                filtered = marker_filter.feed(token)
+                if filtered:
+                    yield {"type": "token", "content": filtered}
+            filtered_tail = marker_filter.finish()
+            if filtered_tail:
+                yield {"type": "token", "content": filtered_tail}
             answer = "".join(full_answer)
             artifacts_json = []
 
         if not payload.generate_pro_file:
             citations = self._citations_used_by_answer(answer, citations)
+            answer = self._sanitize_citation_markers(answer, citations)
 
         assistant_message = ChatMessage(
             session_id=session.id,

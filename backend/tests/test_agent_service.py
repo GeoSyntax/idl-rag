@@ -248,6 +248,62 @@ def test_agent_removes_orphan_citation_markers(monkeypatch, tmp_path: Path) -> N
         db.close()
 
 
+def test_answer_stream_filters_citation_markers_split_across_chunks(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
+
+    import asyncio
+
+    from app.api.schemas import ChatRequest
+    from app.core.config import get_app_settings
+    from app.db.database import get_engine, get_session_factory, init_database
+    from app.db.models import ChatMessage, KnowledgeBase, User
+    from app.services.agent_service import AgentService
+
+    get_app_settings.cache_clear()
+    get_engine.cache_clear()
+    get_session_factory.cache_clear()
+    init_database()
+
+    db = get_session_factory()()
+    try:
+        user = User(username="owner", password_hash="hash", role="admin", is_active=True)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        knowledge_base = KnowledgeBase(name="IDL KB", description="stream citation test", owner_user_id=user.id)
+        db.add(knowledge_base)
+        db.commit()
+        db.refresh(knowledge_base)
+
+        service = AgentService()
+        monkeypatch.setattr(service.retrieval_service, "search_with_strategy", lambda *args, **kwargs: [])
+
+        async def fake_stream(*args, **kwargs):
+            yield "没有来源["
+            yield "1]，继续输出"
+
+        monkeypatch.setattr(service.llm_service, "generate_answer_stream_async", fake_stream)
+
+        async def collect():
+            return [
+                event async for event in service.answer_stream_async(
+                    db,
+                    ChatRequest(knowledge_base_ids=[knowledge_base.id], question="查看状态"),
+                    owner_user_id=user.id,
+                )
+            ]
+
+        events = asyncio.run(collect())
+        streamed_answer = "".join(event["content"] for event in events if event.get("type") == "token")
+        assert streamed_answer == "没有来源，继续输出"
+        assert events[-1]["type"] == "done"
+        assert events[-1]["citations"] == []
+        assistant_messages = db.query(ChatMessage).filter(ChatMessage.role == "assistant").all()
+        assert assistant_messages[-1].content == "没有来源，继续输出"
+    finally:
+        db.close()
+
+
 def test_agent_tool_args_are_limited(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
 
