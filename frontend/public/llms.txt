@@ -10,6 +10,6 @@ IDL RAG Panel 是一个本地优先的遥感研究工作台，连接论文、IDL
 
 ## 文档
 
-- [项目说明](/README.md)
-- [工作流架构](/docs/workflow-architecture.md)
-- [Agent 任务集](/docs/agent-research-task-suite.md)
+- [项目说明](https://github.com/GeoSyntax/idl-rag/blob/main/README.md)
+- [工作流架构](https://github.com/GeoSyntax/idl-rag/blob/main/docs/workflow-architecture.md)
+- [Agent 任务集](https://github.com/GeoSyntax/idl-rag/blob/main/docs/agent-research-task-suite.md)
