@@ -38,6 +38,7 @@ dashboard.png
 experiment1_basic_ops.pro
 data/sources/
 backend/data/sources/
+data/manual-review-corpus/
 
 # Session transcripts and local debug output
 *session*.txt
