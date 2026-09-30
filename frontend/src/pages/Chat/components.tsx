@@ -105,6 +105,7 @@ export function ResearchContextBar({
 export function MessageList({
   messages,
   agentSteps,
+  agentRunComplete,
   isStreaming,
   streamingContent,
   streamError,
@@ -117,6 +118,7 @@ export function MessageList({
 }: {
   messages: ChatMessage[]
   agentSteps: AgentStepItem[]
+  agentRunComplete: boolean
   isStreaming: boolean
   streamingContent: string
   streamError: string
@@ -132,7 +134,7 @@ export function MessageList({
   // answer look duplicated. Attach the inspectable tool trace to the final
   // persisted answer; only an in-flight request gets a temporary trace bubble.
   const traceSteps = agentSteps.filter((step) => ['tool_call', 'tool_result'].includes(step.step))
-  const lastAssistantMessageId = !isStreaming
+  const lastAssistantMessageId = agentRunComplete && !isStreaming
     ? [...messages].reverse().find((message) => message.role === 'assistant')?.id
     : undefined
   const traceAttachedToMessage = lastAssistantMessageId !== undefined && traceSteps.length > 0

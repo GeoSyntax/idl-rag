@@ -60,6 +60,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [streamingContent, setStreamingContent] = useState('')
   const [streamError, setStreamError] = useState('')
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
+  const [agentRunComplete, setAgentRunComplete] = useState(false)
   const [chatMode, setChatMode] = useState<'normal' | 'agent'>('normal')
   const [fixTarget, setFixTarget] = useState<{ artifactId: string; fileName: string } | null>(null)
   const [generateProFile, setGenerateProFile] = useState(false)
@@ -208,6 +209,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setStreamError('')
     setIsStreaming(false)
     setAgentSteps([])
+    setAgentRunComplete(false)
     setFixTarget(null)
     setGenerateProFile(false)
     setInputValue('')
@@ -235,6 +237,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setStreamError('')
     setIsStreaming(false)
     setAgentSteps([])
+    setAgentRunComplete(false)
     setFixTarget(null)
     setGenerateProFile(false)
     setInputValue('')
@@ -258,6 +261,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setStreamError('')
       setIsStreaming(false)
       setAgentSteps([])
+      setAgentRunComplete(false)
       setFixTarget(null)
       setGenerateProFile(false)
       setAttachedFile(null)
@@ -363,6 +367,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     clearStreamingBuffer()
     setStreamError('')
     setAgentSteps([])
+    setAgentRunComplete(false)
     stepIdRef.current = 0
     setInputValue('')
     if (inputRef.current) {
@@ -397,13 +402,14 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     abortRef.current = null
   }
 
-  const loadCompletedSession = async (newSessionId: number, requestId: number) => {
+  const loadCompletedSession = async (newSessionId: number, requestId: number, attachAgentTrace = false) => {
     if (streamRequestIdRef.current !== requestId) return
     setSessionId(newSessionId)
     try {
       const fullMessages = await api.listMessages(newSessionId)
       if (streamRequestIdRef.current !== requestId) return
       setMessages(fullMessages)
+      setAgentRunComplete(attachAgentTrace)
       void refreshSessions()
     } catch (err) {
       if (streamRequestIdRef.current === requestId) {
@@ -417,6 +423,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const handleStreamError = (errorMsg: string, requestId: number) => {
     if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
     streamTerminalRef.current = true
+    setAgentRunComplete(false)
     setStreamError(errorMsg)
     messageApi.error(errorMsg)
     finishStream()
@@ -426,6 +433,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     if (streamRequestIdRef.current !== requestId) return
     if (streamTerminalRef.current && (err as Error).name !== 'AbortError') return
     streamTerminalRef.current = true
+    setAgentRunComplete(false)
     if ((err as Error).name !== 'AbortError') {
       const message = (err as Error).message || fallback
       setStreamError(message)
@@ -457,7 +465,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             // 先移除临时流，再加载已落盘消息，避免同一答案短暂出现两次。
             // Agent 步骤保留在当前页面，方便用户在最终回答后继续查看运行追踪。
             finishStream()
-            void loadCompletedSession(newSessionId, requestId)
+            void loadCompletedSession(newSessionId, requestId, false)
           },
           onError: (errorMsg) => handleStreamError(errorMsg, requestId),
         },
@@ -511,7 +519,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             streamTerminalRef.current = true
             // 保留 Agent 步骤，让研究运行卡片在最终回答落盘后仍可查看。
             finishStream()
-            void loadCompletedSession(newSessionId, requestId)
+            void loadCompletedSession(newSessionId, requestId, true)
           },
           onError: (errorMsg) => handleStreamError(errorMsg, requestId),
         },
@@ -533,6 +541,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     streamRequestIdRef.current += 1
     streamTerminalRef.current = true
     abortRef.current?.abort()
+    setAgentRunComplete(false)
     setStreamError('生成已停止，未保存完整回答。')
     finishStream()
     messageApi.info('已停止生成')
@@ -926,6 +935,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           <MessageList
             messages={messages}
             agentSteps={agentSteps}
+            agentRunComplete={agentRunComplete}
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             streamError={streamError}
