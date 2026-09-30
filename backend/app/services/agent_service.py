@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import threading
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from uuid import uuid4
@@ -449,6 +450,7 @@ class AgentService:
         db: Session,
         payload: ChatRequest,
         owner_user_id: int,
+        cancel_event: threading.Event | None = None,
     ) -> Generator[dict, None, None]:
         """Agent 模式流式回答 — ReAct 循环，支持任务拆解和工具调用。"""
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
@@ -550,6 +552,8 @@ class AgentService:
         yield {"type": "step", "step": "thinking", "content": "正在分析问题并规划步骤..."}
 
         for round_num in range(max_rounds):
+            if cancel_event is not None and cancel_event.is_set():
+                return
             # Token 预算检查：粗估当前对话 token 数，超出则提前结束
             estimated_tokens = self._estimate_messages_tokens(llm_messages)
             if estimated_tokens > _TOKEN_BUDGET:
@@ -570,8 +574,16 @@ class AgentService:
             try:
                 result = self.llm_service.agent_generate(db, llm_messages)
             except Exception as exc:  # noqa: BLE001
+                if cancel_event is not None and cancel_event.is_set():
+                    return
                 yield {"type": "step", "step": "error", "content": f"模型调用失败：{exc}"}
                 break
+
+            # The synchronous provider call cannot be force-killed safely. Once
+            # it returns, however, cancellation must prevent the result from
+            # driving another tool call or being persisted as an answer.
+            if cancel_event is not None and cancel_event.is_set():
+                return
 
             # 最终回答
             if "final_answer" in result:
@@ -632,6 +644,9 @@ class AgentService:
                 except (ValueError, LookupError) as exc:
                     tool_result = ToolResult(name=tool_name, output=f"工具调用被拒绝：{exc}")
 
+                if cancel_event is not None and cancel_event.is_set():
+                    return
+
                 tool_event = {
                     "type": "step",
                     "step": "tool_result",
@@ -660,6 +675,9 @@ class AgentService:
         else:
             # 达到最大轮次
             full_answer_parts.append("Agent 已达到最大执行轮数，以下是基于已有信息的回答。")
+
+        if cancel_event is not None and cancel_event.is_set():
+            return
 
         # 如果没有 citations 也没有 artifact，做一次默认检索兜底
         if not all_citations and not artifacts_json and kb_ids:
@@ -711,7 +729,10 @@ class AgentService:
         已经足够，不需要 async 化。
         """
         import asyncio
-        gen = self.agent_answer_stream(db, payload, owner_user_id)
+        import threading
+
+        cancel_event = threading.Event()
+        gen = self.agent_answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
         loop = asyncio.get_running_loop()
 
         def next_event() -> tuple[bool, dict | None]:
@@ -720,12 +741,18 @@ class AgentService:
             except StopIteration:
                 return False, None
 
-        # 在线程池中逐个消费同步 generator 的值，yield 到 async generator
-        while True:
-            has_event, event = await loop.run_in_executor(None, next_event)
-            if not has_event:
-                break
-            yield event
+        # 在线程池中逐个消费同步 generator 的值，yield 到 async generator。
+        # 客户端断开时设置事件；当前正在进行的同步 HTTP 调用会自然结束，
+        # 但 generator 随后会在所有副作用点之前停止。
+        try:
+            while True:
+                has_event, event = await loop.run_in_executor(None, next_event)
+                if not has_event:
+                    break
+                yield event
+        except asyncio.CancelledError:
+            cancel_event.set()
+            raise
 
     def _resolve_knowledge_base_ids(self, db: Session, payload: ChatRequest, owner_user_id: int) -> list[int]:
         """解析知识库 ID 列表，验证所有权。"""

@@ -212,6 +212,7 @@ async def ask_question_stream(
                     artifact_count = len(token.get("artifacts", []))
                 yield f"data: {json.dumps(token, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
+            has_error = True
             raise
         except Exception as exc:  # noqa: BLE001
             has_error = True
@@ -272,6 +273,7 @@ async def agent_stream(
                     artifact_count = len(event.get("artifacts", []))
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
+            has_error = True
             raise
         except Exception as exc:  # noqa: BLE001
             has_error = True
