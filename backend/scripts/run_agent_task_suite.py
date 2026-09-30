@@ -231,7 +231,9 @@ def _run_task(db, task: dict[str, Any], *, owner_user_id: int, project_id: int) 
                 + "\n\n【测试集补全回合】上一回合尚未完成任务契约。请不要只做总结，"
                 + "继续调用缺失的受控工具："
                 + ", ".join(missing)
-                + "。如果已有 planned preview，请使用该实验继续；只有在任务明确要求且授权时才传 confirm=true。"
+                + "。如果已有 planned preview，请从上一回合 tool_result 中取 experiment_id 并继续该实验，"
+                + "不要重复调用已经成功的工具（尤其是 research_queue_preview 和 research_run_summary），"
+                + "也不要重复调用 research_create_preview_experiment；只有在任务明确要求且授权时才传 confirm=true。"
             )
             continue
         break

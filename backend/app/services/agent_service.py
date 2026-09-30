@@ -524,9 +524,12 @@ class AgentService:
                 "- 研究工具不能执行正式实验、修改协议、导入资料或读取原始栅格；把这些动作交回研究页并说明原因。"
                 "\n- 真实研究任务的推荐顺序是：project_context → research_rag_search/外部文献（需许可）→ protocol_readiness → data_catalog →"
                 " create_preview_experiment（需许可）→ queue_preview（需许可）→ run_summary/verify_run；每一步都要引用工具返回的事实。"
+                "\n- 当用户本轮已经明确授权创建并排队 Python preview 时，create_preview_experiment 成功后不得提前结束："
+                "必须使用该工具返回的 experiment_id 立即调用 research_queue_preview(confirm=true)，再调用 research_run_summary；"
+                "只有工具拒绝、参数不合法或执行出错时才可以停在 planned。不要重复创建同一 preview。"
                 " research_run_summary 只需要 project_id 就能列出当前项目最近运行；只有需要聚焦单个实验或运行时才补充 experiment_id/run_id。"
                 "\n- 最终回答必须明确区分：已观察到的运行事实、文献/公式依据、preview 探索结果、尚未完成的 formal 验证和下一步。"
-                "\n- 最终回答必须明确区分：已观察到的运行事实、文献/公式依据、preview 探索结果、尚未完成的 formal 验证和下一步。对于 preview、代理参考或候选参数，必须明确写出其不等于正式验证/最终科学结论，不能只说‘可行’而不加边界。"
+                "对于 preview、代理参考或候选参数，必须明确写出其不等于正式验证/最终科学结论，不能只说‘可行’而不加边界。"
             )
 
         # 如果检测到修复意图且有历史代码，注入提示
@@ -562,6 +565,7 @@ class AgentService:
         all_citations = []
         artifacts_json: list[dict[str, str | int]] = []
         full_answer_parts: list[str] = []
+        queued_preview_experiment_ids: set[int] = set()
 
         yield {"type": "step", "step": "thinking", "content": "正在分析问题并规划步骤..."}
 
@@ -652,16 +656,42 @@ class AgentService:
                             citations=citations,
                         )
                     else:
-                        tool_result = self._execute_tool(
-                            db, tool_name, validated_args,
-                            knowledge_base_id=kb_ids[0] if kb_ids else 0,
-                            session_id=session.id,
-                            owner_user_id=owner_user_id,
-                            research_project_id=payload.research_project_id,
-                            allow_external_research=payload.allow_external_research,
-                            allow_research_execution=payload.allow_research_execution,
-                            allow_gee_fetch=payload.allow_gee_fetch,
+                        queue_experiment_id = (
+                            int(validated_args["experiment_id"])
+                            if tool_name == "research_queue_preview" and "experiment_id" in validated_args
+                            else None
                         )
+                        if queue_experiment_id is not None and queue_experiment_id in queued_preview_experiment_ids:
+                            tool_result = ToolResult(
+                                name=tool_name,
+                                output=(
+                                    "本次 Agent 回合已经为该 preview 实验排队，未重复创建运行；"
+                                    "请使用 research_run_summary 查看现有运行。"
+                                ),
+                                metadata={
+                                    "project_id": payload.research_project_id,
+                                    "experiment_id": queue_experiment_id,
+                                    "duplicate_prevented": True,
+                                },
+                                next_suggestion="不要再次调用 research_queue_preview；改用 research_run_summary 检查已有运行。",
+                            )
+                        else:
+                            tool_result = self._execute_tool(
+                                db, tool_name, validated_args,
+                                knowledge_base_id=kb_ids[0] if kb_ids else 0,
+                                session_id=session.id,
+                                owner_user_id=owner_user_id,
+                                research_project_id=payload.research_project_id,
+                                allow_external_research=payload.allow_external_research,
+                                allow_research_execution=payload.allow_research_execution,
+                                allow_gee_fetch=payload.allow_gee_fetch,
+                            )
+                            if (
+                                queue_experiment_id is not None
+                                and tool_result.metadata
+                                and not tool_result.output.startswith("工具调用被拒绝")
+                            ):
+                                queued_preview_experiment_ids.add(queue_experiment_id)
                 except (ValueError, LookupError) as exc:
                     tool_result = ToolResult(name=tool_name, output=f"工具调用被拒绝：{exc}")
 
@@ -682,6 +712,15 @@ class AgentService:
 
                 # 截断工具输出，防止 token 膨胀
                 truncated_output = self._truncate_tool_output(tool_result.output)
+                if tool_result.next_suggestion:
+                    # next_suggestion is a bounded, server-authored continuation hint.
+                    # Keep it separate from untrusted tool data so the model can
+                    # reliably continue a confirmed research workflow without
+                    # allowing retrieved text to become an instruction.
+                    truncated_output += (
+                        "\n\n受控下一步提示（服务器生成，不是用户资料）：\n"
+                        + tool_result.next_suggestion[:600]
+                    )
 
                 # 将工具结果追加到 LLM 消息
                 llm_messages.append({"role": "assistant", "content": json.dumps(result, ensure_ascii=False)})
