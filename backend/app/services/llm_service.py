@@ -5,7 +5,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from urllib.parse import urlparse
 
 import httpx
@@ -571,6 +571,7 @@ class LlmService:
         self,
         db: Session,
         messages: list[dict[str, str]],
+        on_content: Callable[[str], None] | None = None,
     ) -> dict:
         """Agent Loop 专用：发送多轮消息给 LLM，返回解析后的 JSON 响应。
 
@@ -581,7 +582,7 @@ class LlmService:
         settings = get_runtime_settings(db)
         if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
-                return self._agent_generate_remote(settings, messages)
+                return self._agent_generate_remote(settings, messages, on_content=on_content)
             except httpx.HTTPStatusError as exc:
                 status_code = exc.response.status_code
                 if status_code == 401:
@@ -598,7 +599,13 @@ class LlmService:
                 raise ValueError("Agent 模型调用失败，请检查模型是否支持工具调用和 JSON 响应。") from exc
         return self._agent_generate_local(messages)
 
-    def _agent_generate_remote(self, settings, messages: list[dict[str, str]]) -> dict:
+    def _agent_generate_remote(
+        self,
+        settings,
+        messages: list[dict[str, str]],
+        *,
+        on_content: Callable[[str], None] | None = None,
+    ) -> dict:
         from app.services.agent_tools import get_openai_tools
 
         payload: dict = {
@@ -608,6 +615,30 @@ class LlmService:
             "tools": get_openai_tools(),
             "tool_choice": "auto",
         }
+        provider_name = str(getattr(settings, "provider_name", "") or "").strip().lower()
+        # gemin2api currently streams ordinary chat but rejects the OpenAI
+        # tools payload when `stream=true`; do not spend a full upstream
+        # timeout discovering that on every Agent turn.
+        supports_tool_stream = provider_name not in {"gemini2api", "gemin2api", "gemini2api-local"}
+        if on_content is not None and supports_tool_stream:
+            streamed_content = False
+
+            def forward_content(content: str) -> None:
+                nonlocal streamed_content
+                streamed_content = True
+                on_content(content)
+
+            try:
+                return self._agent_generate_remote_stream(settings, payload, forward_content)
+            except httpx.HTTPStatusError as exc:
+                # A few older OpenAI-compatible gateways support tools only
+                # on the non-stream endpoint. Retry those explicit capability
+                # errors without streaming. A transient gateway 5xx is also
+                # safe to retry only before any token has reached the client;
+                # never retry after partial output.
+                if streamed_content or exc.response.status_code not in {400, 404, 405, 422, 500, 502, 503, 504}:
+                    raise
+                return self._agent_generate_remote(settings, messages)
         response = _http_post_with_retry(
             f"{settings.api_base_url.rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else {},
@@ -643,6 +674,77 @@ class LlmService:
 
         # 把整个内容作为 final_answer
         return {"final_answer": content}
+
+    def _agent_generate_remote_stream(
+        self,
+        settings,
+        payload: dict,
+        on_content: Callable[[str], None],
+    ) -> dict:
+        """Stream one Agent decision while retaining complete tool-call JSON.
+
+        Tool calls are accumulated until the provider finishes so the ReAct
+        loop still receives one validated decision. Plain final text is sent
+        to ``on_content`` as soon as it arrives; JSON-shaped compatibility
+        responses stay buffered and are never rendered as answer text.
+        """
+        payload = {**payload, "stream": True}
+        content_parts: list[str] = []
+        tool_calls: dict[int, dict[str, str]] = {}
+        streamable: bool | None = None
+        with httpx.Client(timeout=120.0) as client:
+            with client.stream(
+                "POST",
+                f"{settings.api_base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else {},
+                json=payload,
+            ) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+                    choices = chunk.get("choices") or []
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta") or {}
+                    content = delta.get("content") or ""
+                    if content:
+                        content_parts.append(content)
+                        if streamable is None:
+                            probe = "".join(content_parts).lstrip()
+                            if probe:
+                                streamable = not probe.startswith(("{", "[", "```"))
+                        if streamable:
+                            on_content(content)
+                    for call_delta in delta.get("tool_calls") or []:
+                        index = int(call_delta.get("index", 0))
+                        current = tool_calls.setdefault(index, {"name": "", "arguments": ""})
+                        function = call_delta.get("function") or {}
+                        current["name"] += function.get("name") or ""
+                        current["arguments"] += function.get("arguments") or ""
+
+        if tool_calls:
+            call = tool_calls[min(tool_calls)]
+            try:
+                func_args = json.loads(call["arguments"] or "{}")
+            except (json.JSONDecodeError, ValueError):
+                func_args = {}
+            return {"tool": call["name"], "args": func_args, "_streamed": False}
+
+        content = "".join(content_parts).strip()
+        if not content:
+            return {"final_answer": "模型未返回有效内容。", "_streamed": False}
+        parsed = self._parse_agent_response(content)
+        if "tool" in parsed or "final_answer" in parsed:
+            return {**parsed, "_streamed": bool(streamable)}
+        return {"final_answer": content, "_streamed": bool(streamable)}
 
     def _agent_generate_local(self, messages: list[dict[str, str]]) -> dict:
         # 本地降级：从最后一条用户消息提取信息，直接返回 final_answer

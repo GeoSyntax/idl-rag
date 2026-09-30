@@ -4,7 +4,7 @@ import json
 import math
 import re
 import threading
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from pathlib import Path
 from uuid import uuid4
 
@@ -53,6 +53,7 @@ _MAX_TOOL_CODE_CHARS = 20000
 _MAX_TOOL_CONTEXT_CHARS = 6000
 _MAX_ARTIFACT_ID_CHARS = 64
 _AGENT_HEARTBEAT_INTERVAL_SECONDS = 8.0
+_AGENT_TOKEN_POLL_INTERVAL_SECONDS = 0.1
 
 
 class _CitationMarkerStreamFilter:
@@ -468,6 +469,7 @@ class AgentService:
         payload: ChatRequest,
         owner_user_id: int,
         cancel_event: threading.Event | None = None,
+        token_callback: Callable[[str], None] | None = None,
     ) -> Generator[dict, None, None]:
         """Agent 模式流式回答 — ReAct 循环，支持任务拆解和工具调用。"""
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
@@ -582,6 +584,42 @@ class AgentService:
         artifacts_json: list[dict[str, str | int]] = []
         full_answer_parts: list[str] = []
         queued_preview_experiment_ids: set[int] = set()
+        streamed_final_answer = False
+
+        def generate_decision() -> dict:
+            """Generate one decision and optionally forward plain final text.
+
+            Tool decisions stay buffered. Once project/knowledge citations are
+            known, plain final text can safely travel through the SSE queue;
+            citation markers are filtered before they leave this thread.
+            """
+            can_stream = (
+                token_callback is not None
+                and not payload.generate_pro_file
+                and not fix_intent
+                and (not kb_ids or bool(all_citations))
+            )
+            if not can_stream:
+                return self.llm_service.agent_generate(db, llm_messages)
+
+            marker_filter = _CitationMarkerStreamFilter(len(all_citations))
+
+            def emit_content(content: str) -> None:
+                safe_content = marker_filter.feed(content)
+                if safe_content:
+                    token_callback(safe_content)
+
+            result = self.llm_service.agent_generate(
+                db,
+                llm_messages,
+                on_content=emit_content,
+            )
+            if result.get("_streamed"):
+                tail = marker_filter.finish()
+                if tail:
+                    token_callback(tail)
+                result["_streamed_output"] = True
+            return result
 
         yield {"type": "step", "step": "thinking", "content": "正在分析问题并规划步骤..."}
 
@@ -596,9 +634,10 @@ class AgentService:
                 # 强制 LLM 用已有信息生成最终回答
                 llm_messages.append({"role": "user", "content": "请基于以上所有信息直接给出最终回答。"})
                 try:
-                    result = self.llm_service.agent_generate(db, llm_messages)
+                    result = generate_decision()
                     if "final_answer" in result:
                         full_answer_parts.append(result["final_answer"])
+                        streamed_final_answer = bool(result.get("_streamed_output"))
                         yield {"type": "step", "step": "answer", "content": "正在生成最终回答..."}
                 except Exception as exc:  # noqa: BLE001
                     yield {
@@ -610,7 +649,7 @@ class AgentService:
 
             # 调用 LLM
             try:
-                result = self.llm_service.agent_generate(db, llm_messages)
+                result = generate_decision()
             except Exception as exc:  # noqa: BLE001
                 if cancel_event is not None and cancel_event.is_set():
                     return
@@ -630,6 +669,7 @@ class AgentService:
             if "final_answer" in result:
                 answer = result["final_answer"]
                 full_answer_parts.append(answer)
+                streamed_final_answer = bool(result.get("_streamed_output"))
                 yield {"type": "step", "step": "answer", "content": "正在生成最终回答..."}
 
                 # 检查回答中是否包含代码块，自动保存为 artifact
@@ -766,9 +806,12 @@ class AgentService:
             all_citations = self._citations_used_by_answer(answer_text, all_citations)
         answer_text = self._sanitize_citation_markers(answer_text, all_citations)
 
-        # 流式输出最终答案。来源筛选在输出前完成，避免先看到 [1]、随后发现并没有来源。
-        for char in answer_text:
-            yield {"type": "token", "content": char}
+        # Remote final text may already have been streamed through the async
+        # queue. Local/structured fallbacks still emit the sanitized answer
+        # here, so every path keeps the same persistence and citation rules.
+        if not streamed_final_answer:
+            for char in answer_text:
+                yield {"type": "token", "content": char}
 
         # 保存 assistant message
         assistant_message = ChatMessage(
@@ -796,20 +839,34 @@ class AgentService:
         payload: ChatRequest,
         owner_user_id: int,
     ) -> AsyncGenerator[dict, None]:
-        """异步包装 — Agent 循环内部仍用同步 LLM 调用（agent_generate），
-        但 SSE 端点使用 async generator 避免阻塞事件循环。
+        """异步包装 Agent 循环，兼容同步工具决策和增量最终文本。
 
-        为什么不在内部也用 AsyncClient？
-        agent_generate 需要解析 JSON 响应（非 streaming），
-        对于这种 request-response 模式，同步调用在 ThreadPoolExecutor 中运行
-        已经足够，不需要 async 化。
+        Agent 的工具校验仍在 worker thread 中完成；可流式的最终文本通过
+        同一线程安全队列排入 SSE，未支持工具流的网关则继续走稳定 JSON
+        决策。轮询队列也让慢 provider 可以发送心跳而不阻塞事件循环。
         """
         import asyncio
+        import queue
         import threading
 
         cancel_event = threading.Event()
-        gen = self.agent_answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
+        token_queue: queue.SimpleQueue[str] = queue.SimpleQueue()
+        gen = self.agent_answer_stream(
+            db,
+            payload,
+            owner_user_id,
+            cancel_event=cancel_event,
+            token_callback=token_queue.put,
+        )
         loop = asyncio.get_running_loop()
+
+        def drain_tokens() -> list[str]:
+            chunks: list[str] = []
+            while True:
+                try:
+                    chunks.append(token_queue.get_nowait())
+                except queue.Empty:
+                    return chunks
 
         def next_event() -> tuple[bool, dict | None]:
             try:
@@ -821,6 +878,7 @@ class AgentService:
         # 客户端断开时设置事件；当前正在进行的同步 HTTP 调用会自然结束，
         # 但 generator 随后会在所有副作用点之前停止。
         pending = None
+        last_progress_at = loop.time()
         try:
             while True:
                 if pending is None:
@@ -832,20 +890,30 @@ class AgentService:
                     # the browser look frozen or letting a proxy time out.
                     has_event, event = await asyncio.wait_for(
                         asyncio.shield(pending),
-                        timeout=_AGENT_HEARTBEAT_INTERVAL_SECONDS,
+                        timeout=_AGENT_TOKEN_POLL_INTERVAL_SECONDS,
                     )
                 except asyncio.TimeoutError:
                     if cancel_event.is_set():
                         return
-                    yield {
-                        "type": "step",
-                        "step": "waiting",
-                        "content": "模型仍在响应，正在等待下一步…",
-                    }
+                    chunks = drain_tokens()
+                    if chunks:
+                        last_progress_at = loop.time()
+                        for chunk in chunks:
+                            yield {"type": "token", "content": chunk}
+                    elif loop.time() - last_progress_at >= _AGENT_HEARTBEAT_INTERVAL_SECONDS:
+                        last_progress_at = loop.time()
+                        yield {
+                            "type": "step",
+                            "step": "waiting",
+                            "content": "模型仍在响应，正在等待下一步…",
+                        }
                     continue
                 pending = None
+                for chunk in drain_tokens():
+                    yield {"type": "token", "content": chunk}
                 if not has_event:
                     break
+                last_progress_at = loop.time()
                 yield event
         except asyncio.CancelledError:
             cancel_event.set()

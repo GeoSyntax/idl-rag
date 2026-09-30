@@ -22,12 +22,53 @@ def test_agent_model_error_is_not_silently_downgraded(monkeypatch) -> None:
         service.agent_generate(None, [])
 
 
+def test_agent_remote_stream_forwards_plain_final_content(monkeypatch) -> None:
+    from app.services.llm_service import LlmService
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def raise_for_status(self):
+            return None
+
+        def iter_lines(self):
+            yield 'data: {"choices":[{"delta":{"content":"MND"}}]}'
+            yield 'data: {"choices":[{"delta":{"content":"WI"}}]}'
+            yield "data: [DONE]"
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def stream(self, *_args, **_kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.llm_service.httpx.Client", lambda **_kwargs: FakeClient())
+    service = LlmService()
+    settings = type("Settings", (), {"api_base_url": "http://model.local/v1", "api_key": "key", "chat_model": "model"})()
+    streamed: list[str] = []
+
+    result = service._agent_generate_remote(settings, [], on_content=streamed.append)
+
+    assert result["final_answer"] == "MNDWI"
+    assert result["_streamed"] is True
+    assert streamed == ["MND", "WI"]
+
+
 @pytest.mark.asyncio
 async def test_agent_async_stream_emits_heartbeat_while_sync_provider_waits(monkeypatch) -> None:
     from app.services.agent_service import AgentService
 
     service = AgentService()
     monkeypatch.setattr("app.services.agent_service._AGENT_HEARTBEAT_INTERVAL_SECONDS", 0.01)
+    monkeypatch.setattr("app.services.agent_service._AGENT_TOKEN_POLL_INTERVAL_SECONDS", 0.005)
 
     def delayed_stream(*_args, **_kwargs):
         def events():
@@ -39,8 +80,8 @@ async def test_agent_async_stream_emits_heartbeat_while_sync_provider_waits(monk
     monkeypatch.setattr(service, "agent_answer_stream", delayed_stream)
     events = [event async for event in service.agent_answer_stream_async(None, None, 1)]
 
-    assert any(event["step"] == "waiting" for event in events)
-    assert any(event["type"] == "done" for event in events)
+    assert any(event.get("step") == "waiting" for event in events)
+    assert any(event.get("type") == "done" for event in events)
 
 
 def test_agent_stream_emits_error_without_empty_assistant_message(monkeypatch, tmp_path: Path) -> None:
