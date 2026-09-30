@@ -1,19 +1,23 @@
 import { QueryClient, useQuery } from '@tanstack/react-query'
 import { App as AntApp, Spin } from 'antd'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 
 import { api, clearAccessToken, hasStoredAccessToken, onUnauthorized, saveAccessToken } from './api/client'
 import type { AuthUser, DocumentItem, ImportResult, KnowledgeBase, LoginResponse, SystemSettingsResponse } from './api/types'
 import { AppLayout } from './components/AppLayout'
-import { AuthPage } from './pages/Auth'
-import { ChatPage } from './pages/Chat'
-import { DashboardPage } from './pages/Dashboard'
-import { DocumentsPage } from './pages/Documents'
-import { KnowledgeBasesPage } from './pages/KnowledgeBases'
-import { RetrievalLabPage } from './pages/RetrievalLab'
-import { ResearchPage } from './pages/Research'
-import { SettingsPage } from './pages/Settings'
-import { UsersPage } from './pages/Users'
+
+// Keep the shell and auth path small. Research, Chat and the data-management
+// pages are loaded only when the user opens them; this matters for the first
+// visit on a school network where the JS bundle may be served slowly.
+const AuthPage = lazy(() => import('./pages/Auth').then(({ AuthPage }) => ({ default: AuthPage })))
+const ChatPage = lazy(() => import('./pages/Chat').then(({ ChatPage }) => ({ default: ChatPage })))
+const DashboardPage = lazy(() => import('./pages/Dashboard').then(({ DashboardPage }) => ({ default: DashboardPage })))
+const DocumentsPage = lazy(() => import('./pages/Documents').then(({ DocumentsPage }) => ({ default: DocumentsPage })))
+const KnowledgeBasesPage = lazy(() => import('./pages/KnowledgeBases').then(({ KnowledgeBasesPage }) => ({ default: KnowledgeBasesPage })))
+const RetrievalLabPage = lazy(() => import('./pages/RetrievalLab').then(({ RetrievalLabPage }) => ({ default: RetrievalLabPage })))
+const ResearchPage = lazy(() => import('./pages/Research').then(({ ResearchPage }) => ({ default: ResearchPage })))
+const SettingsPage = lazy(() => import('./pages/Settings').then(({ SettingsPage }) => ({ default: SettingsPage })))
+const UsersPage = lazy(() => import('./pages/Users').then(({ UsersPage }) => ({ default: UsersPage })))
 
 type PageKey = 'dashboard' | 'research' | 'knowledge-bases' | 'documents' | 'chat' | 'retrieval-lab' | 'settings' | 'users'
 
@@ -227,7 +231,9 @@ export default function App() {
   if (!currentUser) {
     return (
       <AntApp>
-        <AuthPage onAuthenticated={handleAuthenticated} />
+        <Suspense fallback={<div className="app-loading"><Spin /></div>}>
+          <AuthPage onAuthenticated={handleAuthenticated} />
+        </Suspense>
       </AntApp>
     )
   }
@@ -304,17 +310,19 @@ export default function App() {
 
   return (
     <AntApp>
-      <AppLayout
-        title={pageTitles[activePage]}
-        activeKey={activePage}
-        onNavigate={(key) => setActivePage(key as PageKey)}
-        onLogout={handleLogout}
-        currentUser={currentUser}
-        showUsers={isAdmin}
-        showSettings={isAdmin}
-      >
-        {content}
-      </AppLayout>
+      <Suspense fallback={<div className="app-loading"><Spin /></div>}>
+        <AppLayout
+          title={pageTitles[activePage]}
+          activeKey={activePage}
+          onNavigate={(key) => setActivePage(key as PageKey)}
+          onLogout={handleLogout}
+          currentUser={currentUser}
+          showUsers={isAdmin}
+          showSettings={isAdmin}
+        >
+          {content}
+        </AppLayout>
+      </Suspense>
     </AntApp>
   )
 }
