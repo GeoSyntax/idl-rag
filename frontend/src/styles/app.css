@@ -402,6 +402,68 @@ body { min-height: 100dvh; }
   margin-top: 16px;
 }
 
+.research-run-timeline-block {
+  min-width: 0;
+  margin-top: 18px;
+  padding: 14px 16px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-hover);
+}
+
+.research-run-section-title {
+  margin-bottom: 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.research-run-timeline {
+  margin-bottom: 0 !important;
+}
+
+.research-run-timeline .ant-timeline-item-content {
+  min-width: 0;
+}
+
+.research-run-timeline-item {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.research-run-timeline-heading,
+.research-run-timeline-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 6px 8px;
+}
+
+.research-run-timeline-heading strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.research-run-timeline-heading > span,
+.research-run-timeline-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.research-run-timeline-meta span {
+  overflow-wrap: anywhere;
+}
+
+.research-run-timeline-error {
+  max-width: 100%;
+  color: var(--error);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .research-run-products {
   display: grid;
   gap: 12px;

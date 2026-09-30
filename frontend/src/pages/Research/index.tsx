@@ -14,6 +14,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Timeline,
   message,
 } from 'antd'
 import { MessageOutlined } from '@ant-design/icons'
@@ -188,6 +189,13 @@ function statusColor(status: string): 'green' | 'gold' | 'red' | 'default' {
   if (status === 'cancelled') return 'default'
   if (status === 'candidate' || status === 'running' || status === 'queued') return 'gold'
   return 'default'
+}
+
+function timelineColor(status: ResearchRun['status']): 'green' | 'red' | 'gray' | 'blue' {
+  if (status === 'completed') return 'green'
+  if (status === 'failed' || status === 'unavailable') return 'red'
+  if (status === 'cancelled') return 'gray'
+  return 'blue'
 }
 
 function validationMetricsFromRun(run: ResearchRun): Record<string, number> | null {
@@ -2227,6 +2235,40 @@ export function ResearchPage({ currentUserId, onOpenAgent }: { currentUserId: nu
                             { title: '结束时间', dataIndex: 'finished_at', width: 180, render: formatDate },
                           ]}
                         />
+                        {runs.length > 0 ? (
+                          <div className="research-run-timeline-block">
+                            <div className="research-run-section-title">运行时间线</div>
+                            <Timeline
+                              className="research-run-timeline"
+                              items={[...runs]
+                                .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
+                                .map((run) => {
+                                  const metrics = validationMetricsFromRun(run)
+                                  return {
+                                    color: timelineColor(run.status),
+                                    children: (
+                                      <div className="research-run-timeline-item">
+                                        <div className="research-run-timeline-heading">
+                                          <strong>Run #{run.id}</strong>
+                                          <Tag color={statusColor(run.status)}>{run.status}</Tag>
+                                          <span>{run.runner_type} · {run.run_token.slice(0, 12)}</span>
+                                        </div>
+                                        <div className="research-run-timeline-meta">
+                                          <span>创建 {formatDate(run.created_at)}</span>
+                                          <span>{run.outputs.length} 个产物</span>
+                                          {metrics?.f1 !== undefined ? <span>F1 {metrics.f1.toFixed(3)}</span> : null}
+                                          {metrics?.iou !== undefined ? <span>IoU {metrics.iou.toFixed(3)}</span> : null}
+                                        </div>
+                                        {run.error_message ? (
+                                          <div className="research-run-timeline-error">{run.error_message}</div>
+                                        ) : null}
+                                      </div>
+                                    ),
+                                  }
+                                })}
+                            />
+                          </div>
+                        ) : null}
                         {visibleRun ? (
                           <div className="research-run-detail">
                             {visibleRun.error_message ? <Alert type="error" showIcon message={visibleRun.error_message} /> : null}
