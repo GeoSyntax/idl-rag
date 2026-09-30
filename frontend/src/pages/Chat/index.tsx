@@ -733,7 +733,6 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               }
               setResearchProjectId(value)
               if (!value) {
-                setAllowExternalResearch(false)
                 setAllowResearchExecution(false)
                 setAllowGeeFetch(false)
               }
@@ -751,13 +750,13 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             ]}
           />
           <div className="chat-research-permissions" aria-label="研究 Agent 授权选项">
-            <Tooltip title="仅将研究问题发送给公开文献元数据接口；不会发送项目影像或凭据">
+            <Tooltip title="仅发送公开检索词到文献元数据接口；不绑定项目时只返回候选，不会发送影像、私有路径或凭据">
               <Checkbox
                 id="allow-external-research"
                 aria-label="允许外部文献搜索"
                 checked={allowExternalResearch}
                 onChange={(event) => setAllowExternalResearch(event.target.checked)}
-                disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
+                disabled={chatMode !== 'agent' || isStreaming}
               >
                 允许外部文献搜索
               </Checkbox>

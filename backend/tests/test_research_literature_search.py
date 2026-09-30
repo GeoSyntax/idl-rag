@@ -207,6 +207,27 @@ class _SemanticScholarRateLimitedClient(_SemanticScholarFakeClient):
         return _SemanticScholarRateLimitedResponse()
 
 
+def test_public_literature_search_does_not_require_project_or_create_audit(monkeypatch, tmp_path: Path) -> None:
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.db.database import get_session_factory, init_database
+    from app.db.models import ResearchExternalSearchLog
+    from app.services.research_literature_search import ResearchLiteratureSearchService
+
+    init_database()
+    service = ResearchLiteratureSearchService(client_factory=_FakeClient)
+    result = service.search_public("Sentinel-2 water mapping", rows=3, provider="crossref")
+
+    assert result.audit_id == 0
+    assert result.candidates
+    assert "未绑定研究项目" in result.notice
+    db = get_session_factory()()
+    try:
+        assert db.query(ResearchExternalSearchLog).count() == 0
+    finally:
+        db.close()
+
+
 def test_project_literature_search_logs_query_and_imports_candidate_evidence(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("IDLRAG_SEMANTIC_SCHOLAR_API_KEY", "s2-test-secret")
     _prepare_state(monkeypatch, tmp_path)

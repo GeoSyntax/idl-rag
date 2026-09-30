@@ -161,6 +161,87 @@ class ResearchLiteratureSearchService:
             provider=normalized_provider,
         )
 
+    def search_public(
+        self,
+        query: str,
+        rows: int,
+        provider: str = "crossref",
+    ) -> ResearchLiteratureSearchResponse:
+        """Search public metadata without requiring a bound research project.
+
+        This path is intentionally discovery-only: it does not create a
+        project audit, evidence card, or RAG document. The Agent can use it in
+        a normal chat after the user explicitly enables external search; any
+        project-specific import still has to go through the audited research
+        page flow.
+        """
+        normalized_query = self._validate_query(query)
+        normalized_provider = provider.strip().lower()
+        if normalized_provider not in _LITERATURE_PROVIDERS:
+            raise ValueError("外部文献 provider 只能是 crossref、openalex 或 semantic_scholar。")
+        settings = get_app_settings()
+        safe_rows = min(rows, settings.research_literature_search_max_results)
+        try:
+            if normalized_provider == "semantic_scholar":
+                self._throttle_semantic_scholar(settings.research_semantic_scholar_min_interval_seconds)
+            with self.client_factory(
+                timeout=settings.research_literature_search_timeout_seconds,
+                headers=self._request_headers(normalized_provider, settings.semantic_scholar_api_key),
+            ) as client:
+                if normalized_provider == "crossref":
+                    response = client.get(
+                        _CROSSREF_WORKS_URL,
+                        params={
+                            "query.bibliographic": normalized_query,
+                            "rows": safe_rows,
+                            "select": self._select_fields(),
+                        },
+                    )
+                elif normalized_provider == "openalex":
+                    response = client.get(
+                        _OPENALEX_WORKS_URL,
+                        params={
+                            "search": normalized_query,
+                            "per-page": safe_rows,
+                            "select": self._openalex_select_fields(),
+                        },
+                    )
+                else:
+                    response = client.get(
+                        _SEMANTIC_SCHOLAR_SEARCH_URL,
+                        params={
+                            "query": normalized_query,
+                            "limit": safe_rows,
+                            "fields": self._semantic_scholar_fields(),
+                        },
+                    )
+                response.raise_for_status()
+                payload = response.json()
+            candidates = (
+                self._parse_candidates(payload)
+                if normalized_provider == "crossref"
+                else (
+                    self._parse_openalex_candidates(payload)
+                    if normalized_provider == "openalex"
+                    else self._parse_semantic_scholar_candidates(payload)
+                )
+            )
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise LiteratureProviderUnavailableError(
+                "外部文献元数据服务暂时不可用或触发了限流；请稍后重试，不会影响本地研究资产。"
+            ) from exc
+
+        return ResearchLiteratureSearchResponse(
+            audit_id=0,
+            query=normalized_query,
+            candidates=candidates,
+            notice=(
+                f"结果来自 {normalized_provider} 的公开元数据检索，仅为候选来源；本次未绑定研究项目，"
+                "未创建审计、证据卡或 RAG 文档。请在研究页核对原文、适用条件与许可。"
+            ),
+            provider=normalized_provider,
+        )
+
     def import_candidate_as_evidence_card(
         self,
         db: Session,

@@ -132,6 +132,47 @@ def test_research_agent_external_search_requires_explicit_consent(tmp_path: Path
         db.close()
 
 
+def test_agent_public_literature_search_works_without_project_after_consent(tmp_path: Path, monkeypatch) -> None:
+    db = _new_db(tmp_path)
+    try:
+        owner, _member, _stranger, _project = _create_project(db)
+        from app.services.agent_service import AgentService
+        from app.services.agent_tools import ToolResult
+
+        service = AgentService()
+        rejected = service._execute_tool(
+            db,
+            "public_literature_search",
+            {"query": "surface water mapping", "provider": "crossref", "rows": 3},
+            knowledge_base_id=0,
+            session_id=0,
+            owner_user_id=owner.id,
+            allow_external_research=False,
+        )
+        assert "没有显式允许" in rejected.output
+
+        called: dict[str, object] = {}
+
+        def fake_search(query, provider, rows):
+            called.update(query=query, provider=provider, rows=rows)
+            return ToolResult(name="public_literature_search", output="candidate")
+
+        monkeypatch.setattr("app.services.agent_service.tool_public_literature_search", fake_search)
+        allowed = service._execute_tool(
+            db,
+            "public_literature_search",
+            {"query": "surface water mapping", "provider": "crossref", "rows": 3},
+            knowledge_base_id=0,
+            session_id=0,
+            owner_user_id=owner.id,
+            allow_external_research=True,
+        )
+        assert allowed.output == "candidate"
+        assert called == {"query": "surface water mapping", "provider": "crossref", "rows": 3}
+    finally:
+        db.close()
+
+
 def test_research_agent_stream_uses_bound_project_and_rejects_stranger(tmp_path: Path, monkeypatch) -> None:
     db = _new_db(tmp_path)
     try:

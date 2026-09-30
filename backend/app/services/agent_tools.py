@@ -1069,6 +1069,38 @@ def tool_research_literature_search(
     )
 
 
+def tool_public_literature_search(
+    query: str,
+    provider: str = "crossref",
+    rows: int = 5,
+) -> ToolResult:
+    """Search public paper metadata for a normal chat without project binding."""
+    from app.services.research_literature_search import ResearchLiteratureSearchService
+
+    result = ResearchLiteratureSearchService().search_public(query, rows, provider)
+    candidates = [
+        {
+            "provider": candidate.provider,
+            "external_id": candidate.external_id,
+            "title": candidate.title,
+            "authors": candidate.authors[:5],
+            "published_year": candidate.published_year,
+            "doi": candidate.doi,
+            "source_url": candidate.source_url,
+            "abstract": candidate.abstract[:1200] if candidate.abstract else None,
+        }
+        for candidate in result.candidates
+    ]
+    return ToolResult(
+        name="public_literature_search",
+        output=json.dumps({"query": result.query, "provider": result.provider, "candidates": candidates, "notice": result.notice}, ensure_ascii=False, indent=2),
+        strategy=f"external:{result.provider}",
+        query=result.query,
+        metadata={"provider": result.provider, "external_search": True, "project_bound": False, "raw_project_data_sent": False},
+        next_suggestion="这些是公开元数据候选，不是已核验方法；如需保存到项目，请在研究页绑定项目后重新搜索并人工核对全文与许可。",
+    )
+
+
 def tool_research_queue_preview(
     db: Session,
     project_id: int,
@@ -1371,6 +1403,15 @@ AGENT_TOOLS = {
             "rows": {"type": "integer", "description": "最多返回候选数"},
         },
         "function": tool_research_literature_search,
+    },
+    "public_literature_search": {
+        "description": "在用户显式允许外部搜索时，不需要项目绑定，查询 Crossref/OpenAlex/Semantic Scholar 公开元数据；只返回候选，不创建审计、证据卡或 RAG 文档。",
+        "parameters": {
+            "query": {"type": "string", "description": "文献检索词"},
+            "provider": {"type": "string", "description": "crossref、openalex 或 semantic_scholar"},
+            "rows": {"type": "integer", "description": "最多返回候选数"},
+        },
+        "function": tool_public_literature_search,
     },
     "research_queue_preview": {
         "description": "在用户显式授权且 confirm=true 时，将当前项目已有的 Python preview 实验加入队列；不能创建/修改实验或运行 formal/IDL。",
@@ -1705,6 +1746,22 @@ OPENAI_TOOLS = [
                     "rows": {"type": "integer", "description": "最多返回候选数"},
                 },
                 "required": ["project_id", "query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "public_literature_search",
+            "description": "只有在用户显式允许时，搜索公开文献元数据；不需要项目绑定，不发送项目数据，也不会自动导入 RAG。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "文献查询词"},
+                    "provider": {"type": "string", "enum": ["crossref", "openalex", "semantic_scholar"]},
+                    "rows": {"type": "integer", "description": "最多返回候选数"},
+                },
+                "required": ["query"],
             },
         },
     },
