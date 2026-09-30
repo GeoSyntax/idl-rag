@@ -564,6 +564,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   }
 
   const fetchGeeData = async (values: GeeFetchFormValues) => {
+    if (isStreaming || fetchingGee) {
+      messageApi.info('当前请求尚未结束，暂不能获取 GEE 数据。')
+      return
+    }
     const bbox = values.bbox.split(',').map((item) => Number(item.trim()))
     if (bbox.length !== 4 || bbox.some((value) => !Number.isFinite(value))) {
       messageApi.error('bbox 需要填写 4 个逗号分隔的数字')
@@ -661,9 +665,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   }, [knowledgeBases, selectedKBIds])
 
   const hasMessages = messages.length > 0 || isStreaming
+  const contextLocked = isStreaming || sessionsLoading || fetchingGee
 
   return (
-    <div className="chat-page">
+    <div className="chat-page" aria-busy={isStreaming || fetchingGee}>
       {contextHolder}
 
       {/* 顶部工具栏 */}
@@ -685,6 +690,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               </Tag>
             )}
             className="chat-kb-select"
+            disabled={contextLocked}
           />
           <Select
             allowClear
@@ -707,12 +713,12 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
                 setAllowGeeFetch(false)
               }
             }}
-            disabled={isStreaming}
+            disabled={contextLocked}
           />
           <Segmented
             size="small"
             value={chatMode}
-            disabled={isStreaming}
+            disabled={contextLocked}
             onChange={(val) => setChatMode(val as 'normal' | 'agent')}
             options={[
               { label: '普通', value: 'normal' },
@@ -764,6 +770,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             loading={sessionsLoading}
             options={sessionOptions}
             className="chat-session-select"
+            disabled={contextLocked}
             onChange={(value) => {
               if (value) {
                 void handleLoadSession(value)
@@ -773,16 +780,16 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             }}
           />
           <Tooltip title="新会话">
-            <Button size="small" type="text" icon={<PlusOutlined />} onClick={handleNewSession} />
+            <Button size="small" type="text" icon={<PlusOutlined />} onClick={handleNewSession} disabled={fetchingGee || sessionsLoading} aria-label="新建会话" />
           </Tooltip>
           <Tooltip title="重命名会话">
-            <Button size="small" type="text" icon={<EditOutlined />} onClick={handleRenameSession} disabled={!sessionId} />
+            <Button size="small" type="text" icon={<EditOutlined />} onClick={handleRenameSession} disabled={!sessionId || contextLocked} aria-label="重命名会话" />
           </Tooltip>
           <Tooltip title="删除会话">
-            <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeleteSession} disabled={!sessionId} />
+            <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={handleDeleteSession} disabled={!sessionId || contextLocked} aria-label="删除会话" />
           </Tooltip>
           <Tooltip title="获取 GEE 数据">
-            <Button size="small" type="text" icon={<CloudDownloadOutlined />} onClick={() => setGeeDrawerOpen(true)} />
+            <Button size="small" type="text" icon={<CloudDownloadOutlined />} onClick={() => setGeeDrawerOpen(true)} disabled={contextLocked} aria-label="获取 GEE 数据" />
           </Tooltip>
           <Tooltip title={generateProFile ? '已开启 .pro 文件生成' : '生成 .pro 文件'}>
             <Button
@@ -790,6 +797,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               type={generateProFile ? 'primary' : 'text'}
               icon={<FileTextOutlined />}
               onClick={() => setGenerateProFile(!generateProFile)}
+              disabled={contextLocked}
+              aria-label="生成 IDL pro 文件"
             />
           </Tooltip>
         </div>
@@ -806,6 +815,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         <Form
           form={geeForm}
           layout="vertical"
+          disabled={isStreaming || fetchingGee}
           initialValues={{
             dataset_id: 'CGIAR/SRTM90_V4',
             bbox: '116.30,39.85,116.45,39.98',
@@ -959,7 +969,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             beforeUpload={handleFileUpload}
             showUploadList={false}
             accept=".pdf,.md,.markdown,.txt,.pro,.idl"
-            disabled={uploading}
+            disabled={uploading || isStreaming || fetchingGee}
           >
             <Tooltip title="上传文件">
               <Button
@@ -967,6 +977,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
                 icon={<UploadOutlined />}
                 loading={uploading}
                 className="chat-input-action"
+                aria-label="上传文件"
               />
             </Tooltip>
           </Upload>
@@ -998,6 +1009,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               icon={<StopOutlined />}
               onClick={handleCancelStream}
               className="chat-input-action"
+              aria-label="停止生成"
             />
           ) : (
             <Button
@@ -1006,6 +1018,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               onClick={handleSubmit}
               disabled={!inputValue.trim()}
               className="chat-send-btn"
+              aria-label="发送消息"
             />
           )}
         </div>

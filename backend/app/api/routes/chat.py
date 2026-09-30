@@ -199,19 +199,25 @@ async def ask_question_stream(
         started_at = time.perf_counter()
         first_token_ms: float | None = None
         has_error = False
+        terminal_sent = False
         citation_count = 0
         artifact_count = 0
         result_session_id = None
         try:
             async for token in service.answer_stream_async(db, payload, current_user.id):
+                if terminal_sent:
+                    continue
                 if token.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
                 if token.get("type") == "error":
                     has_error = True
                 if token.get("type") == "done":
+                    terminal_sent = True
                     result_session_id = token.get("session_id")
                     citation_count = len(token.get("citations", []))
                     artifact_count = len(token.get("artifacts", []))
+                if token.get("type") == "error":
+                    terminal_sent = True
                 yield f"data: {json.dumps(token, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
@@ -219,8 +225,15 @@ async def ask_question_stream(
         except Exception as exc:  # noqa: BLE001
             has_error = True
             logger.exception("ask-stream failed")
-            error_event = {"type": "error", "message": str(exc) or "流式请求失败"}
-            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+            if not terminal_sent:
+                error_event = {"type": "error", "message": str(exc) or "流式请求失败"}
+                terminal_sent = True
+                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+        else:
+            if not terminal_sent:
+                has_error = True
+                error_event = {"type": "error", "message": "流式请求未返回完成事件，请重试。"}
+                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
                 current_user.id,
@@ -262,19 +275,25 @@ async def agent_stream(
         started_at = time.perf_counter()
         first_token_ms: float | None = None
         has_error = False
+        terminal_sent = False
         citation_count = 0
         artifact_count = 0
         result_session_id = None
         try:
             async for event in service.agent_answer_stream_async(db, payload, current_user.id):
+                if terminal_sent:
+                    continue
                 if event.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
                 if event.get("type") == "error":
                     has_error = True
                 if event.get("type") == "done":
+                    terminal_sent = True
                     result_session_id = event.get("session_id")
                     citation_count = len(event.get("citations", []))
                     artifact_count = len(event.get("artifacts", []))
+                if event.get("type") == "error":
+                    terminal_sent = True
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
@@ -282,8 +301,15 @@ async def agent_stream(
         except Exception as exc:  # noqa: BLE001
             has_error = True
             logger.exception("agent-stream failed")
-            error_event = {"type": "error", "message": str(exc) or "Agent 流式请求失败"}
-            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+            if not terminal_sent:
+                error_event = {"type": "error", "message": str(exc) or "Agent 流式请求失败"}
+                terminal_sent = True
+                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+        else:
+            if not terminal_sent:
+                has_error = True
+                error_event = {"type": "error", "message": "Agent 流式请求未返回完成事件，请重试。"}
+                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
                 current_user.id,

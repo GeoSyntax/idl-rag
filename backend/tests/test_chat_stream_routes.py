@@ -76,6 +76,61 @@ def test_agent_stream_converts_backend_failure_to_one_sse_error(
     assert "answer" not in response.text
 
 
+def test_agent_stream_suppresses_events_after_terminal_done(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A late provider failure must not turn one answer into two terminals."""
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.api.routes import chat
+    from app.main import create_app
+
+    async def done_then_fail(db, payload, user_id):
+        yield {"type": "done", "session_id": 17, "citations": [], "artifacts": []}
+        yield {"type": "error", "message": "late provider failure"}
+        raise RuntimeError("late provider failure")
+
+    monkeypatch.setattr(chat.service, "agent_answer_stream_async", done_then_fail)
+
+    with TestClient(create_app()) as client:
+        registered = _register(client, username="terminal-reviewer")
+        response = client.post(
+            "/api/chat/agent-stream",
+            json={"question": "测试完成事件收束"},
+            headers=_headers(registered["access_token"]),
+        )
+
+    payloads = _sse_payloads(response.text)
+    assert [payload["type"] for payload in payloads] == ["done"]
+
+
+def test_agent_stream_emits_error_when_provider_ends_without_terminal(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A clean provider return without done/error is still a failed stream."""
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.api.routes import chat
+    from app.main import create_app
+
+    async def truncated_stream(db, payload, user_id):
+        yield {"type": "token", "content": "半条回答"}
+
+    monkeypatch.setattr(chat.service, "agent_answer_stream_async", truncated_stream)
+
+    with TestClient(create_app()) as client:
+        registered = _register(client, username="truncated-reviewer")
+        response = client.post(
+            "/api/chat/agent-stream",
+            json={"question": "测试截断流"},
+            headers=_headers(registered["access_token"]),
+        )
+
+    payloads = _sse_payloads(response.text)
+    assert [payload["type"] for payload in payloads] == ["token", "error"]
+    assert payloads[-1]["message"] == "Agent 流式请求未返回完成事件，请重试。"
+
+
 @pytest.mark.asyncio
 async def test_agent_stream_persists_cancelled_request_and_does_not_emit_fallback(
     monkeypatch, tmp_path: Path
