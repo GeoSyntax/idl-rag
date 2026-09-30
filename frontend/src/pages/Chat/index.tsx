@@ -722,6 +722,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           <div className="chat-research-permissions" aria-label="研究 Agent 授权选项">
             <Tooltip title="仅将研究问题发送给公开文献元数据接口；不会发送项目影像或凭据">
               <Checkbox
+                id="allow-external-research"
+                aria-label="允许外部文献搜索"
                 checked={allowExternalResearch}
                 onChange={(event) => setAllowExternalResearch(event.target.checked)}
                 disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
@@ -731,6 +733,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             </Tooltip>
             <Tooltip title="允许 Agent 在确认后创建并排队 Python preview；不会执行 formal/IDL、修改公式或协议">
               <Checkbox
+                id="allow-research-execution"
+                aria-label="允许 Agent 预览执行"
                 checked={allowResearchExecution}
                 onChange={(event) => setAllowResearchExecution(event.target.checked)}
                 disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
@@ -740,6 +744,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             </Tooltip>
             <Tooltip title="仅允许 Agent 按 GEE 白名单获取数据并登记私有 DataAsset；不会冻结快照或运行实验">
               <Checkbox
+                id="allow-gee-fetch"
+                aria-label="允许 Agent 获取 GEE"
                 checked={allowGeeFetch}
                 onChange={(event) => setAllowGeeFetch(event.target.checked)}
                 disabled={!researchProjectId || chatMode !== 'agent' || isStreaming}
@@ -967,6 +973,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           <textarea
             ref={inputRef}
             className="chat-input-textarea"
+            id="chat-input"
+            aria-label="聊天输入"
             rows={1}
             placeholder={
               fixTarget

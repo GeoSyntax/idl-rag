@@ -4,12 +4,12 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 
 import { api, clearAccessToken, hasStoredAccessToken, onUnauthorized, saveAccessToken } from './api/client'
 import type { AuthUser, DocumentItem, ImportResult, KnowledgeBase, LoginResponse, SystemSettingsResponse } from './api/types'
-import { AppLayout } from './components/AppLayout'
 
 // Keep the shell and auth path small. Research, Chat and the data-management
 // pages are loaded only when the user opens them; this matters for the first
 // visit on a school network where the JS bundle may be served slowly.
 const AuthPage = lazy(() => import('./pages/Auth').then(({ AuthPage }) => ({ default: AuthPage })))
+const AppLayout = lazy(() => import('./components/AppLayout').then(({ AppLayout }) => ({ default: AppLayout })))
 const ChatPage = lazy(() => import('./pages/Chat').then(({ ChatPage }) => ({ default: ChatPage })))
 const DashboardPage = lazy(() => import('./pages/Dashboard').then(({ DashboardPage }) => ({ default: DashboardPage })))
 const DocumentsPage = lazy(() => import('./pages/Documents').then(({ DocumentsPage }) => ({ default: DocumentsPage })))
