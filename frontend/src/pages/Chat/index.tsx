@@ -304,6 +304,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setActiveStreamId(null)
     setRetryQuestion('')
     setRetryAttachment(null)
+    setRetryMessageId(null)
     setIsStreaming(false)
     setAgentSteps([])
     setAgentRunHistory([])
@@ -350,6 +351,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setActiveStreamId(null)
     setRetryQuestion('')
     setRetryAttachment(null)
+    setRetryMessageId(null)
     setIsStreaming(false)
     setAgentSteps([])
     setAgentRunHistory([])
@@ -382,6 +384,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setActiveStreamId(null)
       setRetryQuestion('')
       setRetryAttachment(null)
+      setRetryMessageId(null)
       setIsStreaming(false)
       const restoredTrace = extractPersistedAgentTrace(fullMessages)
       setAgentSteps(restoredTrace.steps)
@@ -676,6 +679,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         },
         {
           onRunStarted: (newSessionId, streamId, messageId) => {
+            if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             activeRunSessionIdRef.current = newSessionId
             setSessionId(newSessionId)
             setActiveStreamId(streamId ?? null)
@@ -735,6 +739,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         },
         {
           onRunStarted: (newSessionId, streamId, messageId) => {
+            if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             activeRunSessionIdRef.current = newSessionId
             setSessionId(newSessionId)
             setActiveStreamId(streamId ?? null)
