@@ -1,5 +1,5 @@
 import { Button, Collapse, Drawer, Tag } from 'antd'
-import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, FileTextOutlined, PictureOutlined, PlayCircleOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, FileTextOutlined, PictureOutlined, PlayCircleOutlined, RobotOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkMath from 'remark-math'
@@ -125,6 +125,8 @@ export function MessageList({
   streamId,
   retryQuestion,
   onRetry,
+  canConfigureModel,
+  onOpenSettings,
   messagesEndRef,
   onDownloadArtifact,
   onStartFix,
@@ -148,6 +150,8 @@ export function MessageList({
   streamId: string | null
   retryQuestion: string
   onRetry: () => void
+  canConfigureModel: boolean
+  onOpenSettings: () => void
   messagesEndRef: RefObject<HTMLDivElement>
   onDownloadArtifact: AsyncArtifactAction
   onStartFix: ArtifactAction
@@ -165,6 +169,7 @@ export function MessageList({
     : undefined
   const traceAttachedToMessage = lastAssistantMessageId !== undefined && traceSteps.length > 0
   const showLiveStatus = isStreaming && !streamError
+  const modelConfigurationError = /Gemini2API|API Key|模型配置|模型服务|可用的 Agent 模型/.test(streamError)
   return (
     <div className="chat-message-list">
       {messages.map((msg) => (
@@ -208,11 +213,25 @@ export function MessageList({
                 <CloseCircleOutlined />
                 <span className="chat-stream-error-message">{streamError}</span>
                 {streamId ? <span className="chat-stream-error-id">流 {streamId}</span> : null}
-                {retryQuestion ? (
-                  <Button size="small" type="link" onClick={onRetry} disabled={isStreaming}>
-                    重试
-                  </Button>
-                ) : null}
+                <div className="chat-stream-error-actions">
+                  {modelConfigurationError ? (
+                    <span className="chat-model-error-help">
+                      {canConfigureModel
+                        ? '请确认 Gemini2API 地址、模型和 API Key，保存后回到这里重试。'
+                        : '模型配置由平台管理员维护；配置完成后可回到这里重试。'}
+                    </span>
+                  ) : null}
+                  {canConfigureModel && modelConfigurationError ? (
+                    <Button size="small" type="link" icon={<SettingOutlined />} onClick={onOpenSettings}>
+                      打开模型设置
+                    </Button>
+                  ) : null}
+                  {retryQuestion ? (
+                    <Button size="small" type="link" onClick={onRetry} disabled={isStreaming}>
+                      重试
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>

@@ -324,6 +324,8 @@ export default function App() {
             knowledgeBases={knowledgeBasesQuery.data ?? []}
             initialKnowledgeBaseId={selectedKnowledgeBaseId}
             initialResearchProjectId={initialResearchProjectId}
+            canConfigureModel={isAdmin}
+            onOpenSettings={() => window.open('/settings', '_blank', 'noopener,noreferrer')}
           />
         )
       case 'retrieval-lab':

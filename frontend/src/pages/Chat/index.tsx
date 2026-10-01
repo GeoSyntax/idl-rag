@@ -36,6 +36,8 @@ type ChatPageProps = {
   knowledgeBases: KnowledgeBase[]
   initialKnowledgeBaseId?: number
   initialResearchProjectId?: number
+  canConfigureModel: boolean
+  onOpenSettings: () => void
 }
 
 type GeeFetchFormValues = {
@@ -50,7 +52,7 @@ type GeeFetchFormValues = {
   label?: string
 }
 
-export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResearchProjectId }: ChatPageProps) {
+export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResearchProjectId, canConfigureModel, onOpenSettings }: ChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [sessions, setSessions] = useState<ChatSession[]>([])
@@ -487,7 +489,16 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       artifacts: [],
       created_at: new Date().toISOString(),
     }
-    setMessages((prev) => [...prev, userMessage])
+    setMessages((prev) => {
+      // A provider error is not a new user intent. Replace the local failed
+      // prompt while retrying so a slow retry never looks like two questions
+      // (and, consequently, two answers) in the same conversation.
+      const lastMessage = prev[prev.length - 1]
+      if (streamError && lastMessage?.role === 'user' && lastMessage.content === userMessage.content) {
+        return [...prev.slice(0, -1), userMessage]
+      }
+      return [...prev, userMessage]
+    })
     const requestId = ++streamRequestIdRef.current
     streamTerminalRef.current = false
     setIsStreaming(true)
@@ -1178,6 +1189,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             streamId={activeStreamId}
             retryQuestion={retryQuestion}
             onRetry={() => handleSubmit(retryQuestion, retryAttachment)}
+            canConfigureModel={canConfigureModel}
+            onOpenSettings={onOpenSettings}
             messagesEndRef={messagesEndRef}
             onDownloadArtifact={downloadArtifact}
             onStartFix={startFixMode}
