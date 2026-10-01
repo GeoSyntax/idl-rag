@@ -767,9 +767,24 @@ function ResearchRunSummary({ metadata, projectWide = false }: { metadata: Recor
             <ResearchEvidenceBoundary
               executionMode="preview"
               hasValidationMetrics={Boolean(run.validation_metrics && Object.keys(run.validation_metrics).length > 0)}
+              action={
+                !run.validation_metrics || Object.keys(run.validation_metrics).length === 0 ? (
+                  <Button size="small" type="link" onClick={() => openResearchWorkspace(projectId)}>
+                    去研究页补验证
+                  </Button>
+                ) : null
+              }
             />
           ) : run.execution_mode === 'formal' ? (
-            <ResearchEvidenceBoundary executionMode="formal" />
+            <ResearchEvidenceBoundary
+              executionMode="formal"
+              hasEvidencePackage={Boolean(run.outputs?.some((output) => output.kind === 'research_evidence_package'))}
+              action={
+                <Button size="small" type="link" onClick={() => openResearchWorkspace(projectId)}>
+                  去研究页核验
+                </Button>
+              }
+            />
           ) : null}
           {(run.formula || run.parameters || run.data_snapshot || run.input_assets?.length) ? (
             <details className="chat-research-run-provenance">
@@ -852,6 +867,13 @@ export function ResearchRunRecovery({ projectId }: { projectId: number }) {
       <ResearchRunSummary metadata={researchRunsToMetadata(projectId, runs)} projectWide />
     </div>
   )
+}
+
+function openResearchWorkspace(projectId: number) {
+  if (!Number.isFinite(projectId) || projectId <= 0) return
+  window.dispatchEvent(new CustomEvent('idl-rag:navigate', {
+    detail: { page: 'research', projectId },
+  }))
 }
 
 function researchRunsToMetadata(projectId: number, runs: ResearchRun[]): Record<string, unknown> {

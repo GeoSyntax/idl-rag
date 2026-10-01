@@ -18,7 +18,7 @@ import {
   message,
 } from 'antd'
 import { MessageOutlined } from '@ant-design/icons'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api/client'
 import type {
@@ -441,7 +441,7 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
   )
 }
 
-export function ResearchPage({ currentUserId, onOpenAgent }: { currentUserId: number; onOpenAgent?: (projectId: number) => void }) {
+export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: { currentUserId: number; initialProjectId?: number; onOpenAgent?: (projectId: number) => void }) {
   const [messageApi, contextHolder] = message.useMessage()
   const [projectForm] = Form.useForm<ProjectFormValues>()
   const [protocolForm] = Form.useForm<ProtocolFormValues>()
@@ -456,6 +456,7 @@ export function ResearchPage({ currentUserId, onOpenAgent }: { currentUserId: nu
   const [researchRagSourceForm] = Form.useForm<ResearchRagSourceFormValues>()
   const [selectedProjectId, setSelectedProjectId] = useState<number>()
   const [selectedExperimentId, setSelectedExperimentId] = useState<number>()
+  const initialProjectAppliedRef = useRef<number>()
   const [assetFile, setAssetFile] = useState<File | null>(null)
   const [idlScriptFile, setIdlScriptFile] = useState<File | null>(null)
   const [validationSampleCsvFile, setValidationSampleCsvFile] = useState<File | null>(null)
@@ -552,10 +553,13 @@ export function ResearchPage({ currentUserId, onOpenAgent }: { currentUserId: nu
       setSelectedProjectId(undefined)
       return
     }
-    if (!selectedProjectId || !projects.some((project) => project.id === selectedProjectId)) {
+    if (initialProjectId && initialProjectAppliedRef.current !== initialProjectId && projects.some((project) => project.id === initialProjectId)) {
+      setSelectedProjectId(initialProjectId)
+      initialProjectAppliedRef.current = initialProjectId
+    } else if (!selectedProjectId || !projects.some((project) => project.id === selectedProjectId)) {
       setSelectedProjectId(projects[0].id)
     }
-  }, [projectsQuery.data, selectedProjectId])
+  }, [initialProjectId, projectsQuery.data, selectedProjectId])
 
   useEffect(() => {
     setSelectedExperimentId(undefined)

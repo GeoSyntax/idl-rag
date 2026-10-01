@@ -1954,6 +1954,17 @@ body { min-height: 100dvh; }
   color: #166534;
 }
 
+.chat-research-run-boundary-action {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.chat-research-run-boundary-action .ant-btn {
+  min-height: 22px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
 .chat-research-run-note {
   margin-top: 6px;
   color: var(--text-muted);
@@ -2599,6 +2610,15 @@ body { min-height: 100dvh; }
   .chat-research-run-recovery {
     padding-right: 10px;
     padding-left: 10px;
+  }
+
+  .chat-research-run-boundary-action {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .chat-research-run-boundary-action .ant-btn {
+    padding-left: 0;
   }
 
   .chat-msg {

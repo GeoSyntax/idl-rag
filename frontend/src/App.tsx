@@ -96,6 +96,19 @@ export default function App() {
     }
   }, [activePage, isAdmin])
 
+  // Chat run cards can point back to the authoritative Research workspace
+  // without coupling the lazy Chat chunk to AppLayout's local page state.
+  useEffect(() => {
+    const handleResearchNavigation = (event: Event) => {
+      const detail = (event as CustomEvent<{ page?: string; projectId?: number }>).detail
+      if (detail?.page !== 'research') return
+      setInitialResearchProjectId(detail.projectId)
+      setActivePage('research')
+    }
+    window.addEventListener('idl-rag:navigate', handleResearchNavigation)
+    return () => window.removeEventListener('idl-rag:navigate', handleResearchNavigation)
+  }, [])
+
   const dashboardQuery = useQuery({
     queryKey: ['dashboard-summary', currentUser?.id],
     queryFn: api.getDashboardSummary,
@@ -246,6 +259,7 @@ export default function App() {
         return (
           <ResearchPage
             currentUserId={currentUser.id}
+            initialProjectId={initialResearchProjectId}
             onOpenAgent={(projectId) => {
               setInitialResearchProjectId(projectId)
               setActivePage('chat')

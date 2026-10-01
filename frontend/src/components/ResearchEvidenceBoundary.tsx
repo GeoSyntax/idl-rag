@@ -5,6 +5,7 @@ export type ResearchEvidenceBoundaryProps = {
   hasValidationMetrics?: boolean
   hasEvidencePackage?: boolean
   evidenceVerified?: boolean
+  action?: ReactNode
   children?: ReactNode
 }
 
@@ -14,6 +15,7 @@ export function ResearchEvidenceBoundary({
   hasValidationMetrics = false,
   hasEvidencePackage = false,
   evidenceVerified = false,
+  action,
   children,
 }: ResearchEvidenceBoundaryProps) {
   if (executionMode === 'preview') {
@@ -25,6 +27,7 @@ export function ResearchEvidenceBoundary({
           <span>当前没有可核验的 validation_metrics；请补充参考资产或样本验证设计后再比较结果。</span>
         ) : null}
         {children}
+        {action ? <span className="chat-research-run-boundary-action">{action}</span> : null}
       </div>
     )
   }
@@ -39,6 +42,7 @@ export function ResearchEvidenceBoundary({
           <span>当前运行尚未发现 Evidence Package。</span>
         )}
         {children}
+        {action ? <span className="chat-research-run-boundary-action">{action}</span> : null}
       </div>
     )
   }
