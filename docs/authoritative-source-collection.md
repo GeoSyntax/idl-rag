@@ -1,6 +1,6 @@
 # 权威资料补充清单
 
-本轮已在本地资料目录补充 4 份 USGS/NASA 产品资料，并导入“Remote Sensing Algorithms”知识库：
+当前本地资料目录已经补充并导入“Remote Sensing Algorithms”知识库的权威产品、算法和工具资料包括：
 
 - Landsat 8–9 Collection 2 Level-2 Science Product Guide v6（45 页）
 - Landsat 4–7 Collection 2 Level-2 Science Product Guide v4（44 页）
@@ -26,8 +26,17 @@
 - ESA Sentinel-1 Product Definition 与 2021 Product Specification（Level-1/Level-2 产品族、manifest、measurement/annotation/representation 数据集和元数据 cardinality）：`https://sentinels.copernicus.eu/documents/247904/1877131/Sentinel-1-Product-Definition.pdf`、`https://sentinels.copernicus.eu/documents/247904/1877131/Sentinel-1-Product-Specification-18052021.pdf`
 - USGS Landsat Collection 2 QA Bands 与 Known Issues（QA_PIXEL、QA_RADSAT、SR_QA_AEROSOL、SR_CLOUD_QA、ST_QA bit 语义、clear bit 和 NoData 已知问题）：`https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands`、`https://www.usgs.gov/landsat-missions/landsat-collection-2-known-issues`
 - NASA MODIS MCD43 BRDF/Albedo Algorithm Theoretical Basis Document V5（BRDF/albedo 反演、角度采样、质量标记和算法假设）：`https://lpdaac.usgs.gov/documents/97/MCD43_ATBD.pdf`
+- USGS Landsat 8–9 Calibration/Validation Algorithm Description Document v5（LaSRC、大气/辐射/几何处理和地表温度算法）：`https://www.usgs.gov/media/files/landsat-8-9-calibration-validation-algorithm-description`
+- ESA Sentinel-1 Radiometric Calibration V1.0（校准 LUT、β⁰/σ⁰/γ⁰、DN 缩放、入射角归一化和 GRD/SLC 示例）：`https://sentinels.copernicus.eu/documents/247904/685163/S1-Radiometric-Calibration-V1.0.pdf`
+- USGS Landsat 8–9 Collection 2 Provisional Aquatic Reflectance Algorithm Description v6（水体反射率、Rayleigh 校正、中间反射率和水体掩膜）：`https://www.usgs.gov/media/files/landsat-8-9-collection-2-level-2-provisional-aquatic-reflectance-algorithm-description`
+- NASA MODIS MOD13 Vegetation Index ATBD V5（NDVI/EVI、BRDF/正视合成、QA 和大气校正输入）：`https://lpdaac.usgs.gov/documents/449/MOD13_ATBD_V5.pdf`
+- NASA/VIIRS VNP13 User Guide and Abridged ATBD V2.1.2（VIIRS NDVI/EVI、物候合成、质量标记和验证）：`https://lpdaac.usgs.gov/documents/1372/VNP13_User_Guide_ATBD_V2.1.2.pdf`
+
+其中 825 页的 USGS LaSRC 文档保留完整原文，并通过 `backend/scripts/split_pdf_for_indexing.py` 生成 4 个带页码范围和 SHA-256 映射的索引分片，避免因单文档页数限制而截断证据。
 
 本地还保存了一份可增量更新的 OpenAlex 遥感候选清单：当前为 1,500 条记录，其中 1,481 条有 DOI、1,238 条含摘要、1,500 条有落地页。它们是发现和去重线索，不是自动核验的全文，也不代表许可已经允许再分发；候选 Markdown 与 JSONL manifest 位于 `data/sources/collected/`，并通过严格来源审计后才进入本地检索库。
+
+另有独立的扩展候选池正在通过带 checkpoint 的采集器增量收集；当前已安全保存 1,501 条中间记录，但 OpenAlex 近期触发了 429 限流，因此这批记录尚未自动并入生产候选库。恢复网络限流后可用同一命令继续，完成后还需与正式 1,500 条清单去重和质量抽查。
 
 此外，本地 `data/sources/open_access_papers/` 已加入 307 篇开放获取候选论文（约 2.0 GB；包含中断恢复后重新登记和修复来源 URL 的全文），覆盖：
 
