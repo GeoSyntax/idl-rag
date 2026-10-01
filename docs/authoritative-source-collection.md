@@ -35,8 +35,10 @@
 - NASA/JPL ECOSTRESS L2 User Guide V2（LST/发射率/云产品结构、HDF5 元数据、不确定性和解释边界）：`https://lpdaac.usgs.gov/documents/1574/ECOL2_User_Guide_V2.pdf`
 - NASA/JPL ECOSTRESS L2 LST and Emissivity ATBD V1（TES 温度-发射率分离、辐射传输、大气校正、不确定性和验证方法）：`https://lpdaac.usgs.gov/documents/1324/ECO2_LSTE_ATBD_V1.pdf`
 - USGS Landsat Collection 2 Level-3 Burned Area ADD v1（ARD 时序、QA_PIXEL/QA_RADSAT、燃烧概率与二值分类输出、参考期变化特征和浏览图生成）：`https://www.usgs.gov/media/files/landsat-collection-2-level-3-burned-area-algorithm-description-document`
+- USGS Landsat Collection 2 Level-3 Burned Area DFCB v3（BP/BC 层、填充值、COG、投影和 XML/JSON 元数据）：`https://www.usgs.gov/media/files/landsat-collection-2-level-3-burned-area-data-format-control-book`
 - USGS Landsat Collection 2 Level-3 Fractional Snow Covered Area ADD v1（可见雪/地面雪、冠层调整、阴影与质量波段的算法入口）：`https://www.usgs.gov/media/files/landsat-collection-2-level-3-fractional-snow-covered-area-algorithm-description`
 - USGS Landsat Collection 2 Level-3 fSCA Data Format Control Book v4（文件布局、元数据、QA 字段和产品解释）：`https://www.usgs.gov/media/files/landsat-collection-2-level-3-fractional-snow-covered-area-data-format-control-book`
+- USGS Landsat Collection 2 Level-3 DSWE DFCB v3（DIAG/INTR/INTSM/INWAM/MASK/SHADE 层、有效/填充值范围和产品元数据）：`https://www.usgs.gov/media/files/landsat-collection-2-level-3-dynamic-surface-water-extent-data-format-control-book`
 
 其中 825 页的 USGS LaSRC 文档保留完整原文，并通过 `backend/scripts/split_pdf_for_indexing.py` 生成 4 个带页码范围和 SHA-256 映射的索引分片，避免因单文档页数限制而截断证据。
 
