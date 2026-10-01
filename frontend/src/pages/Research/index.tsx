@@ -272,6 +272,8 @@ function parameterSweepFromRun(run: ResearchRun): Record<string, unknown> | null
 
 function RunOutputPreview({ projectId, experimentId, run, executionMode }: { projectId: number; experimentId: number; run: ResearchRun; executionMode?: ResearchExperiment['execution_mode'] }) {
   const [urls, setUrls] = useState<Record<string, string>>({})
+  const [imageErrors, setImageErrors] = useState<Record<string, string>>({})
+  const [imageRetryKey, setImageRetryKey] = useState(0)
   const [downloadingFileName, setDownloadingFileName] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const verifyPackage = useMutation({
@@ -313,22 +315,28 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
     let active = true
     const createdUrls: string[] = []
     const load = async () => {
-      const entries = await Promise.all(
-        imageOutputs.map(async (output) => {
+      const results = await Promise.all(imageOutputs.map(async (output) => {
+        try {
           const blob = await api.fetchResearchRunOutputBlob(projectId, experimentId, run.id, output.file_name)
           const url = URL.createObjectURL(blob)
           createdUrls.push(url)
-          return [output.file_name, url] as const
-        }),
-      )
+          return { fileName: output.file_name, url, error: '' }
+        } catch (error) {
+          return {
+            fileName: output.file_name,
+            url: '',
+            error: error instanceof Error ? error.message : '阶段图加载失败，请重试。',
+          }
+        }
+      }))
       if (active) {
-        setUrls(Object.fromEntries(entries))
+        setUrls(Object.fromEntries(results.filter((item) => item.url).map((item) => [item.fileName, item.url])))
+        setImageErrors(Object.fromEntries(results.filter((item) => item.error).map((item) => [item.fileName, item.error])))
       }
     }
+    setImageErrors({})
     if (imageOutputs.length) {
-      void load().catch(() => {
-        if (active) setUrls({})
-      })
+      void load()
     } else {
       setUrls({})
     }
@@ -336,7 +344,7 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
       active = false
       createdUrls.forEach((url) => URL.revokeObjectURL(url))
     }
-  }, [experimentId, imageOutputs, projectId, run.id])
+  }, [experimentId, imageOutputs, imageRetryKey, projectId, run.id])
 
   const downloadOutput = async (fileName: string) => {
     if (downloadingFileName) return
@@ -430,7 +438,16 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
         <div className="research-output-grid">
           {imageOutputs.map((output) => (
             <figure key={output.file_name} className="research-output-figure">
-              {urls[output.file_name] ? <img src={urls[output.file_name]} alt={output.kind} /> : <Spin size="small" />}
+              {urls[output.file_name] ? (
+                <img src={urls[output.file_name]} alt={`${output.kind} · ${output.file_name}`} />
+              ) : imageErrors[output.file_name] ? (
+                <div className="research-output-image-error" role="alert">
+                  <span>{imageErrors[output.file_name]}</span>
+                  <Button type="link" size="small" onClick={() => setImageRetryKey((value) => value + 1)}>
+                    重试加载
+                  </Button>
+                </div>
+              ) : <Spin size="small" />}
               <figcaption>
                 <strong>{output.kind}</strong>
                 <span>{output.file_name}</span>
