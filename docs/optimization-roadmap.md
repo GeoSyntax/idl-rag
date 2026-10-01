@@ -176,6 +176,7 @@
 - [x] 收紧 Research 实验与影像证据页：实验选择表格补齐选择列的表头和每行标签，重跑基准、候选参数和 JSON 编辑控件补齐名称；500px 与桌面实验 Tab Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过，页面无横向溢出。
 - [x] 修复 RAG Tab 的窄屏可读性：知识库绑定表与检索引用表改为内部横向滚动，避免知识库名称逐字竖排；检索按钮使用高对比度品牌色。研究协议输入框补齐可读名称，并在生成按钮禁用时显示“至少 8 个字符”的明确原因。
 - [x] 自定义 Select 必填校验保留视觉必填星号，同时不把非法 `aria-required` 写到 Ant Design 的 div wrapper；用户仍能看到填写边界，屏幕阅读器仍保持合法树结构。
+- [x] EvidenceCard / FormulaSpec 展示层把 `candidate`、`verified`、`draft`、`frozen` 等内部枚举翻译为明确中文状态，保留后端值不变；修复候选状态 Tag 在暖色背景上的低对比度，证据页 500px Lighthouse 四项门禁均通过。
 
 ## 当前轮次进度（Agent 最终文本流与网关兼容）
 

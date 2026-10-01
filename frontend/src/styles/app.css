@@ -207,6 +207,26 @@ body { min-height: 100dvh; }
   border-color: var(--primary-hover) !important;
 }
 
+/* Ant Design's default gold/green/red tag text is too light on its tinted
+   background at the small size used for research statuses. */
+.research-page .ant-tag-gold {
+  color: #92400e !important;
+  background: #fffbeb !important;
+  border-color: #f59e0b !important;
+}
+
+.research-page .ant-tag-green {
+  color: #166534 !important;
+  background: #f0fdf4 !important;
+  border-color: #86efac !important;
+}
+
+.research-page .ant-tag-red {
+  color: #991b1b !important;
+  background: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+}
+
 .research-page .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
   color: var(--primary-strong) !important;
 }

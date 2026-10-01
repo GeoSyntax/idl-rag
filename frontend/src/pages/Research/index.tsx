@@ -208,6 +208,29 @@ function statusColor(status: string): 'green' | 'gold' | 'red' | 'default' {
   return 'default'
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  candidate: '候选 · 待核验',
+  verified: '已核验',
+  imported: '已导入',
+  experiment_pinned: '已用于实验',
+  draft: '草稿',
+  frozen: '已冻结',
+  exploratory: '探索中',
+  queued: '排队中',
+  running: '运行中',
+  completed: '已完成',
+  failed: '失败',
+  unavailable: '不可用',
+  cancelled: '已取消',
+  none: '无冲突',
+  flagged: '待处理冲突',
+  resolved: '已解决',
+}
+
+function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status
+}
+
 function timelineColor(status: ResearchRun['status']): 'green' | 'red' | 'gray' | 'blue' {
   if (status === 'completed') return 'green'
   if (status === 'failed' || status === 'unavailable') return 'red'
@@ -1212,7 +1235,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
           columns={[
             { title: '名称', dataIndex: 'name', width: 240 },
             { title: '入口', dataIndex: 'entry_mode', width: 120, render: (value) => (value === 'open' ? '开放研究' : '研究模板') },
-            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
+            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
             { title: '数据策略', dataIndex: 'egress_policy', width: 150, render: (value) => <FileTypeBadge label={value} /> },
             { title: '更新于', dataIndex: 'updated_at', width: 180, render: formatDate },
           ]}
@@ -1853,7 +1876,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       </div>
                       <div className="grid-two">
                         <Form.Item label={requiredLabel('数据划分')} name="split" rules={[requiredValueRule('请选择数据划分')]}><Select options={['development', 'model_selection', 'independent_test'].map((value) => ({ value, label: value }))} /></Form.Item>
-                        <Form.Item label={requiredLabel('冲突状态')} name="conflict_status" rules={[requiredValueRule('请选择冲突状态')]}><Select options={['none', 'flagged', 'resolved'].map((value) => ({ value, label: value }))} /></Form.Item>
+                        <Form.Item label={requiredLabel('冲突状态')} name="conflict_status" rules={[requiredValueRule('请选择冲突状态')]}><Select options={['none', 'flagged', 'resolved'].map((value) => ({ value, label: statusLabel(value) }))} /></Form.Item>
                       </div>
                       <div className="grid-two">
                         <Form.Item label="空间块" name="spatial_block" rules={[{ required: true }]}><Input placeholder="例如：block-east-03" /></Form.Item>
@@ -1880,7 +1903,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         { title: '时间分层', dataIndex: 'temporal_stratum', width: 150 },
                         { title: '置信度', dataIndex: 'confidence', width: 90, render: (value) => value.toFixed(2) },
                         { title: '标注人', dataIndex: 'annotator', width: 120 },
-                        { title: '冲突', dataIndex: 'conflict_status', width: 100, render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
+                        { title: '冲突', dataIndex: 'conflict_status', width: 100, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
                         { title: '时间', dataIndex: 'observed_at', width: 180, render: formatDate },
                       ]}
                     />
@@ -1925,6 +1948,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       <span>导入摘要到论文 RAG：</span>
                       <Select
                         allowClear
+                        aria-label="导入摘要到论文 RAG 的知识库"
                         value={literatureRagKnowledgeBaseId}
                         onChange={setLiteratureRagKnowledgeBaseId}
                         placeholder="先绑定 method 知识库"
@@ -2065,7 +2089,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入来源标题' }]}><Input /></Form.Item>
                       <div className="grid-two">
                         <Form.Item label={requiredLabel('状态')} name="status" rules={[requiredValueRule('请选择证据状态')]}>
-                          <Select options={['candidate', 'verified', 'imported', 'experiment_pinned'].map((value) => ({ value, label: value }))} />
+                          <Select options={['candidate', 'verified', 'imported', 'experiment_pinned'].map((value) => ({ value, label: statusLabel(value) }))} />
                         </Form.Item>
                         <Form.Item label={requiredLabel('来源类型')} name="source_type" rules={[requiredValueRule('请选择来源类型')]}>
                           <Select options={['paper', 'official_document', 'code', 'dataset', 'web'].map((value) => ({ value, label: value }))} />
@@ -2085,7 +2109,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       pagination={false}
                       columns={[
                         { title: '标题', dataIndex: 'title' },
-                        { title: '状态', dataIndex: 'status', width: 130, render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
+                        { title: '状态', dataIndex: 'status', width: 130, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
                         { title: '来源', width: 120, render: (_, record) => record.doi || record.source_url || '-' },
                       ]}
                     />
@@ -2115,7 +2139,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       </div>
                       <div className="grid-two">
                         <Form.Item label={requiredLabel('状态')} name="status" rules={[requiredValueRule('请选择公式状态')]}>
-                          <Select options={['draft', 'candidate', 'frozen'].map((value) => ({ value, label: value }))} />
+                          <Select options={['draft', 'candidate', 'frozen'].map((value) => ({ value, label: statusLabel(value) }))} />
                         </Form.Item>
                         <Form.Item label="关联证据卡" name="evidence_card_ids">
                           <Select mode="multiple" options={evidenceCards.map((card) => ({ value: card.id, label: `#${card.id} ${card.title}` }))} />
@@ -2135,7 +2159,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       columns={[
                         { title: '名称', dataIndex: 'name' },
                         { title: '版本', dataIndex: 'version', width: 80 },
-                        { title: '状态', dataIndex: 'status', width: 110, render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
+                        { title: '状态', dataIndex: 'status', width: 110, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
                         { title: '证据', dataIndex: 'evidence_card_ids', width: 90, render: (value: number[]) => value.length },
                       ]}
                     />
@@ -2226,7 +2250,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         { title: '名称', dataIndex: 'name' },
                         { title: '执行器', dataIndex: 'runner_type', width: 110 },
                         { title: '模式', dataIndex: 'execution_mode', width: 100 },
-                        { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
+                        { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
                         { title: '协议指纹', dataIndex: 'project_protocol_hash', width: 130, render: (value: string) => <span title={value}>{value ? `${value.slice(0, 12)}…` : '-'}</span> },
                         { title: '创建时间', dataIndex: 'created_at', width: 180, render: formatDate },
                       ]}
@@ -2360,7 +2384,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                           pagination={false}
                           columns={[
                             { title: '运行', dataIndex: 'run_token', render: (value) => value.slice(0, 12) },
-                            { title: '状态', dataIndex: 'status', width: 130, render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
+                            { title: '状态', dataIndex: 'status', width: 130, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
                             { title: '产物数', dataIndex: 'outputs', width: 100, render: (value: ResearchRun['outputs']) => value.length },
                             { title: '结束时间', dataIndex: 'finished_at', width: 180, render: formatDate },
                           ]}
@@ -2380,7 +2404,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                                       <div className="research-run-timeline-item">
                                         <div className="research-run-timeline-heading">
                                           <strong>Run #{run.id}</strong>
-                                          <Tag color={statusColor(run.status)}>{run.status}</Tag>
+                                          <Tag color={statusColor(run.status)}>{statusLabel(run.status)}</Tag>
                                           <span>{run.runner_type} · {run.run_token.slice(0, 12)}</span>
                                         </div>
                                         <div className="research-run-timeline-meta">
