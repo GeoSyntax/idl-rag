@@ -153,4 +153,5 @@ npm run dev --prefix frontend
 - [GEE、IDL 与 Python 接入说明](./docs/integrations.md)
 - [安全与数据控制](./docs/security-and-data-control.md)
 - [资料生产就绪标准（当前边界与补齐清单）](./docs/production-readiness.md)
+- [权威遥感资料补充清单](./docs/authoritative-source-collection.md)
 - [项目展示说明](./docs/project-showcase.md)
