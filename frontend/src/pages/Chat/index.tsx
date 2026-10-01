@@ -53,6 +53,18 @@ type GeeFetchFormValues = {
   label?: string
 }
 
+function hasPendingArtifactValidation(messages: ChatMessage[]): boolean {
+  return messages.some((message) => message.artifacts.some((artifact) => {
+    const validation = artifact.metadata?.validation
+    return Boolean(
+      validation
+      && typeof validation === 'object'
+      && !Array.isArray(validation)
+      && (validation as Record<string, unknown>).validation_status === 'pending',
+    )
+  }))
+}
+
 export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResearchProjectId, canConfigureModel, onOpenSettings }: ChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<number | null>(null)
@@ -112,6 +124,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   // requests. Keep a synchronous guard for that tiny race window.
   const submitLockRef = useRef(false)
   const activeRunSessionIdRef = useRef<number | null>(null)
+  const messagesRef = useRef<ChatMessage[]>([])
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const stepIdRef = useRef(0)
@@ -119,6 +132,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const streamingBufferRef = useRef('')
   const streamingFlushRef = useRef<number | null>(null)
   const agentStartedAtRef = useRef<number | null>(null)
+
+  messagesRef.current = messages
 
   const clearStreamingBuffer = useCallback(() => {
     if (streamingFlushRef.current !== null && typeof window !== 'undefined') {
@@ -177,6 +192,32 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     }, 1000)
     return () => window.clearInterval(timer)
   }, [chatMode, isStreaming])
+
+  useEffect(() => {
+    if (!sessionId || isStreaming || !hasPendingArtifactValidation(messages)) return
+    let active = true
+    let attempts = 0
+    const timer = window.setInterval(async () => {
+      if (!active || attempts >= 20) {
+        window.clearInterval(timer)
+        return
+      }
+      attempts += 1
+      try {
+        const latest = await api.listMessages(sessionId)
+        if (!active) return
+        setMessages(latest)
+        if (!hasPendingArtifactValidation(latest)) window.clearInterval(timer)
+      } catch {
+        // A transient poll failure must not turn a completed chat into an
+        // error; the artifact remains downloadable with its last known state.
+      }
+    }, 1500)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
+  }, [isStreaming, sessionId])
 
   const refreshSessions = async () => {
     setSessionsLoading(true)

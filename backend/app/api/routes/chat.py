@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -234,7 +234,10 @@ def ask_question(
     payload: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    *,
+    background_tasks: BackgroundTasks = None,
 ) -> ChatResponse:
+    background_tasks = background_tasks or BackgroundTasks()
     started_at = time.perf_counter()
     try:
         response = service.answer(db, payload, current_user.id)
@@ -274,6 +277,21 @@ def ask_question(
     )
     db.add(log)
     db.commit()
+    pending_artifact_ids = [
+        artifact.id
+        for message in response.messages[-1:]
+        for artifact in message.artifacts
+        if isinstance(artifact.metadata, dict)
+        and isinstance(artifact.metadata.get("validation"), dict)
+        and artifact.metadata["validation"].get("validation_status") == "pending"
+    ]
+    if pending_artifact_ids:
+        background_tasks.add_task(
+            service.validate_pending_artifacts,
+            response.session_id,
+            current_user.id,
+            pending_artifact_ids,
+        )
     runtime_metrics.record_chat_request(
         current_user.id,
         latency_ms=(time.perf_counter() - started_at) * 1000,
@@ -286,8 +304,11 @@ async def ask_question_stream(
     payload: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    *,
+    background_tasks: BackgroundTasks = None,
 ) -> StreamingResponse:
     """真异步 SSE 流式端点 — 使用 AsyncClient 避免阻塞事件循环。"""
+    background_tasks = background_tasks or BackgroundTasks()
     async def event_generator():
         started_at = time.perf_counter()
         stream_id = uuid4().hex[:12]
@@ -333,6 +354,21 @@ async def ask_question_stream(
                     result_session_id = token.get("session_id")
                     citation_count = len(token.get("citations", []))
                     artifact_count = len(token.get("artifacts", []))
+                    pending_artifact_ids = [
+                        str(artifact.get("id"))
+                        for artifact in token.get("artifacts", [])
+                        if isinstance(artifact, dict)
+                        and isinstance(artifact.get("metadata"), dict)
+                        and isinstance(artifact["metadata"].get("validation"), dict)
+                        and artifact["metadata"]["validation"].get("validation_status") == "pending"
+                    ]
+                    if pending_artifact_ids:
+                        background_tasks.add_task(
+                            service.validate_pending_artifacts,
+                            int(result_session_id),
+                            current_user.id,
+                            pending_artifact_ids,
+                        )
                 if token.get("type") == "error":
                     terminal_sent = True
                 event_phase_timing = (
@@ -395,6 +431,7 @@ async def ask_question_stream(
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
+        background=background_tasks,
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
@@ -408,8 +445,11 @@ async def agent_stream(
     payload: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    *,
+    background_tasks: BackgroundTasks = None,
 ) -> StreamingResponse:
     """Agent 模式 SSE 端点 — 支持任务拆解、工具调用、多轮迭代。"""
+    background_tasks = background_tasks or BackgroundTasks()
     async def event_generator():
         started_at = time.perf_counter()
         stream_id = uuid4().hex[:12]
@@ -448,6 +488,21 @@ async def agent_stream(
                     result_session_id = event.get("session_id")
                     citation_count = len(event.get("citations", []))
                     artifact_count = len(event.get("artifacts", []))
+                    pending_artifact_ids = [
+                        str(artifact.get("id"))
+                        for artifact in event.get("artifacts", [])
+                        if isinstance(artifact, dict)
+                        and isinstance(artifact.get("metadata"), dict)
+                        and isinstance(artifact["metadata"].get("validation"), dict)
+                        and artifact["metadata"]["validation"].get("validation_status") == "pending"
+                    ]
+                    if pending_artifact_ids:
+                        background_tasks.add_task(
+                            service.validate_pending_artifacts,
+                            int(result_session_id),
+                            current_user.id,
+                            pending_artifact_ids,
+                        )
                 if isinstance(event.get("phase_timing"), dict):
                     agent_phase_timing = {
                         str(key): value
@@ -516,6 +571,7 @@ async def agent_stream(
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
+        background=background_tasks,
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",

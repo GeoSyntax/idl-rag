@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import re
 import threading
@@ -11,9 +12,11 @@ from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.schemas import ChatArtifact, ChatMessageResponse, ChatRequest, ChatResponse
 from app.core.config import get_app_settings
+from app.db.database import get_session_factory
 from app.db.models import ChatMessage, ChatSession, KnowledgeBase
 from app.services.agent_tools import (
     ToolResult,
@@ -46,6 +49,7 @@ from app.services.retrieve_service import DEFAULT_RETRIEVAL_STRATEGY, RetrievalS
 from app.services.settings_service import get_runtime_settings
 
 _ARTIFACT_MEDIA_TYPE = "text/plain"
+logger = logging.getLogger(__name__)
 _MAX_ROUNDS_SIMPLE = 2
 _MAX_ROUNDS_COMPLEX = 8
 _TOKEN_BUDGET = 12000
@@ -2213,11 +2217,15 @@ class AgentService:
         return ""
 
     def _extract_code_block(self, text: str) -> str | None:
-        """从 LLM 回答中提取 IDL 代码块。"""
-        match = re.search(r"```(?:idl|pro)?\s*\n(.*?)```", text, re.DOTALL)
-        if match:
+        """从 LLM 回答中提取 IDL 代码块。
+
+        Providers commonly label IDL fences as ``idl``, ``idldoc``, ``envi``
+        or ``pro``.  The label is presentation-only; extraction should still
+        be driven by the IDL ``pro``/``function`` declaration so a valid file
+        is not silently omitted from the artifact workflow.
+        """
+        for match in re.finditer(r"```(?:[A-Za-z][A-Za-z0-9_-]*)?\s*\n(.*?)```", text, re.DOTALL):
             code = match.group(1).strip()
-            # 验证是否像 IDL 代码
             if re.search(r"^\s*(pro|function)\s+", code, re.IGNORECASE | re.MULTILINE):
                 return code
         return None
@@ -2527,6 +2535,71 @@ class AgentService:
                 "validation_notice": "代码验证服务不可用，尚未确认可编译。",
             }
 
+    def validate_pending_artifacts(
+        self,
+        session_id: int,
+        owner_user_id: int,
+        artifact_ids: list[str],
+    ) -> None:
+        """Run queued artifact validation in a fresh DB session.
+
+        Streaming responses must not wait for an IDL process just to make a
+        generated file downloadable.  The route schedules this method after
+        committing the assistant message; the browser polls the normal
+        messages endpoint and receives the final status without a second chat
+        answer or an extra SSE terminal event.
+        """
+        if not artifact_ids:
+            return
+        db = get_session_factory()()
+        try:
+            session = db.get(ChatSession, session_id)
+            if session is None or session.owner_user_id != owner_user_id:
+                return
+            wanted = {str(value) for value in artifact_ids}
+            messages = (
+                db.query(ChatMessage)
+                .filter(ChatMessage.session_id == session_id, ChatMessage.role == "assistant")
+                .order_by(ChatMessage.id.desc())
+                .all()
+            )
+            for message in messages:
+                artifacts = list(message.artifacts_json or [])
+                changed = False
+                for artifact in artifacts:
+                    if not isinstance(artifact, dict) or str(artifact.get("id")) not in wanted:
+                        continue
+                    metadata = dict(artifact.get("metadata") or {})
+                    validation = metadata.get("validation")
+                    if not isinstance(validation, dict) or validation.get("validation_status") != "pending":
+                        continue
+                    storage_path = artifact.get("storage_path")
+                    if not storage_path:
+                        continue
+                    file_path = Path(str(storage_path)).resolve()
+                    sandbox = get_app_settings().chat_artifacts_dir.resolve()
+                    if not file_path.is_relative_to(sandbox) or not file_path.is_file():
+                        continue
+                    result = self._validate_generated_pro_code(file_path.read_text(encoding="utf-8"))
+                    metadata["validation"] = result
+                    artifact["metadata"] = metadata
+                    changed = True
+                    pending_notice = "代码验证：验证任务已排队，正在检查。"
+                    if pending_notice in message.content:
+                        message.content = message.content.replace(
+                            pending_notice,
+                            "代码验证：" + result["validation_notice"],
+                        )
+                if changed:
+                    message.artifacts_json = artifacts
+                    flag_modified(message, "artifacts_json")
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            logger.exception("background artifact validation failed")
+        finally:
+            db.close()
+
     @staticmethod
     def _format_pro_artifact_answer(artifact: dict) -> str:
         validation = artifact.get("metadata", {}).get("validation", {})
@@ -2550,7 +2623,14 @@ class AgentService:
         file_path = artifact_dir / f"{artifact_id}_{file_name}"
         file_path.write_text(code.rstrip() + "\n", encoding="utf-8", newline="\n")
         dependency_ids = list(dict.fromkeys(input_artifact_ids or []))
-        validation = self._validate_generated_pro_code(code)
+        # IDL startup/compilation can take several seconds.  Save the artifact
+        # immediately and let the HTTP route enqueue validation after the
+        # assistant message is committed; the UI will refresh this metadata.
+        validation = {
+            "validation_mode": "pending",
+            "validation_status": "pending",
+            "validation_notice": "验证任务已排队，正在检查。",
+        }
         return {
             "id": artifact_id,
             "file_name": file_name,

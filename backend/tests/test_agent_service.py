@@ -306,6 +306,14 @@ def test_agent_tool_schema_is_scoped_by_request() -> None:
     assert gated_by_id["python_preview"]["authorized"] is False
 
 
+def test_agent_extracts_provider_specific_idl_fence() -> None:
+    from app.services.agent_service import AgentService
+
+    code = """说明：示例\n\n```idldoc\npro read_demo\n  compile_opt idl2\nend\n```"""
+
+    assert AgentService()._extract_code_block(code).startswith("pro read_demo")
+
+
 def test_research_status_fast_path_is_narrow_and_read_only() -> None:
     from app.api.schemas import ChatRequest
     from app.services.agent_service import AgentService
@@ -551,7 +559,22 @@ def test_agent_service_generates_and_persists_pro_artifact(monkeypatch, tmp_path
         assert response.answer.startswith("已生成 .pro 文件 build_demo.pro，可以在当前对话中下载使用。")
         assert "代码验证：" in response.answer
         validation = assistant_message.artifacts[0].metadata["validation"]
-        assert validation["validation_status"] in {"passed", "failed", "unverified"}
+        assert validation["validation_status"] == "pending"
+        artifact_id = assistant_message.artifacts[0].id
+        monkeypatch.setattr(
+            service,
+            "_validate_generated_pro_code",
+            lambda _code: {
+                "validation_mode": "static_analysis",
+                "validation_status": "unverified",
+                "validation_notice": "测试验证完成。",
+            },
+        )
+        service.validate_pending_artifacts(response.session_id, user.id, [artifact_id])
+        db.expire_all()
+        refreshed = service.list_messages(db, response.session_id, user.id)[-1]
+        assert refreshed.artifacts[0].metadata["validation"]["validation_status"] == "unverified"
+        assert "测试验证完成" in refreshed.content
 
         artifact = assistant_message.artifacts[0]
         assert artifact.file_name == "build_demo.pro"
