@@ -5,6 +5,9 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Callable, TypeVar
+
+from sqlalchemy.exc import OperationalError
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -20,6 +23,25 @@ from app.services.knowledge_base_service import KnowledgeBaseService  # noqa: E4
 
 
 SUPPORTED_IMPORT_SUFFIXES = {".md", ".markdown", ".txt", ".pro", ".idl", ".pdf"}
+T = TypeVar("T")
+
+
+def _is_database_locked(exc: OperationalError) -> bool:
+    return "database is locked" in str(exc).lower()
+
+
+def _retry_database_lock(operation: Callable[[], T], timeout_seconds: float) -> T:
+    """Retry transient SQLite contention while the API worker is indexing."""
+    deadline = time.monotonic() + timeout_seconds
+    delay = 0.2
+    while True:
+        try:
+            return operation()
+        except OperationalError as exc:
+            if not _is_database_locked(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 2.0)
 
 
 def _get_or_create_user(db, username: str, password: str) -> User:
@@ -55,7 +77,13 @@ def _wait_for_indexing(db, timeout_seconds: float) -> None:
     service = IngestService()
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        processed = service.process_next_job(db)
+        try:
+            processed = service.process_next_job(db)
+        except OperationalError as exc:
+            if not _is_database_locked(exc):
+                raise
+            time.sleep(0.5)
+            continue
         if not processed:
             pending = db.query(IndexJob).filter(IndexJob.status.in_(["queued", "processing"])).count()
             if pending == 0:
@@ -93,12 +121,15 @@ def import_sources(
             file for file in source_dir.rglob("*")
             if file.is_file() and file.suffix.lower() in SUPPORTED_IMPORT_SUFFIXES
         )
-        result = IngestService().import_path(
-            db,
-            knowledge_base_id=kb.id,
-            path=source_dir.as_posix(),
-            recursive=True,
-            owner_user_id=user.id,
+        result = _retry_database_lock(
+            lambda: IngestService().import_path(
+                db,
+                knowledge_base_id=kb.id,
+                path=source_dir.as_posix(),
+                recursive=True,
+                owner_user_id=user.id,
+            ),
+            timeout_seconds,
         )
         if wait:
             _wait_for_indexing(db, timeout_seconds)

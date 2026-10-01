@@ -49,6 +49,8 @@ python backend/scripts/audit_corpus.py data/sources `
 
 开放获取论文采集器 `backend/scripts/collect_open_access_papers.py` 按文件成功下载后立即原子更新 JSONL manifest；重新运行时会按确定的候选排名回收上一次中断留下的有效 PDF，并在入库前执行 PDF 解析检查。可通过 `--timeout`、`--connect-timeout` 和 `--retries` 控制外部站点不稳定时的行为。下载到但无法解析的文件不会进入 manifest，必须先修复来源或移除后才能通过严格审计。
 
+批量导入脚本 `backend/scripts/import_sources.py` 对 SQLite 的短暂 `database is locked` 采用指数退避重试，可以和本地 API 的索引 worker 并行运行；超出导入超时时间或遇到非锁定错误仍会立即失败，避免把半完成导入误报为成功。
+
 发布前可以再运行统一闸门，它会把来源审计、数据库 readiness、评测新鲜度、embedding 签名和备份校验合并成一个退出码：
 
 ```powershell
