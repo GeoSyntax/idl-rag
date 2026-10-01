@@ -11,6 +11,19 @@
 - GDAL Raster Data Model note（仿射变换、CRS、nodata/mask 和栅格验证清单）
 - Sen2Cor 2.12 Quick Guide（ESA/STEP，1.0 MB）
 - Sen2Cor L2A Algorithm Theoretical Baseline Document v2.10（ESA/STEP，4.7 MB）
+- MODIS MOD11 User Guide V6 与 MOD11 Algorithm Theoretical Basis Document（NASA LP DAAC，用户指南 33 页、ATBD 77 页）
+- ESA WorldCover 2020 v100 Product User Manual、2021 v200 Product User Manual 与 v200 Product Validation Report（共 81 页）
+- Google Earth Engine Dynamic World、WorldCover、MOD11A1 与 Landsat Collection 2 官方 catalog note
+
+此外，本地 `data/sources/open_access_papers/` 已加入第一批 28 篇开放获取候选论文（约 175 MB），覆盖：
+
+- 地表反射率、大气校正与跨传感器校准
+- Landsat/Sentinel/MODIS 的 LST、植被指数和水体指数
+- GEE + Random Forest 分类、土地覆盖变化检测
+- 高光谱分类、SAR 土壤水分和云检测
+- FORCE 分析就绪数据、GLC_FCS30 等产品方法
+
+论文文件均保留 DOI、OpenAlex ID、原始 PDF URL、下载时间和 SHA-256。OpenAlex 的 OA 标记不等于再分发许可，清单统一标注为“需要逐条核对许可”；它们只用于本地研究资料库，不应未经核验发布到公共下载服务。
 
 这些资料覆盖了当前算法库里比较缺的一块：产品级输入约定，而不仅是指数公式。重点包括：
 
@@ -22,6 +35,9 @@
 - Sentinel-2 Harmonized 的 2022 年处理基线偏移、SR 缩放因子、跨分辨率重采样和 Cloud Score+ 阈值记录要求
 - Sentinel-1 GRD 的极化/轨道筛选、线性功率与 dB 换算边界，以及 GDAL 栅格元数据、仿射变换和 nodata 校验
 - Sen2Cor 的 L2A 产品定义、输入输出目录、处理基线和大气校正算法入口
+- MODIS LST 的缩放因子、QC 位掩码、产品级别和广义分裂窗/昼夜算法入口
+- WorldCover 的 v100/v200 算法差异、11 类编码、独立验证精度和产品限制
+- 开放获取论文中的公式、实验条件、验证指标和跨传感器比较结果
 
 本地文件位于：
 
@@ -29,7 +45,7 @@
 data/sources/remote_sensing_official/
 ```
 
-它们没有提交到 GitHub，因为 `data/` 包含运行时资料和索引。重新部署或换机器时，应按该目录的 `README.md`、`gee_sentinel2_harmonized.md` 以及本文列出的官方 URL 重新获取，并在导入后检查 SHA-256。GitHub 中只维护来源清单、导入规则和可复现说明，不把第三方 PDF 或运行时向量库直接提交进仓库。
+它们没有提交到 GitHub，因为 `data/` 包含运行时资料和索引。重新部署或换机器时，应按该目录的 `README.md`、`gee_sentinel2_harmonized.md` 以及本文列出的官方 URL 重新获取，并在导入后检查 SHA-256。开放获取论文还应按 `open_access_papers_manifest.jsonl` 的 DOI 与原始 URL 重新下载。GitHub 中只维护来源清单、导入规则和可复现说明，不把第三方 PDF 或运行时向量库直接提交进仓库。
 
 ## 下一批建议收集
 
