@@ -659,14 +659,36 @@ function getStepLabel(step: AgentStepItem): string {
 function StepContent({ step, showResearchSummary = false }: { step: AgentStepItem; showResearchSummary?: boolean }) {
   if (step.step === 'plan') {
     const items = Array.isArray(step.metadata?.items)
-      ? step.metadata.items.filter((item): item is string => typeof item === 'string')
+      ? step.metadata.items.flatMap((item) => {
+        if (typeof item === 'string') return [{ id: item, label: item, requiresConsent: false, authorized: true }]
+        if (!item || typeof item !== 'object') return []
+        const raw = item as Record<string, unknown>
+        if (typeof raw.label !== 'string') return []
+        return [{
+          id: typeof raw.id === 'string' ? raw.id : raw.label,
+          label: raw.label,
+          requiresConsent: raw.requires_consent === true,
+          authorized: raw.authorized !== false,
+        }]
+      })
       : []
     return (
       <div className="chat-agent-plan">
         <p className="chat-agent-plan-intro">{step.content || 'Agent 将按以下计划处理本次请求。'}</p>
         {items.length > 0 ? (
           <ol>
-            {items.map((item) => <li key={item}>{item}</li>)}
+            {items.map((item) => (
+              <li key={item.id}>
+                <span>{item.label}</span>
+                {item.requiresConsent ? (
+                  <Tag color={item.authorized ? 'green' : 'orange'}>
+                    {item.authorized ? '已授权' : '需授权'}
+                  </Tag>
+                ) : (
+                  <Tag color="blue">已纳入</Tag>
+                )}
+              </li>
+            ))}
           </ol>
         ) : null}
       </div>

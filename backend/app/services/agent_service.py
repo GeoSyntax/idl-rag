@@ -1861,31 +1861,84 @@ class AgentService:
         return 3
 
     @staticmethod
-    def _build_agent_plan(payload: ChatRequest, kb_ids: list[int], fix_intent: bool) -> list[str]:
-        """Build a bounded, factual plan for the user-facing Agent trace."""
-        items: list[str] = []
+    def _build_agent_plan(
+        payload: ChatRequest,
+        kb_ids: list[int],
+        fix_intent: bool,
+    ) -> list[dict[str, object]]:
+        """Build bounded plan items with explicit consent state."""
+        items: list[dict[str, object]] = []
+        question = (payload.question or "").lower()
+
+        def add_item(
+            item_id: str,
+            label: str,
+            kind: str,
+            *,
+            requires_consent: bool = False,
+            authorized: bool = True,
+        ) -> None:
+            items.append({
+                "id": item_id,
+                "label": label,
+                "kind": kind,
+                "requires_consent": requires_consent,
+                "authorized": authorized,
+            })
+
         if payload.research_project_id is not None:
-            items.append("读取当前研究项目上下文与协议状态")
-            items.append("检索项目绑定资料，并核对数据与运行证据")
-            if payload.allow_external_research:
-                items.append("按本次授权补充公开文献候选")
-            if payload.allow_gee_fetch:
-                items.append("仅在明确确认后登记 GEE 数据资产")
-            if payload.allow_research_execution:
-                items.append("仅在明确确认后创建或排队 Python preview")
+            add_item("project_context", "读取当前研究项目上下文与协议状态", "research")
+            add_item("project_sources", "检索项目绑定资料，并核对数据与运行证据", "retrieval")
+            literature_requested = any(keyword in question for keyword in ("论文", "文献", "literature", "paper"))
+            if payload.allow_external_research or literature_requested:
+                add_item(
+                    "external_literature",
+                    "补充公开文献候选",
+                    "external_research",
+                    requires_consent=True,
+                    authorized=payload.allow_external_research,
+                )
+            gee_requested = any(keyword in question for keyword in ("gee", "earth engine", "数据获取", "获取数据"))
+            if payload.allow_gee_fetch or gee_requested:
+                add_item(
+                    "gee_fetch",
+                    "登记受限 GEE 数据资产",
+                    "gee",
+                    requires_consent=True,
+                    authorized=payload.allow_gee_fetch,
+                )
+            preview_requested = any(
+                keyword in question
+                for keyword in ("preview", "实验", "运行", "执行", "排队", "experiment", "run")
+            )
+            if payload.allow_research_execution or preview_requested:
+                add_item(
+                    "python_preview",
+                    "创建或排队 Python preview",
+                    "preview",
+                    requires_consent=True,
+                    authorized=payload.allow_research_execution,
+                )
         else:
             if kb_ids:
-                items.append("检索已选择的知识库资料")
+                add_item("knowledge_retrieval", "检索已选择的知识库资料", "retrieval")
             if payload.input_artifact_ids or payload.attached_file_content:
-                items.append("读取用户提供的输入资料")
+                add_item("input_context", "读取用户提供的输入资料", "input")
             if fix_intent or payload.generate_pro_file:
-                items.append("分析现有代码并准备可验证的修改")
+                add_item("code_review", "分析现有代码并准备可验证的修改", "code")
             elif AgentService._detect_code_intent(payload.question):
-                items.append("根据资料分析代码、函数或处理脚本")
-            if payload.allow_external_research:
-                items.append("按本次授权补充公开文献候选")
+                add_item("code_analysis", "根据资料分析代码、函数或处理脚本", "code")
+            literature_requested = any(keyword in question for keyword in ("论文", "文献", "literature", "paper"))
+            if payload.allow_external_research or literature_requested:
+                add_item(
+                    "external_literature",
+                    "补充公开文献候选",
+                    "external_research",
+                    requires_consent=True,
+                    authorized=payload.allow_external_research,
+                )
 
-        items.append("基于实际检索结果生成回答，并标注可核查来源")
+        add_item("evidence_answer", "基于实际检索结果生成回答，并标注可核查来源", "answer")
         return items[:6]
 
     @staticmethod

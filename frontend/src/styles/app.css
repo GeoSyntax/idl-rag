@@ -1805,8 +1805,18 @@ body { min-height: 100dvh; }
 }
 
 .chat-agent-plan li {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 8px;
   padding-left: 2px;
   overflow-wrap: anywhere;
+}
+
+.chat-agent-plan li .ant-tag {
+  margin-inline-end: 0;
+  flex: 0 0 auto;
+  line-height: 18px;
 }
 
 .chat-agent-trace-attached {

@@ -190,6 +190,17 @@ def test_agent_tool_schema_is_scoped_by_request() -> None:
     )
     assert explicitly_no_code == {"kb_search"}
 
+    gated_plan = AgentService._build_agent_plan(
+        ChatRequest(research_project_id=3, question="请获取 GEE 数据并运行 preview 实验。"),
+        [],
+        False,
+    )
+    gated_by_id = {item["id"]: item for item in gated_plan}
+    assert gated_by_id["gee_fetch"]["requires_consent"] is True
+    assert gated_by_id["gee_fetch"]["authorized"] is False
+    assert gated_by_id["python_preview"]["requires_consent"] is True
+    assert gated_by_id["python_preview"]["authorized"] is False
+
 
 def test_research_status_fast_path_is_narrow_and_read_only() -> None:
     from app.api.schemas import ChatRequest
@@ -673,7 +684,13 @@ def test_agent_prefetches_selected_knowledge_base_before_final_answer(monkeypatc
 
         tool_events = [event for event in events if event.get("step") in {"tool_call", "tool_result"}]
         plan_event = next(event for event in events if event.get("step") == "plan")
-        assert plan_event["metadata"]["items"][0] == "检索已选择的知识库资料"
+        assert plan_event["metadata"]["items"][0] == {
+            "id": "knowledge_retrieval",
+            "label": "检索已选择的知识库资料",
+            "kind": "retrieval",
+            "requires_consent": False,
+            "authorized": True,
+        }
         assert [event["step"] for event in tool_events[:2]] == ["tool_call", "tool_result"]
         assert tool_events[0]["tool"] == "kb_search"
         assert tool_events[1]["tool"] == "kb_search"
