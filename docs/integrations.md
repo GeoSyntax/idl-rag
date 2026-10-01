@@ -35,9 +35,9 @@ uv run --project backend uvicorn app.main:app --app-dir backend --reload
 npm run dev --prefix frontend
 ```
 
-### 1.1 本地使用 gemin2api
+### 1.1 本地使用 Gemini2API
 
-如果本机已经运行 `gemin2api` 的 OpenAI 兼容服务，Chat 和 Agent 不需要再接入云端 OpenAI。当前开发机使用的实例是：
+如果本机已经运行 `Gemini2API`（历史配置也可能写作 `gemin2api`）的 OpenAI 兼容服务，Chat 和 Agent 不需要再接入云端 OpenAI。当前开发机使用的实例是：
 
 ```text
 API Base URL: http://127.0.0.1:8081/v1
@@ -47,21 +47,21 @@ API Base URL: http://127.0.0.1:8081/v1
 在平台“设置”页填写：
 
 ```text
-Provider 名称：gemin2api-local
+Provider 名称：gemini2api-local
 API Base URL：http://127.0.0.1:8081/v1
 聊天模型：gemini-3.6-flash
-API Key：填写 gemin2api/config.json 中 api_keys 的值
+API Key：填写 Gemini2API 配置文件中 `api_keys` 的值
 ```
 
-保存并测试连接后，普通 Chat 和 Agent 的回答都会通过该 OpenAI 兼容接口进行 SSE 流式生成。API Key 只保存在本地数据库的加密设置项中，不要写入 Git、README 或截图。若 `gemin2api` 尚未启动，平台会显示模型服务连接失败，并停止当前流，不会伪造“未连接云端模型”的正常回答。
+保存并测试连接后，普通 Chat 和 Agent 的回答都会通过该 OpenAI 兼容接口进行 SSE 流式生成。API Key 只保存在本地数据库的加密设置项中，不要写入 Git、README 或截图。若 Gemini2API 尚未启动，平台会显示模型服务连接失败，并停止当前流，不会伪造“未连接云端模型”的正常回答。设置页的“填入本地 Gemini2API 默认值”只填写地址和模型，仍需手动输入 Key。
 
-Agent 的工具决策需要完整 JSON 才能安全校验参数。普通 OpenAI-compatible 网关在支持“工具 + stream”时，最终纯文本会实时转发；当前 `gemin2api` 能稳定流式处理普通 Chat，但会对带工具定义的 `stream=true` 请求返回 502，因此平台会自动使用两阶段模式：第一阶段用稳定的 JSON 工具决策，第二阶段去掉 `tools` 后用 Gemini2API 原生 Chat SSE 输出最终答案。后端每 8 秒发送一次 `waiting` 状态，前端在同一个回答气泡内显示“模型仍在响应”，而不是生成第二条回答。真正的 `done`/`error` 仍然只发送一次；点击停止后，迟到的模型结果不会继续写入会话。
+Agent 的工具决策需要完整 JSON 才能安全校验参数。普通 OpenAI-compatible 网关在支持“工具 + stream”时，最终纯文本会实时转发；当前 Gemini2API 能稳定流式处理普通 Chat，但会对带工具定义的 `stream=true` 请求返回 502，因此平台会自动使用两阶段模式：第一阶段用稳定的 JSON 工具决策，第二阶段去掉 `tools` 后用 Gemini2API 原生 Chat SSE 输出最终答案。后端每 8 秒发送一次 `waiting` 状态，前端在同一个回答气泡内显示“模型仍在响应”，而不是生成第二条回答。真正的 `done`/`error` 仍然只发送一次；点击停止后，迟到的模型结果不会继续写入会话。
 
 对于“查看当前研究项目状态 / 是否就绪 / 下一步是什么”这类只读问题，Agent 会走受控的状态快路径：服务端直接读取项目摘要、协议就绪检查和最近运行摘要，再只调用一次 Gemini2API 生成面向研究者的总结。工具调用仍会逐步展示并写入历史轨迹，但不再让模型重复发现这三个固定的只读工具；涉及论文、公式、实验、代码、GEE 或写入动作的问题仍使用完整 ReAct 流程。
 
 流式响应如果只收到角色或结束帧、没有任何正文，平台不会把空字符串落成助手回答，也不会伪造一次“成功完成”。同步 Chat 会切换到本地的明确降级文案，异步 Chat 会走同一降级逻辑；这类边界也覆盖了 Agent 的快速直达路径。知识库回答在收尾时还会把实际引用的候选重新编号：例如模型只引用候选 `[2]`，最终会保存为 `[1]` 并只展示该来源卡，避免来源列表与正文编号错位。
 
-`gemin2api` 当前提供的是聊天兼容接口（`/v1/chat/completions`），不等于 Embedding 服务。设置页的 **Embedding** 卡片需要单独填写一个实现了 `/v1/embeddings` 的本地或 OpenAI-compatible 服务；留空时平台会兼容性地复用聊天地址，但如果该网关没有 Embedding 路由，测试会明确返回 401/404，而不会把聊天连接误判为向量服务。没有可用 Embedding 时，默认检索会退回 FTS/规则排序，`vector_only` 仅用于诊断。
+Gemini2API 当前提供的是聊天兼容接口（`/v1/chat/completions`），不等于 Embedding 服务。设置页的 **Embedding** 卡片需要单独填写一个实现了 `/v1/embeddings` 的本地或 OpenAI-compatible 服务；留空时平台会兼容性地复用聊天地址，但如果该网关没有 Embedding 路由，测试会明确返回 401/404，而不会把聊天连接误判为向量服务。没有可用 Embedding 时，默认检索会退回 FTS/规则排序，`vector_only` 仅用于诊断。
 
 概览页会把这类情况标记为“Embedding 未配置或不可用（不影响 Chat / Agent）”，并隐藏网关返回的原始 URL 和底层异常文本；这条提示只说明语义向量检索需要降级，不表示本地 Gemini2API 的聊天或 Agent 通道断开。对话页的知识状态栏也会使用同样的边界说明。
 

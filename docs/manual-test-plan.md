@@ -51,7 +51,7 @@ MNDWI spectral index B03 B11
 
 ## 任务 5：测试 Agent 对话
 
-如果已经配置了 OpenAI 兼容模型或本地 `gemin2api`，在“对话”页选择知识库并输入：
+如果已经配置了 OpenAI 兼容模型或本地 `Gemini2API`，在“对话”页选择知识库并输入：
 
 ```text
 请根据当前资料解释 MNDWI 的计算方式，指出需要哪些 Sentinel-2 波段，并给出一段安全的 Python 栅格计算示例。请引用资料来源，不要把没有验证的数据写成结论。

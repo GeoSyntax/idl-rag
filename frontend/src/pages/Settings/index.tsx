@@ -98,6 +98,15 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
   const [langSmithEvalForm] = Form.useForm<LangSmithEvaluationForm>()
   const [messageApi, contextHolder] = message.useMessage()
 
+  const applyLocalGemini2ApiPreset = () => {
+    form.setFieldsValue({
+      provider_name: 'gemini2api-local',
+      api_base_url: 'http://127.0.0.1:8081/v1',
+      chat_model: 'gemini-3.6-flash',
+    })
+    messageApi.info('已填入本地 Gemini2API 地址和模型；API Key 仍需手动填写。')
+  }
+
   useEffect(() => {
     if (settings) {
       form.setFieldsValue(settings)
@@ -264,6 +273,14 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
           initialValues={settings}
         >
           <Card className="section-card" loading={loading} title="模型配置">
+            <div className="settings-model-intro">
+              <p className="auth-subtext" style={{ marginTop: 0, marginBottom: 0 }}>
+                本地 Gemini2API 使用 OpenAI 兼容接口。快速预设只填写地址和模型，不会覆盖或保存 API Key。
+              </p>
+              <Button type="link" size="small" onClick={applyLocalGemini2ApiPreset}>
+                填入本地 Gemini2API 默认值
+              </Button>
+            </div>
             <div className="grid-two">
               <Form.Item label="Provider 名称" name="provider_name" rules={[{ required: true }]}>
                 <Input />

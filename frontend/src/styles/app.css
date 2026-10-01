@@ -1081,6 +1081,11 @@ body { min-height: 100dvh; }
   background: var(--surface-hover);
 }
 
+.chat-kb-status > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .chat-kb-status-warning {
   color: var(--warning);
 }
@@ -1096,6 +1101,22 @@ body { min-height: 100dvh; }
 
 .chat-model-status-warning {
   color: #9a3412;
+}
+
+.settings-model-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary);
+  background: var(--surface-hover);
+}
+
+.settings-model-intro .ant-btn {
+  flex: 0 0 auto;
+  padding-inline: 0;
 }
 
 .chat-inline-error {
@@ -2831,6 +2852,12 @@ body { min-height: 100dvh; }
     align-items: flex-start;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .settings-model-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .chat-research-permissions .ant-checkbox-wrapper {

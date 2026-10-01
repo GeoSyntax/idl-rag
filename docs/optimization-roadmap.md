@@ -60,7 +60,7 @@
 - [x] 后端路由级 HTTP/SSE 回归覆盖异常终止；客户端取消通过路由 body iterator 验证取消落盘标记且不生成 fallback。
 - [x] Agent 生成器收到取消信号后停止后续工具调用和助手消息落盘。
 - [x] 后端单元测试覆盖跨 chunk 引用过滤和 Agent 降级路径。
-- [x] 前端构建通过，并完成一次真实 `gemin2api` 普通对话与 Agent 对话。
+- [x] 前端构建通过，并完成一次真实 `Gemini2API` 普通对话与 Agent 对话。
 - [x] 文档同步记录本地启动方式、测试账号和已知外部依赖（GEE/IDL）。
 
 ## 本轮实施范围
@@ -71,7 +71,7 @@
 
 1. 过程信息收束：保留工具调用和研究证据，但把长 JSON 改成按需展开，并且同一次请求只突出最后一份运行摘要。
 2. 布局韧性：把研究 Agent 的三个授权开关从主选择器中分组，在中小屏独立换行，长中文标签允许换行。
-3. 真实回归：用本地 `gemin2api` 查询项目运行，确认 Run 卡片、阶段影像、无来源引用和完成态都符合预期。
+3. 真实回归：用本地 `Gemini2API` 查询项目运行，确认 Run 卡片、阶段影像、无来源引用和完成态都符合预期。
 4. 流式一致性：普通 `ask-stream` 与 Agent SSE 都在跨 chunk 场景下清理无来源引用，且不牺牲 token 流式输出。
 5. 质量门禁：前端构建、后端 Agent/研究工具测试、lint 和 diff 检查全部通过后再提交。
 
@@ -179,6 +179,7 @@
 - [x] 本轮门禁使用项目 `backend/.venv` 执行全量后端测试 `169 passed, 1 skipped`；前端构建通过，Chat 移动/桌面 Lighthouse 均为 100/100/100/100。
 - [x] Chat 新增只读模型状态摘要：普通用户可看到 `Gemini2API · 当前模型 · 已配置/待配置`，接口不返回 API Key、完整 URL 或提示词；设置更新事件会自动刷新状态，避免只能等到发送失败后才知道模型配置。
 - [x] 停止生成只保留对话内的“未保存完整回答”状态卡，不再同时弹出重复 Toast；错误/停止状态使用 `role=status` 进行一次性播报，避免窄屏界面堆叠。
+- [x] 设置页增加本地 Gemini2API 快速预设：只填入兼容地址和聊天模型，不触碰 API Key；同时为 Chat 状态行增加长文本断行边界，避免网关提示和检索策略在窄屏互相挤压。
 - [x] 对 Research 工作台完成桌面与 500px 窄屏 Lighthouse 回放：Accessibility、Best Practices 和 Agentic Browsing 均为 100；修复项目选择列无标签、入口下拉框的非法 aria 属性、Ant Design 默认蓝/灰文字对比度不足、协议表单未挂载警告，以及窄屏研究标签溢出菜单导致的 ARIA 树错误；500px 页面无横向溢出。
 - [x] 清理 Research 数据与快照流程的第二层可用性问题：GEE/STAC/验证样本/数据资产表单的必填 Select 改为不污染 ARIA 树的自定义校验；文件选择器和多波段对齐控件补齐可读名称；InputNumber 去除 addonAfter 弃用警告。数据 Tab 在 500px 下 Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过。
 - [x] 收紧 Research 实验与影像证据页：实验选择表格补齐选择列的表头和每行标签，重跑基准、候选参数和 JSON 编辑控件补齐名称；500px 与桌面实验 Tab Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过，页面无横向溢出。
@@ -191,7 +192,7 @@
 
 - [x] 支持工具兼容网关在 `stream=true` 下增量返回最终纯文本；工具调用 JSON 仍完整缓冲后再校验和执行。
 - [x] 增加引用标记流过滤，只有已经存在的知识库来源才允许 `[n]` 进入 SSE；JSON 兼容响应不会把结构化决策泄露到回答气泡。
-- [x] 对 `gemin2api` 做 Provider 能力判断：它的普通 Chat 支持流式，但当前工具流返回 502，Agent 自动使用稳定的非流式工具决策，避免重复等待和重复回答。
+- [x] 对 `Gemini2API` 做 Provider 能力判断：它的普通 Chat 支持流式，但当前工具流返回 502，Agent 自动使用稳定的非流式工具决策，避免重复等待和重复回答。
 - [x] 未知兼容网关在尚未发出 token 时遇到明确的 4xx/5xx 流能力错误可回退到非流式；已经发出 token 后不重试，防止答案重复。
 - [x] Gemini2API 两阶段模式已实测：JSON 工具决策完成后，第二阶段无 `tools` 的 Chat SSE 输出最终答案，回放收到 `token` 事件和唯一 `done`，没有 `error` 或第二个助手回答。
 
