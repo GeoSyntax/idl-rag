@@ -65,3 +65,51 @@ def test_readiness_blocks_when_documents_are_newer_than_last_evaluation(monkeypa
         assert any("重新评测" in blocker for blocker in item["blockers"])
     finally:
         db.close()
+
+
+def test_readiness_blocks_when_indexed_source_file_is_missing(monkeypatch, tmp_path: Path) -> None:
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.db.database import get_session_factory
+    from app.db.models import Document, EvaluationReport, KnowledgeBase
+    from app.services.corpus_readiness_service import build_corpus_readiness
+
+    db = get_session_factory()()
+    try:
+        kb = KnowledgeBase(name="Missing Source KB", owner_user_id=1)
+        db.add(kb)
+        db.flush()
+        now = datetime.utcnow()
+        db.add(
+            Document(
+                knowledge_base_id=kb.id,
+                file_name="missing.md",
+                file_path=str(tmp_path / "missing.md"),
+                media_type="text/markdown",
+                sha256="missing-doc",
+                status="ready",
+                embedding_model="bge-m3",
+                embedding_dimensions=1024,
+                last_indexed_at=now,
+            )
+        )
+        db.add(
+            EvaluationReport(
+                knowledge_base_id=kb.id,
+                created_by_user_id=1,
+                report_type="local",
+                status="completed",
+                summary_json={},
+                report_json={},
+                created_at=now,
+            )
+        )
+        db.commit()
+
+        payload = build_corpus_readiness(db, 1)
+        item = payload["knowledge_bases"][0]
+        assert payload["production_ready"] is False
+        assert item["missing_source_count"] == 1
+        assert any("源文件不存在" in blocker for blocker in item["blockers"])
+    finally:
+        db.close()

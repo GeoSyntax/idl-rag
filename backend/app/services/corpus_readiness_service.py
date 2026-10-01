@@ -9,6 +9,7 @@ the gate inspectable from the UI/API instead of relying on a README promise.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -43,6 +44,8 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
         )
         document_count = sum(int(value) for value in status_counts.values())
         ready_count = int(status_counts.get("ready", 0))
+        documents = db.query(Document).filter(Document.knowledge_base_id == knowledge_base.id).all()
+        missing_source_count = sum(1 for document in documents if not Path(document.file_path).exists())
         fallback_count = int(
             db.execute(
                 select(func.count(Document.id)).where(
@@ -125,6 +128,8 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
             blockers.append("没有已导入资料")
         if non_ready_count:
             blockers.append(f"{non_ready_count} 份资料尚未完成索引")
+        if missing_source_count:
+            blockers.append(f"{missing_source_count} 份资料的源文件不存在，无法复核引用")
         if fallback_count:
             blockers.append(f"{fallback_count} 份资料使用 fallback embedding")
         if embedding_mismatch_count:
@@ -143,6 +148,7 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
                 "knowledge_base_id": knowledge_base.id,
                 "knowledge_base_name": knowledge_base.name,
                 "document_count": document_count,
+                "missing_source_count": missing_source_count,
                 "ready_document_count": ready_count,
                 "stale_document_count": int(status_counts.get("stale", 0)),
                 "failed_document_count": int(status_counts.get("failed", 0)),
