@@ -100,18 +100,30 @@ export function DashboardPage({ summary, loading, accessNotice }: DashboardPageP
 
 function OverviewTable({ rows }: { rows: OverviewRow[] }) {
   return (
-    <Table<OverviewRow>
-      rowKey="label"
-      size="small"
-      pagination={false}
-      dataSource={rows}
-      scroll={{ x: 520 }}
-      columns={[
-        { title: '项目', dataIndex: 'label' },
-        { title: '数值', dataIndex: 'value', width: 140, render: (value) => <strong>{value}</strong> },
-        { title: '说明', dataIndex: 'note', render: (value) => value || '-' },
-      ]}
-    />
+    <div className="dashboard-overview">
+      <div className="dashboard-overview-table">
+        <Table<OverviewRow>
+          rowKey="label"
+          size="small"
+          pagination={false}
+          dataSource={rows}
+          columns={[
+            { title: '项目', dataIndex: 'label' },
+            { title: '数值', dataIndex: 'value', width: 140, render: (value) => <strong>{value}</strong> },
+            { title: '说明', dataIndex: 'note', render: (value) => value || '-' },
+          ]}
+        />
+      </div>
+      <div className="dashboard-overview-list" aria-label="概览统计">
+        {rows.map((row) => (
+          <div className="dashboard-overview-row" key={row.label}>
+            <span className="dashboard-overview-label">{row.label}</span>
+            <strong className="dashboard-overview-value">{row.value}</strong>
+            {row.note ? <span className="dashboard-overview-note">{row.note}</span> : null}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
