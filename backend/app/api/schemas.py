@@ -465,6 +465,9 @@ class KnowledgeBaseReadinessResponse(BaseModel):
     fallback_document_count: int = 0
     chunk_count: int = 0
     evaluation_completed: bool = False
+    evaluation_stale: bool = False
+    latest_indexed_at: datetime | None = None
+    latest_evaluation_at: datetime | None = None
     production_ready: bool = False
     blockers: list[str] = Field(default_factory=list)
 

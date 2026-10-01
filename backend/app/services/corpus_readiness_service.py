@@ -54,17 +54,30 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
                 select(func.count(Chunk.id)).where(Chunk.knowledge_base_id == knowledge_base.id)
             ).scalar_one()
         )
-        has_eval = bool(
-            db.execute(
-                select(EvaluationReport.id)
-                .where(
-                    EvaluationReport.knowledge_base_id == knowledge_base.id,
-                    EvaluationReport.report_type == "local",
-                    EvaluationReport.status == "completed",
-                )
-                .limit(1)
-            ).scalar_one_or_none()
+        latest_indexed_at = db.execute(
+            select(func.max(Document.last_indexed_at)).where(
+                Document.knowledge_base_id == knowledge_base.id,
+            )
+        ).scalar_one()
+        latest_eval = db.execute(
+            select(EvaluationReport)
+            .where(
+                EvaluationReport.knowledge_base_id == knowledge_base.id,
+                EvaluationReport.report_type == "local",
+                EvaluationReport.status == "completed",
+            )
+            .order_by(EvaluationReport.created_at.desc(), EvaluationReport.id.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        has_eval = latest_eval is not None
+        evaluation_stale = bool(
+            latest_eval is not None
+            and latest_indexed_at is not None
+            and latest_eval.created_at is not None
+            and latest_eval.created_at < latest_indexed_at
         )
+        if evaluation_stale:
+            has_eval = False
 
         blockers: list[str] = []
         non_ready_count = document_count - ready_count
@@ -74,7 +87,9 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
             blockers.append(f"{non_ready_count} 份资料尚未完成索引")
         if fallback_count:
             blockers.append(f"{fallback_count} 份资料使用 fallback embedding")
-        if not has_eval:
+        if evaluation_stale:
+            blockers.append("索引在最近一次评测后发生变化，需要重新评测")
+        elif not has_eval:
             blockers.append("尚未完成本地检索评测")
 
         if blockers:
@@ -92,6 +107,9 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
                 "fallback_document_count": fallback_count,
                 "chunk_count": chunk_count,
                 "evaluation_completed": has_eval,
+                "evaluation_stale": evaluation_stale,
+                "latest_indexed_at": latest_indexed_at,
+                "latest_evaluation_at": latest_eval.created_at if latest_eval else None,
                 "production_ready": not blockers,
                 "blockers": blockers,
             }
@@ -105,4 +123,3 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
         "blockers": overall_blockers,
         "knowledge_bases": reports,
     }
-

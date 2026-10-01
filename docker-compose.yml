@@ -32,6 +32,8 @@ services:
     environment:
       IDLRAG_BASE_DIR: /var/lib/idl-rag
       IDLRAG_ENVIRONMENT: production
+      IDLRAG_AUTH_SECRET: ${IDLRAG_AUTH_SECRET:?Set a long random secret in .env before starting Compose.}
+      IDLRAG_EMBEDDING_DIMENSIONS: ${IDLRAG_EMBEDDING_DIMENSIONS:-1024}
       IDLRAG_INDEX_WORKER_ENABLED: "false"
       IDLRAG_INDEX_WORKER_HEARTBEAT_TIMEOUT_SECONDS: ${IDLRAG_INDEX_WORKER_HEARTBEAT_TIMEOUT_SECONDS:-30}
     volumes:

@@ -23,6 +23,7 @@ data/parsed/
 data/cache/
 data/research/
 data/worker/
+data/backups/
 backend/data/*
 !backend/data/dict/
 !backend/data/dict/**
