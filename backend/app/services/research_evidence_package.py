@@ -19,7 +19,7 @@ class ResearchEvidencePackageService:
     represented by IDs, hashes, and an access note.
     """
 
-    _SCHEMA_VERSION = 1
+    _SCHEMA_VERSION = 2
 
     def build(
         self,

@@ -374,6 +374,7 @@ def test_python_runner_generates_rasters_previews_and_reproducible_manifest(monk
             }.issubset(names)
             assert "poyang_scene.tif" not in names
             package_manifest = json.loads(archive.read("package_manifest.json"))
+            assert package_manifest["schema_version"] == 2
             assert package_manifest["privacy"]["raw_data_included"] is False
             execution_provenance = package_manifest["execution_provenance"]
             assert execution_provenance["runner"] == "python"
