@@ -272,6 +272,8 @@ function parameterSweepFromRun(run: ResearchRun): Record<string, unknown> | null
 
 function RunOutputPreview({ projectId, experimentId, run, executionMode }: { projectId: number; experimentId: number; run: ResearchRun; executionMode?: ResearchExperiment['execution_mode'] }) {
   const [urls, setUrls] = useState<Record<string, string>>({})
+  const [downloadingFileName, setDownloadingFileName] = useState('')
+  const [downloadError, setDownloadError] = useState('')
   const verifyPackage = useMutation({
     mutationFn: () => api.verifyResearchRun(projectId, experimentId, run.id),
     onError: (error: Error) => message.error(error.message),
@@ -337,15 +339,24 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
   }, [experimentId, imageOutputs, projectId, run.id])
 
   const downloadOutput = async (fileName: string) => {
-    const blob = await api.fetchResearchRunOutputBlob(projectId, experimentId, run.id, fileName)
-    const url = URL.createObjectURL(blob)
-    const link = window.document.createElement('a')
-    link.href = url
-    link.download = fileName
-    window.document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+    if (downloadingFileName) return
+    setDownloadingFileName(fileName)
+    setDownloadError('')
+    try {
+      const blob = await api.fetchResearchRunOutputBlob(projectId, experimentId, run.id, fileName)
+      const url = URL.createObjectURL(blob)
+      const link = window.document.createElement('a')
+      link.href = url
+      link.download = fileName
+      window.document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : '获取运行产物失败，请稍后重试。')
+    } finally {
+      setDownloadingFileName('')
+    }
   }
 
   return (
@@ -364,7 +375,7 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
           description={
             <Space wrap>
               <span>包含协议、快照引用、公式证据、环境、运行记录和生成图件；不包含私有原始数据。</span>
-              <Button size="small" onClick={() => void downloadOutput(evidencePackage.file_name)}>
+              <Button size="small" loading={downloadingFileName === evidencePackage.file_name} onClick={() => void downloadOutput(evidencePackage.file_name)}>
                 下载证据包 ZIP
               </Button>
               <Button size="small" loading={verifyPackage.isPending} onClick={() => verifyPackage.mutate()}>
@@ -384,6 +395,16 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
               ? `已校验 ${verifyPackage.data.checked_file_count} 个文件和 ${verifyPackage.data.output_count} 个生成产物。`
               : verifyPackage.data.issues.join(' ')
           }
+        />
+      ) : null}
+      {downloadError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="运行产物下载失败"
+          description={downloadError}
+          closable
+          onClose={() => setDownloadError('')}
         />
       ) : null}
       {rasterMetadata || snapshotMetadata || formulaMetadata ? (
@@ -413,7 +434,7 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
               <figcaption>
                 <strong>{output.kind}</strong>
                 <span>{output.file_name}</span>
-                <Button type="link" size="small" onClick={() => void downloadOutput(output.file_name)}>
+                <Button type="link" size="small" loading={downloadingFileName === output.file_name} onClick={() => void downloadOutput(output.file_name)}>
                   下载图件
                 </Button>
               </figcaption>
@@ -429,7 +450,7 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
           description={
             <Space wrap>
               {downloadableOutputs.map((output) => (
-                <Button key={output.file_name} size="small" onClick={() => void downloadOutput(output.file_name)}>
+                <Button key={output.file_name} size="small" loading={downloadingFileName === output.file_name} onClick={() => void downloadOutput(output.file_name)}>
                   下载 {output.kind}
                 </Button>
               ))}
@@ -1098,6 +1119,15 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
   return (
     <div className="page-stack research-page">
       {contextHolder}
+      {projectsQuery.isError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="研究项目暂时无法加载"
+          description={projectsQuery.error instanceof Error ? projectsQuery.error.message : '请检查后端连接后重试。'}
+          action={<Button size="small" onClick={() => void projectsQuery.refetch()} loading={projectsQuery.isFetching}>重新加载</Button>}
+        />
+      ) : null}
       <Card className="section-card" title="新建研究项目">
         <Form
           form={projectForm}
@@ -2231,6 +2261,16 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                     />
                   </Card>
                   <Card className="section-card" title="运行与影像证据">
+                    {runsQuery.isError ? (
+                      <Alert
+                        type="error"
+                        showIcon
+                        message="运行记录暂时无法加载"
+                        description={runsQuery.error instanceof Error ? runsQuery.error.message : '请检查项目权限或后端连接后重试。'}
+                        action={<Button size="small" onClick={() => void runsQuery.refetch()} loading={runsQuery.isFetching}>重新加载</Button>}
+                        style={{ marginBottom: 12 }}
+                      />
+                    ) : null}
                     {selectedExperimentId ? (
                       <>
                         <Table<ResearchRun>

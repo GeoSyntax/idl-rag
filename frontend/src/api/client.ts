@@ -68,6 +68,78 @@ type RequestOptions = RequestInit & {
   rawBody?: BodyInit | null
 }
 
+/**
+ * A stable, user-facing error shape for every API call.
+ *
+ * FastAPI returns a string for application errors but an array for validation
+ * errors. Keeping that distinction inside the client prevents each page from
+ * inventing its own (usually incomplete) error parser and avoids displaying
+ * raw request payloads from validation details.
+ */
+export class ApiError extends Error {
+  readonly status: number
+  readonly detail: unknown
+
+  constructor(message: string, status: number, detail: unknown = undefined) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+  }
+}
+
+const STATUS_MESSAGES: Record<number, string> = {
+  400: '请求参数无效，请检查输入后重试。',
+  403: '当前账号没有权限执行此操作。',
+  404: '请求的资源不存在，可能已被删除或尚未完成。',
+  409: '操作发生冲突，请刷新当前页面后重试。',
+  413: '文件或请求内容过大，请缩小后重试。',
+  429: '请求过于频繁，请稍后再试。',
+  500: '服务端处理失败，请稍后重试。',
+  502: '上游模型或数据服务暂不可用，请检查连接后重试。',
+  503: '服务暂时不可用，请稍后重试。',
+  504: '服务响应超时，请稍后重试。',
+}
+
+function formatValidationDetail(detail: unknown): string | null {
+  if (!Array.isArray(detail)) return null
+  const issues = detail
+    .filter((item): item is { loc?: unknown; msg?: unknown } => Boolean(item && typeof item === 'object'))
+    .map((item) => {
+      const location = Array.isArray(item.loc)
+        ? item.loc.filter((part) => !['body', 'query', 'path'].includes(String(part))).join('.')
+        : ''
+      const message = typeof item.msg === 'string' ? item.msg : '输入值无效'
+      return location ? `${location}：${message}` : message
+    })
+    .filter(Boolean)
+  return issues.length ? issues.join('；') : null
+}
+
+function getApiErrorMessage(data: unknown, status: number, fallback?: string): string {
+  if (data && typeof data === 'object') {
+    const payload = data as Record<string, unknown>
+    if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail.trim()
+    const validationMessage = formatValidationDetail(payload.detail)
+    if (validationMessage) return validationMessage
+    if (typeof payload.message === 'string' && payload.message.trim()) return payload.message.trim()
+    if (typeof payload.error === 'string' && payload.error.trim()) return payload.error.trim()
+  }
+  return fallback || STATUS_MESSAGES[status] || '请求失败，请稍后重试。'
+}
+
+async function readErrorPayload(response: Response): Promise<unknown> {
+  return response.json().catch(() => ({}))
+}
+
+async function throwApiError(response: Response, fallback?: string): Promise<never> {
+  if (response.status === 401) {
+    clearAccessToken()
+  }
+  const data = await readErrorPayload(response)
+  throw new ApiError(getApiErrorMessage(data, response.status, fallback), response.status, data)
+}
+
 function getStoredAccessToken(): string {
   if (typeof window === 'undefined') {
     return ''
@@ -118,12 +190,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   })
 
   if (!response.ok) {
-    if (response.status === 401) {
-      clearAccessToken()
-    }
-    const data = await response.json().catch(() => ({}))
-    const message = typeof data.detail === 'string' ? data.detail : '请求失败'
-    throw new Error(message)
+    await throwApiError(response)
   }
 
   if (response.status === 204) {
@@ -352,12 +419,7 @@ export const api = {
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     })
     if (!response.ok) {
-      if (response.status === 401) {
-        clearAccessToken()
-      }
-      const data = await response.json().catch(() => ({}))
-      const message = typeof data.detail === 'string' ? data.detail : '下载失败'
-      throw new Error(message)
+      await throwApiError(response, '下载失败，请稍后重试。')
     }
     return response.blob()
   },
@@ -707,11 +769,7 @@ export const api = {
       { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined },
     )
     if (!response.ok) {
-      if (response.status === 401) {
-        clearAccessToken()
-      }
-      const data = await response.json().catch(() => ({}))
-      throw new Error(typeof data.detail === 'string' ? data.detail : '获取运行产物失败')
+      await throwApiError(response, '获取运行产物失败，请稍后重试。')
     }
     return response.blob()
   },
@@ -747,12 +805,7 @@ export const api = {
     })
 
     if (!response.ok) {
-      if (response.status === 401) {
-        clearAccessToken()
-      }
-      const data = await response.json().catch(() => ({}))
-      const message = typeof data.detail === 'string' ? data.detail : '请求失败'
-      throw new Error(message)
+      await throwApiError(response)
     }
 
     await consumeSse<StreamEvent>(response, (event) => {
@@ -804,12 +857,7 @@ export const api = {
     })
 
     if (!response.ok) {
-      if (response.status === 401) {
-        clearAccessToken()
-      }
-      const data = await response.json().catch(() => ({}))
-      const message = typeof data.detail === 'string' ? data.detail : '请求失败'
-      throw new Error(message)
+      await throwApiError(response)
     }
 
     await consumeSse<AgentStreamEvent>(response, (event) => {
@@ -838,12 +886,7 @@ export const api = {
       body: formData,
     })
     if (!response.ok) {
-      if (response.status === 401) {
-        clearAccessToken()
-      }
-      const data = await response.json().catch(() => ({}))
-      const message = typeof data.detail === 'string' ? data.detail : '文件上传失败'
-      throw new Error(message)
+      await throwApiError(response, '文件上传失败，请检查格式和大小后重试。')
     }
     return response.json() as Promise<{ file_name: string; content: string }>
   },

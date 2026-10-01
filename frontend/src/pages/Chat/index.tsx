@@ -1,4 +1,4 @@
-import { Button, Checkbox, Drawer, Form, Input, InputNumber, Select, Segmented, Space, Tag, Upload, message, Tooltip } from 'antd'
+import { Alert, Button, Checkbox, Drawer, Form, Input, InputNumber, Select, Segmented, Space, Tag, Upload, message, Tooltip } from 'antd'
 import {
   UploadOutlined,
   CloseCircleFilled,
@@ -55,6 +55,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [sessionsError, setSessionsError] = useState('')
   const [messageApi, contextHolder] = message.useMessage()
 
   const [isStreaming, setIsStreaming] = useState(false)
@@ -154,10 +155,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
 
   const refreshSessions = async () => {
     setSessionsLoading(true)
+    setSessionsError('')
     try {
       setSessions(await api.listSessions())
     } catch (err) {
-      messageApi.error((err as Error).message || '会话列表加载失败')
+      setSessionsError((err as Error).message || '会话列表加载失败')
     } finally {
       setSessionsLoading(false)
     }
@@ -1013,6 +1015,22 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           </Tooltip>
         </div>
       </div>
+
+      {sessionsError ? (
+        <div className="chat-inline-error" role="alert">
+          <Alert
+            type="error"
+            showIcon
+            message="历史会话暂时无法加载"
+            description={sessionsError}
+            action={(
+              <Button size="small" onClick={() => void refreshSessions()} loading={sessionsLoading}>
+                重新加载
+              </Button>
+            )}
+          />
+        </div>
+      ) : null}
 
       <Drawer title="GEE 数据" open={geeDrawerOpen} onClose={() => setGeeDrawerOpen(false)} width="min(100vw, 480px)">
         <div className="drawer-intro">

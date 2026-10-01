@@ -989,6 +989,22 @@ body { min-height: 100dvh; }
   color: var(--warning);
 }
 
+.chat-inline-error {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 8px 20px 0;
+  background: var(--surface);
+}
+
+.chat-inline-error .ant-alert {
+  max-width: var(--chat-max-width);
+  margin: 0 auto;
+}
+
+.chat-inline-error .ant-alert-description {
+  overflow-wrap: anywhere;
+}
+
 .chat-research-context {
   display: flex;
   align-items: center;
@@ -2522,6 +2538,11 @@ body { min-height: 100dvh; }
 
   .chat-input-area {
     padding: 8px 12px 12px;
+  }
+
+  .chat-inline-error {
+    padding-right: 12px;
+    padding-left: 12px;
   }
 
   .chat-citation-grid {
