@@ -10,14 +10,14 @@
 | --- | --- | --- | --- |
 | ENVI/IDL 官方资料 | 415 份已索引文档 | 查找语法、API、处理流程 | 不能替代具体版本的本地 ENVI/IDL 编译验收 |
 | IDL/ENVI 方法资料 | 18 份方法与代码资料 | 支撑常见读写、指数和处理样例 | 不能覆盖全部传感器、投影、质量控制与异常数据 |
-| 遥感算法知识库 | 1,911 份文档、18,496 个 chunk：1,500 条 OpenAlex 候选记录、305 篇当前可访问的本地 OA PDF、50 条理论资料、51 个官方来源文件（其中 48 个可索引文档，含 LaSRC、Aquatic Reflectance、MOD13、VIIRS VNP13、DSWE、DSWE DFCB、ECOSTRESS、fSCA、Burned Area、Burned Area DFCB 和 Sentinel-1 辐射定标）、5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、火烧迹地和积雪覆盖分析及工程验证 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
+| 遥感算法知识库 | 1,914 份文档、18,579 个 chunk：1,500 条 OpenAlex 候选记录、305 篇当前可访问的本地 OA PDF、50 条理论资料、53 个官方来源文件（其中 50 个可索引文档，新增 OPERA DSWx-HLS 产品规范与 ATBD；另含 LaSRC、Aquatic Reflectance、MOD13、VIIRS VNP13、DSWE、DSWE/BA/fSCA DFCB、ECOSTRESS、Sentinel-1 辐射定标）、5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖和跨传感器 HLS 验证 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
 | 扫描版 IDL 实验资料 | 1 份文档，已用 `pdf-ocr-v1` 完成 OCR 和索引 | 可按 OCR 文本检索并引用 | OCR 仍需人工抽查公式、表格和代码，不能自动视为无误 |
 
-当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,346 份资料全部为 `ready`，2,346 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 的 10 条遥感产品/工具 golden cases 在新增 BA/DSWE 数据格式规范后重新评测，命中率 1.0、recall 1.0、MRR 0.883、Precision@6 0.633、答案相关性 0.900、faithfulness 0.975，平均延迟约 17.1 秒。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
+当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,349 份资料全部为 `ready`，2,349 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 的 10 条遥感产品/工具 golden cases 在新增 OPERA DSWx-HLS 规范后重新评测，命中率 1.0、recall 1.0、MRR 0.883、Precision@6 0.633、答案相关性 0.900、faithfulness 1.000，平均延迟约 5.7 秒。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
-本次一致性审计还验证了 owner=1 的全部 2,346 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并同步清理 SQLite FTS、LanceDB 向量、chunk 和索引任务，避免“ready 但无法打开来源”的生产数据问题。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
+本次一致性审计还验证了 owner=1 的全部 2,349 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并同步清理 SQLite FTS、LanceDB 向量、chunk 和索引任务，避免“ready 但无法打开来源”的生产数据问题。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
 
-本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Gemini2API `gemini-3.6-flash` 的 `/v1/models` 和最小 Chat 请求均返回成功。两者职责分离：Ollama 负责本地 embedding，Gemini2API 负责聊天/Agent，不把聊天网关误当成 embedding 服务。
+本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Ollama `gemma3:4b` 的 OpenAI-compatible Chat 请求也已成功。当前运行时默认使用 Ollama：聊天为 `gemma3:4b`，Embedding 为 `bge-m3`；Gemini2API 仍保留在设置中，可作为需要更强长文本能力时的可选远程 provider。两者职责分离，不能把聊天网关误当成 embedding 服务。
 
 307 篇本地 OA PDF 当前全部进入许可人工复核队列，尚未自动标记为可再分发。可用 `backend/scripts/license_review_report.py` 生成 JSON/Markdown 队列；只有明确填写许可证据并将状态设为 `cleared_*` 后，公开资料包的 `--require-cleared-licenses` 闸门才会通过。内部受控部署可以检索这些资料，但教师/企业跨组织共享前仍需完成这一步。
 
@@ -83,7 +83,7 @@ python backend/scripts/backup_runtime.py data `
   --verify data/backups/idl-rag-current.zip
 ```
 
-备份脚本使用 SQLite online backup 快照数据库，并为归档中的每个文件写入 SHA-256；校验命令会读取归档内容重新计算哈希。当前工作区已实际生成并校验一份 22,459 个文件、约 3.68 GB（未压缩内容）的备份归档。归档包含私有资料和加密配置，必须放入受控备份存储，不能上传到公开仓库。
+备份脚本使用 SQLite online backup 快照数据库，并为归档中的每个文件写入 SHA-256；校验命令会读取归档内容重新计算哈希。当前工作区已实际生成并校验一份 22,476 个文件、约 3.71 GB（未压缩内容）的备份归档。归档包含私有资料和加密配置，必须放入受控备份存储，不能上传到公开仓库。
 
 ## 补齐顺序
 
