@@ -616,6 +616,78 @@ def test_answer_stream_filters_citation_markers_split_across_chunks(monkeypatch,
         db.close()
 
 
+def test_agent_prefetches_selected_knowledge_base_before_final_answer(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
+
+    from app.api.schemas import ChatRequest, Citation
+    from app.core.config import get_app_settings
+    from app.db.database import get_engine, get_session_factory, init_database
+    from app.db.models import ChatMessage, KnowledgeBase, User
+    from app.services.agent_service import AgentService
+
+    get_app_settings.cache_clear()
+    get_engine.cache_clear()
+    get_session_factory.cache_clear()
+    init_database()
+
+    db = get_session_factory()()
+    try:
+        user = User(username="owner", password_hash="hash", role="admin", is_active=True)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        knowledge_base = KnowledgeBase(name="IDL KB", description="prefetch test", owner_user_id=user.id)
+        db.add(knowledge_base)
+        db.commit()
+        db.refresh(knowledge_base)
+
+        service = AgentService()
+        citation = Citation(
+            chunk_id=1,
+            document_id=1,
+            file_name="mndwi.md",
+            file_path="mndwi.md",
+            title="MNDWI 公式",
+            excerpt="MNDWI = (Green - SWIR) / (Green + SWIR)",
+        )
+        monkeypatch.setattr(service, "_search_knowledge_bases", lambda *args, **kwargs: [citation])
+        monkeypatch.setattr(
+            "app.services.agent_service.get_runtime_settings",
+            lambda _db: type("Settings", (), {"api_key": "configured"})(),
+        )
+        captured: dict[str, object] = {}
+
+        def fake_agent_generate(_db, messages, **kwargs):
+            captured["messages"] = messages
+            captured["tool_names"] = kwargs.get("tool_names")
+            return {"final_answer": "根据资料，MNDWI 使用 Green 与 SWIR 波段。[1]"}
+
+        monkeypatch.setattr(service.llm_service, "agent_generate", fake_agent_generate)
+        events = list(
+            service.agent_answer_stream(
+                db,
+                ChatRequest(knowledge_base_ids=[knowledge_base.id], question="请解释 MNDWI 公式。"),
+                owner_user_id=user.id,
+            )
+        )
+
+        tool_events = [event for event in events if event.get("step") in {"tool_call", "tool_result"}]
+        assert [event["step"] for event in tool_events[:2]] == ["tool_call", "tool_result"]
+        assert tool_events[0]["tool"] == "kb_search"
+        assert tool_events[1]["tool"] == "kb_search"
+        assert events[-1]["type"] == "done"
+        assert events[-1]["citations"][0]["title"] == "MNDWI 公式"
+        assert "工具 kb_search 的结果" in "\n".join(
+            message["content"] for message in captured["messages"] if message["role"] == "user"
+        )
+        assert "kb_search" not in captured["tool_names"]
+        assistant = db.query(ChatMessage).filter(ChatMessage.role == "assistant").one()
+        assert assistant.agent_trace_json["steps"][0]["tool"] == "kb_search"
+        assert assistant.citations_json[0]["title"] == "MNDWI 公式"
+    finally:
+        db.close()
+
+
 def test_agent_stream_stops_before_persisting_after_cancellation(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
 

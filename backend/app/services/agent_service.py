@@ -830,6 +830,83 @@ class AgentService:
 
         yield {"type": "step", "step": "thinking", "content": "正在分析问题并规划步骤..."}
 
+        # A selected knowledge base is an explicit request to ground the
+        # answer in the user's materials. Do one bounded retrieval before the
+        # model gets to answer, otherwise a fast provider can confidently
+        # answer from its own memory without ever consulting RAG. The result
+        # follows the same SSE trace/persistence contract as a model-selected
+        # tool call; empty retrieval remains citation-free.
+        if kb_ids and not payload.generate_pro_file and not fix_intent:
+            if cancel_event is not None and cancel_event.is_set():
+                return
+            prefetch_args = {"query": payload.question[:500], "top_k": 4}
+            prefetch_call = {
+                "type": "step",
+                "step": "tool_call",
+                "tool": "kb_search",
+                "args": prefetch_args,
+            }
+            record_trace(prefetch_call)
+            yield prefetch_call
+            validated_prefetch = prefetch_args
+            try:
+                validated_prefetch = self._validate_tool_args("kb_search", prefetch_args)
+                citations = self._search_knowledge_bases(
+                    db,
+                    kb_ids,
+                    validated_prefetch["query"],
+                    validated_prefetch["top_k"],
+                )
+                prefetch_result = ToolResult(
+                    name="kb_search",
+                    output=(
+                        "\n\n".join(
+                            f"[{index + 1}] {citation.title or citation.symbol_name or citation.file_name}\n"
+                            f"{citation.excerpt}"
+                            for index, citation in enumerate(citations)
+                        )
+                        if citations
+                        else "未找到相关内容"
+                    ),
+                    citations=citations,
+                    metadata={"citations_count": len(citations)},
+                )
+            except (ValueError, LookupError) as exc:
+                prefetch_result = ToolResult(name="kb_search", output=f"工具调用被拒绝：{exc}")
+
+            if cancel_event is not None and cancel_event.is_set():
+                return
+
+            prefetch_event = {
+                "type": "step",
+                "step": "tool_result",
+                "tool": "kb_search",
+                "output": prefetch_result.output[:500],
+            }
+            if prefetch_result.metadata:
+                prefetch_event["metadata"] = prefetch_result.metadata
+            record_trace(prefetch_event)
+            yield prefetch_event
+            all_citations.extend(prefetch_result.citations)
+            prefetch_output = self._truncate_tool_output(prefetch_result.output)
+            llm_messages.append({
+                "role": "assistant",
+                "content": json.dumps(
+                    {"tool": "kb_search", "args": validated_prefetch},
+                    ensure_ascii=False,
+                ),
+            })
+            llm_messages.append({
+                "role": "user",
+                "content": "工具 kb_search 的结果：\n" + self._wrap_untrusted_context("tool_output", prefetch_output),
+            })
+            # Plain knowledge questions should not immediately repeat the same
+            # query. Code-oriented requests keep kb_search available for a
+            # refined query alongside their other code tools.
+            if not self._detect_code_intent(payload.question):
+                agent_tool_names = set(agent_tool_names or ())
+                agent_tool_names.discard("kb_search")
+
         fast_path_pending = research_status_fast_path
         fast_path_final = False
 
