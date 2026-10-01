@@ -415,6 +415,10 @@ body { min-height: 100dvh; }
   line-height: 1.55;
 }
 
+.research-required-mark {
+  color: var(--error);
+}
+
 .research-protocol-hint {
   margin-bottom: 4px;
 }

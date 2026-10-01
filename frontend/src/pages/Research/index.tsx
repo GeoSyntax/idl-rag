@@ -129,6 +129,12 @@ const requiredValueRule = (message: string) => ({
   },
 })
 
+const requiredLabel = (label: string) => (
+  <span>
+    {label}<span className="research-required-mark" aria-hidden="true"> *</span>
+  </span>
+)
+
 const DEFAULT_FORMULA_SPEC = JSON.stringify(
   {
     operation: 'normalized_difference_threshold',
@@ -1638,7 +1644,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       </div>
                       <div className="grid-two">
                         <Form.Item label="尺度（米）" name="scale" rules={[{ required: true }]}><InputNumber min={1} max={10000} style={{ width: '100%' }} /></Form.Item>
-                        <Form.Item label="合成方式" name="composite" rules={[requiredValueRule('请选择合成方式')]}>
+                        <Form.Item label={requiredLabel('合成方式')} name="composite" rules={[requiredValueRule('请选择合成方式')]}>
                           <Select options={['median', 'mean', 'first'].map((value) => ({ value, label: value }))} />
                         </Form.Item>
                       </div>
@@ -1769,7 +1775,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         <Form.Item label="快照名称" name="name" rules={[{ required: true, message: '请输入快照名称' }]}>
                           <Input placeholder="例如：2023 丰水期多源快照" />
                         </Form.Item>
-                        <Form.Item label="资产" name="asset_ids" rules={[requiredValueRule('至少选择一个资产')]}>
+                        <Form.Item label={requiredLabel('资产')} name="asset_ids" rules={[requiredValueRule('至少选择一个资产')]}>
                           <Select mode="multiple" options={assets.map((asset) => ({ value: asset.id, label: `#${asset.id} ${asset.name}` }))} />
                         </Form.Item>
                       </div>
@@ -1803,7 +1809,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       onFinish={(values) => importValidationSamples.mutate(values)}
                     >
                       <div className="grid-two">
-                        <Form.Item label="绑定的冻结快照" name="data_snapshot_id" rules={[requiredValueRule('批量样本必须绑定冻结快照')]}>
+                        <Form.Item label={requiredLabel('绑定的冻结快照')} name="data_snapshot_id" rules={[requiredValueRule('批量样本必须绑定冻结快照')]}>
                           <Select options={snapshots.map((snapshot) => ({ value: snapshot.id, label: `#${snapshot.id} ${snapshot.name}` }))} />
                         </Form.Item>
                         <Form.Item label="默认来源资产（可选）" name="source_asset_id">
@@ -1838,7 +1844,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         <Form.Item label="纬度" name="latitude" rules={[{ required: true }]}><InputNumber min={-90} max={90} style={{ width: '100%' }} /></Form.Item>
                       </div>
                       <div className="grid-two">
-                        <Form.Item label="类别标签" name="label" rules={[requiredValueRule('请选择类别标签')]}><Select options={[{ value: 1, label: '1 · 水体' }, { value: 0, label: '0 · 非水体' }]} /></Form.Item>
+                        <Form.Item label={requiredLabel('类别标签')} name="label" rules={[requiredValueRule('请选择类别标签')]}><Select options={[{ value: 1, label: '1 · 水体' }, { value: 0, label: '0 · 非水体' }]} /></Form.Item>
                         <Form.Item label="置信度（0–1）" name="confidence" rules={[{ required: true }]}><InputNumber min={0} max={1} step={0.05} style={{ width: '100%' }} /></Form.Item>
                       </div>
                       <div className="grid-two">
@@ -1846,8 +1852,8 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         <Form.Item label="标注人" name="annotator" rules={[{ required: true }]}><Input /></Form.Item>
                       </div>
                       <div className="grid-two">
-                        <Form.Item label="数据划分" name="split" rules={[requiredValueRule('请选择数据划分')]}><Select options={['development', 'model_selection', 'independent_test'].map((value) => ({ value, label: value }))} /></Form.Item>
-                        <Form.Item label="冲突状态" name="conflict_status" rules={[requiredValueRule('请选择冲突状态')]}><Select options={['none', 'flagged', 'resolved'].map((value) => ({ value, label: value }))} /></Form.Item>
+                        <Form.Item label={requiredLabel('数据划分')} name="split" rules={[requiredValueRule('请选择数据划分')]}><Select options={['development', 'model_selection', 'independent_test'].map((value) => ({ value, label: value }))} /></Form.Item>
+                        <Form.Item label={requiredLabel('冲突状态')} name="conflict_status" rules={[requiredValueRule('请选择冲突状态')]}><Select options={['none', 'flagged', 'resolved'].map((value) => ({ value, label: value }))} /></Form.Item>
                       </div>
                       <div className="grid-two">
                         <Form.Item label="空间块" name="spatial_block" rules={[{ required: true }]}><Input placeholder="例如：block-east-03" /></Form.Item>
@@ -2058,10 +2064,10 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                     <Form form={evidenceForm} layout="vertical" initialValues={{ status: 'candidate', source_type: 'paper' }} onFinish={(values) => createEvidence.mutate(values)}>
                       <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入来源标题' }]}><Input /></Form.Item>
                       <div className="grid-two">
-                        <Form.Item label="状态" name="status" rules={[requiredValueRule('请选择证据状态')]}>
+                        <Form.Item label={requiredLabel('状态')} name="status" rules={[requiredValueRule('请选择证据状态')]}>
                           <Select options={['candidate', 'verified', 'imported', 'experiment_pinned'].map((value) => ({ value, label: value }))} />
                         </Form.Item>
-                        <Form.Item label="来源类型" name="source_type" rules={[requiredValueRule('请选择来源类型')]}>
+                        <Form.Item label={requiredLabel('来源类型')} name="source_type" rules={[requiredValueRule('请选择来源类型')]}>
                           <Select options={['paper', 'official_document', 'code', 'dataset', 'web'].map((value) => ({ value, label: value }))} />
                         </Form.Item>
                       </div>
@@ -2108,7 +2114,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         <Form.Item label="版本" name="version" rules={[{ required: true }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
                       </div>
                       <div className="grid-two">
-                        <Form.Item label="状态" name="status" rules={[requiredValueRule('请选择公式状态')]}>
+                        <Form.Item label={requiredLabel('状态')} name="status" rules={[requiredValueRule('请选择公式状态')]}>
                           <Select options={['draft', 'candidate', 'frozen'].map((value) => ({ value, label: value }))} />
                         </Form.Item>
                         <Form.Item label="关联证据卡" name="evidence_card_ids">
@@ -2157,23 +2163,23 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                     >
                       <div className="grid-two">
                         <Form.Item label="实验名称" name="name" rules={[{ required: true, message: '请输入实验名称' }]}><Input /></Form.Item>
-                        <Form.Item label="执行器" name="runner_type" rules={[requiredValueRule('请选择执行器')]}>
+                        <Form.Item label={requiredLabel('执行器')} name="runner_type" rules={[requiredValueRule('请选择执行器')]}>
                           <Select options={[{ value: 'python', label: 'PythonRunner（默认）' }, { value: 'idl', label: 'IDLRunner（本机受许可节点）' }]} />
                         </Form.Item>
                       </div>
                       <div className="grid-two">
-                        <Form.Item label="冻结公式" name="formula_spec_id" rules={[requiredValueRule('请选择公式规格')]}>
+                        <Form.Item label={requiredLabel('冻结公式')} name="formula_spec_id" rules={[requiredValueRule('请选择公式规格')]}>
                           <Select options={formulas.map((formula) => ({ value: formula.id, label: `#${formula.id} ${formula.name} v${formula.version} · ${formula.status}` }))} />
                         </Form.Item>
-                        <Form.Item label="数据快照" name="data_snapshot_id" rules={[requiredValueRule('请选择快照')]}>
+                        <Form.Item label={requiredLabel('数据快照')} name="data_snapshot_id" rules={[requiredValueRule('请选择快照')]}>
                           <Select options={snapshots.map((snapshot) => ({ value: snapshot.id, label: `#${snapshot.id} ${snapshot.name}` }))} />
                         </Form.Item>
                       </div>
                       <div className="grid-two">
-                        <Form.Item label="运行模式" name="execution_mode" rules={[requiredValueRule('请选择运行模式')]}>
+                        <Form.Item label={requiredLabel('运行模式')} name="execution_mode" rules={[requiredValueRule('请选择运行模式')]}>
                           <Select options={[{ value: 'preview', label: '预览' }, { value: 'formal', label: '正式可复现实验' }]} />
                         </Form.Item>
-                        <Form.Item label="可视化证据" name="visualization_contract" rules={[requiredValueRule('至少声明一项图件证据')]}>
+                        <Form.Item label={requiredLabel('可视化证据')} name="visualization_contract" rules={[requiredValueRule('至少声明一项图件证据')]}>
                           <Select mode="tags" options={['input', 'cloud_mask', 'index', 'water_mask', 'uncertainty', 'validation_error'].map((value) => ({ value, label: value }))} />
                         </Form.Item>
                       </div>
