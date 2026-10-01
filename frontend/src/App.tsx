@@ -122,11 +122,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!isAdmin && (activePage === 'settings' || activePage === 'users')) {
+    if (currentUser && !isAdmin && (activePage === 'settings' || activePage === 'users')) {
       setNavigationNotice('设置和用户管理由管理员维护；模型状态会在对话页显示，资料、研究和 Agent 功能仍可正常使用。')
       setActivePage('dashboard')
     }
-  }, [activePage, isAdmin])
+  }, [activePage, currentUser, isAdmin])
 
   // Chat run cards can point back to the authoritative Research workspace
   // without coupling the lazy Chat chunk to AppLayout's local page state.
