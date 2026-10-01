@@ -87,6 +87,33 @@ The Settings page provides independent connection checks. A successful chat chec
 
 The frontend reads this value in `frontend/src/api/client.ts`.
 
+## Docker / reverse-proxy SSE
+
+The Compose web container serves the frontend and proxies `/api/` to FastAPI.
+The proxy configuration in `frontend/nginx.conf` deliberately disables response
+buffering and caching, uses HTTP/1.1, clears the hop-by-hop `Connection` header,
+and allows long-running Agent/tool turns to stay open for up to one hour. These
+settings are required for `ask-stream` and `agent-stream`; without them, a
+reverse proxy may hold all tokens until the model finishes or close a slow
+research run before its terminal `done`/`error` event arrives.
+
+If the frontend is placed behind another ingress or reverse proxy, carry the
+same behavior over to that layer:
+
+```nginx
+proxy_http_version 1.1;
+proxy_buffering off;
+proxy_cache off;
+proxy_read_timeout 3600s;
+proxy_send_timeout 3600s;
+proxy_set_header Connection "";
+add_header X-Accel-Buffering no always;
+```
+
+Do not use a short 60-second idle timeout for Agent requests: the backend emits
+bounded `waiting` SSE events during slow Gemini2API/tool turns, but the proxy
+still needs a timeout longer than the maximum expected turn.
+
 ## Local IDL execution
 
 `IDLRAG_IDL_EXECUTABLE` should point to the licensed command-line IDL interpreter when using Windows IDL 8.8:
