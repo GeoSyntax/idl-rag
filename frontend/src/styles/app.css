@@ -20,6 +20,7 @@
 
   --primary: #0891b2;
   --primary-hover: #0e7490;
+  --primary-strong: #075985;
   --primary-light: #ecfeff;
 
   --error: #dc2626;
@@ -173,7 +174,12 @@ body { min-height: 100dvh; }
 
 .app-menu .ant-menu-item-selected {
   background: var(--surface-sidebar-active) !important;
+  color: var(--primary-strong) !important;
   font-weight: 500 !important;
+}
+
+.app-menu .ant-menu-item-selected .anticon {
+  color: var(--primary-strong) !important;
 }
 
 .app-menu .ant-menu-item-selected::after {
