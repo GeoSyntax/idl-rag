@@ -3,7 +3,7 @@ import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, FileText
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkMath from 'remark-math'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 
 import 'katex/dist/katex.min.css'
@@ -542,6 +542,102 @@ function getArtifactValidationIssues(artifact: ChatArtifact): Array<{ line?: num
     .slice(0, 20)
 }
 
+type ArtifactValidationIssue = { line?: number; column?: number; message: string }
+
+function ArtifactCodePreview({ artifact, issues }: { artifact: ChatArtifact; issues: ArtifactValidationIssue[] }) {
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const [activeLine, setActiveLine] = useState<number | null>(null)
+  const lineRefs = useRef<Record<number, HTMLDivElement | null>>({})
+
+  const loadCode = async () => {
+    if (code) return
+    setLoading(true)
+    setError('')
+    try {
+      const text = await api.readChatArtifactText(artifact.download_url)
+      setCode(text.slice(0, 200_000))
+    } catch (err) {
+      setError((err as Error).message || '源码加载失败，请重试。')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openAtLine = (line?: number) => {
+    setActiveLine(line && line > 0 ? line : null)
+    setPreviewOpen(true)
+    void loadCode()
+  }
+
+  useEffect(() => {
+    if (!previewOpen || !activeLine || !lineRefs.current[activeLine]) return
+    lineRefs.current[activeLine]?.scrollIntoView({ block: 'center' })
+  }, [previewOpen, activeLine, code])
+
+  const lines = code ? code.split(/\r?\n/) : []
+
+  return (
+    <>
+      <Button size="small" type="link" onClick={() => openAtLine()}>
+        查看源码
+      </Button>
+      {issues.length > 0 ? (
+        <details className="chat-artifact-validation-issues">
+          <summary>查看 {issues.length} 个编译问题</summary>
+          <div className="chat-artifact-validation-issue-list">
+            {issues.map((issue, index) => (
+              <div className="chat-artifact-validation-issue" key={`${issue.line || 'unknown'}-${issue.column || 'unknown'}-${index}`}>
+                {issue.line ? (
+                  <button className="chat-artifact-validation-issue-location" type="button" onClick={() => openAtLine(issue.line)}>
+                    第 {issue.line} 行{issue.column ? ` · 第 ${issue.column} 列` : ''}
+                  </button>
+                ) : (
+                  <span className="chat-artifact-validation-issue-location">位置未确定</span>
+                )}
+                <span className="chat-artifact-validation-issue-message">{issue.message}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+      <Drawer
+        title={activeLine ? `${artifact.file_name} · 第 ${activeLine} 行` : artifact.file_name}
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        width="min(100vw, 760px)"
+      >
+        {loading ? <div className="chat-artifact-code-state">正在读取源码…</div> : null}
+        {error ? (
+          <div className="chat-artifact-code-state is-error" role="alert">
+            <span>{error}</span>
+            <Button size="small" type="link" onClick={() => void loadCode()}>重试</Button>
+          </div>
+        ) : null}
+        {!loading && !error && code ? (
+          <div className="chat-artifact-code-scroll" role="region" aria-label={`${artifact.file_name} 源码`}>
+            {lines.map((line, index) => {
+              const lineNumber = index + 1
+              return (
+                <div
+                  className={`chat-artifact-code-line${activeLine === lineNumber ? ' is-active' : ''}`}
+                  key={lineNumber}
+                  ref={(element) => { lineRefs.current[lineNumber] = element }}
+                >
+                  <span className="chat-artifact-code-line-number">{lineNumber}</span>
+                  <code>{line || ' '}</code>
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
+      </Drawer>
+    </>
+  )
+}
+
 function ArtifactItem({
   artifact,
   onDownloadArtifact,
@@ -585,21 +681,7 @@ function ArtifactItem({
           {validationLabel.label}
         </span>
       ) : null}
-      {validationIssues.length > 0 && validationLabel?.status !== 'passed' ? (
-        <details className="chat-artifact-validation-issues">
-          <summary>查看 {validationIssues.length} 个编译问题</summary>
-          <div className="chat-artifact-validation-issue-list">
-            {validationIssues.map((issue, index) => (
-              <div className="chat-artifact-validation-issue" key={`${issue.line || 'unknown'}-${issue.column || 'unknown'}-${index}`}>
-                <span className="chat-artifact-validation-issue-location">
-                  {issue.line ? `第 ${issue.line} 行${issue.column ? ` · 第 ${issue.column} 列` : ''}` : '位置未确定'}
-                </span>
-                <span className="chat-artifact-validation-issue-message">{issue.message}</span>
-              </div>
-            ))}
-          </div>
-        </details>
-      ) : null}
+      {canRun ? <ArtifactCodePreview artifact={artifact} issues={validationIssues} /> : null}
       {isChatInput ? <span className="chat-artifact-input-note">已保存上下文，可用于历史重试</span> : null}
       {canRun ? (
         <Button size="small" type="link" icon={<PlayCircleOutlined />} loading={running} onClick={() => onRunArtifact(artifact)}>

@@ -2011,10 +2011,73 @@ body { min-height: 100dvh; }
   font-variant-numeric: tabular-nums;
 }
 
+button.chat-artifact-validation-issue-location {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font: inherit;
+}
+
+button.chat-artifact-validation-issue-location:hover,
+button.chat-artifact-validation-issue-location:focus-visible {
+  color: var(--primary);
+}
+
 .chat-artifact-validation-issue-message {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--text);
+}
+
+.chat-artifact-code-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 80px;
+  color: var(--text-muted);
+}
+
+.chat-artifact-code-state.is-error {
+  color: var(--error);
+}
+
+.chat-artifact-code-scroll {
+  max-height: min(72vh, 760px);
+  overflow: auto;
+  padding: 8px 0;
+  background: #191b1c;
+  border: 1px solid #303536;
+  border-radius: var(--radius-sm);
+  color: #e6eceb;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  tab-size: 2;
+}
+
+.chat-artifact-code-line {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  min-width: max-content;
+  padding-right: 16px;
+}
+
+.chat-artifact-code-line.is-active {
+  background: #473b1f;
+  box-shadow: inset 3px 0 #e2ad55;
+}
+
+.chat-artifact-code-line-number {
+  padding: 0 12px 0 10px;
+  color: #7e8988;
+  text-align: right;
+  user-select: none;
+}
+
+.chat-artifact-code-line code {
+  white-space: pre;
+  color: inherit;
 }
 
 .chat-artifact-actions {
