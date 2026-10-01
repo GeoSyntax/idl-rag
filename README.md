@@ -136,6 +136,17 @@ npm run dev --prefix frontend
 
 浏览器打开 <http://127.0.0.1:5173>，注册账号后就可以创建自己的知识库。需要容器部署时，执行 `docker compose up --build`。
 
+资料刷新或部署前，可以用统一发布闸门检查来源哈希、索引状态、评测新鲜度和备份：
+
+```powershell
+python backend/scripts/release_readiness.py `
+  --source-root data/sources `
+  --backup data/backups/idl-rag-current.zip `
+  --owner-id 1
+```
+
+只有命令返回 `release_ready=true` 才适合把当前资料集交给生产环境；原始论文、私有资料和运行时索引仍只保存在本地或受控备份中。
+
 ## 使用前需要知道
 
 - 平台可以帮你找依据、写代码和跑实验，但公式是否合理、样本是否合适、结论是否成立，仍需要研究者判断。
