@@ -51,6 +51,7 @@ def _decorate_stream_event(
     stream_id: str,
     started_at: float,
     first_token_ms: float | None,
+    phase_timing: dict[str, float] | None = None,
 ) -> dict:
     """Attach bounded, non-sensitive provenance to one SSE event.
 
@@ -65,7 +66,28 @@ def _decorate_stream_event(
         decorated["server_elapsed_ms"] = round((time.perf_counter() - started_at) * 1000, 1)
         if first_token_ms is not None:
             decorated["first_token_ms"] = round(first_token_ms, 1)
+        if phase_timing:
+            decorated["phase_timing"] = phase_timing
     return decorated
+
+
+def _phase_timing_snapshot() -> dict[str, float]:
+    """Expose coarse phase timings on terminal SSE events.
+
+    These values are deliberately limited to duration fields already used by
+    request logs. They help the UI distinguish retrieval latency from model
+    latency without exposing prompts, paths, provider details, or credentials.
+    """
+    timing: dict[str, float] = {}
+    for key, value in (
+        ("retrieve_ms", service.retrieval_service.last_timing.get("retrieve_ms")),
+        ("rerank_ms", service.retrieval_service.last_timing.get("rerank_ms")),
+        ("llm_first_token_ms", service.llm_service.last_timing.get("first_token_ms")),
+        ("llm_total_ms", service.llm_service.last_timing.get("total_ms")),
+    ):
+        if isinstance(value, (int, float)):
+            timing[key] = round(float(value), 1)
+    return timing
 
 
 def _persist_chat_request_log(
@@ -278,7 +300,7 @@ async def ask_question_stream(
                     artifact_count = len(token.get("artifacts", []))
                 if token.get("type") == "error":
                     terminal_sent = True
-                yield f"data: {json.dumps(_decorate_stream_event(token, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(token, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
             terminal_status = "cancelled"
@@ -292,14 +314,14 @@ async def ask_question_stream(
             if not terminal_sent:
                 error_event = {"type": "error", "message": str(exc) or "流式请求失败"}
                 terminal_sent = True
-                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
         else:
             if not terminal_sent:
                 has_error = True
                 terminal_status = "failed"
                 error_message = "流式请求未返回完成事件，请重试。"
                 error_event = {"type": "error", "message": "流式请求未返回完成事件，请重试。"}
-                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
                 current_user.id,
@@ -381,7 +403,7 @@ async def agent_stream(
                     artifact_count = len(event.get("artifacts", []))
                 if event.get("type") == "error":
                     terminal_sent = True
-                yield f"data: {json.dumps(_decorate_stream_event(event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
             terminal_status = "cancelled"
@@ -395,14 +417,14 @@ async def agent_stream(
             if not terminal_sent:
                 error_event = {"type": "error", "message": str(exc) or "Agent 流式请求失败"}
                 terminal_sent = True
-                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
         else:
             if not terminal_sent:
                 has_error = True
                 terminal_status = "failed"
                 error_message = "Agent 流式请求未返回完成事件，请重试。"
                 error_event = {"type": "error", "message": "Agent 流式请求未返回完成事件，请重试。"}
-                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
                 current_user.id,

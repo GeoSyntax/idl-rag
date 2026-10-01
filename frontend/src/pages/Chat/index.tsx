@@ -726,6 +726,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
               streamId: event.stream_id ?? activeStreamId,
               serverElapsedMs: event.server_elapsed_ms ?? null,
               firstTokenMs: event.first_token_ms ?? null,
+              phaseTiming: event.phase_timing ?? null,
             })
             // 保留 Agent 步骤，让研究运行卡片在最终回答落盘后仍可查看。
             finishStream()

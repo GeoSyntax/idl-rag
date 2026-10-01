@@ -711,6 +711,8 @@ class LlmService:
         responses stay buffered and are never rendered as answer text.
         """
         payload = {**payload, "stream": True}
+        started_at = time.perf_counter()
+        first_token_ms: float | None = None
         content_parts: list[str] = []
         tool_calls: dict[int, dict[str, str]] = {}
         streamable: bool | None = None
@@ -739,6 +741,8 @@ class LlmService:
                     content = delta.get("content") or ""
                     if content:
                         content_parts.append(content)
+                        if first_token_ms is None:
+                            first_token_ms = (time.perf_counter() - started_at) * 1000
                         if streamable is None:
                             probe = "".join(content_parts).lstrip()
                             if probe:
@@ -758,12 +762,24 @@ class LlmService:
                 func_args = json.loads(call["arguments"] or "{}")
             except (json.JSONDecodeError, ValueError):
                 func_args = {}
+            self.last_timing = {
+                "first_token_ms": first_token_ms,
+                "total_ms": (time.perf_counter() - started_at) * 1000,
+            }
             return {"tool": call["name"], "args": func_args, "_streamed": False}
 
         content = "".join(content_parts).strip()
         if not content:
+            self.last_timing = {
+                "first_token_ms": first_token_ms,
+                "total_ms": (time.perf_counter() - started_at) * 1000,
+            }
             return {"final_answer": "模型未返回有效内容。", "_streamed": False}
         parsed = self._parse_agent_response(content)
+        self.last_timing = {
+            "first_token_ms": first_token_ms,
+            "total_ms": (time.perf_counter() - started_at) * 1000,
+        }
         if "tool" in parsed or "final_answer" in parsed:
             return {**parsed, "_streamed": bool(streamable)}
         return {"final_answer": content, "_streamed": bool(streamable)}
@@ -804,6 +820,8 @@ class LlmService:
             "messages": final_messages,
         }
         parts: list[str] = []
+        started_at = time.perf_counter()
+        first_token_ms: float | None = None
         with httpx.Client(timeout=120.0) as client:
             with client.stream(
                 "POST",
@@ -828,10 +846,16 @@ class LlmService:
                     content = (choices[0].get("delta") or {}).get("content") or ""
                     if content:
                         parts.append(content)
+                        if first_token_ms is None:
+                            first_token_ms = (time.perf_counter() - started_at) * 1000
                         on_content(content)
         answer = "".join(parts).strip()
         if not answer:
             raise ValueError("模型最终流没有返回文本。")
+        self.last_timing = {
+            "first_token_ms": first_token_ms,
+            "total_ms": (time.perf_counter() - started_at) * 1000,
+        }
         return answer
 
     def _agent_generate_local(self, messages: list[dict[str, str]]) -> dict:

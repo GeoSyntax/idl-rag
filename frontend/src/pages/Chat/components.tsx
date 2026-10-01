@@ -632,11 +632,15 @@ function AgentStepList({ steps, completed = false }: { steps: AgentStepItem[]; c
 function AgentRunMetaSummary({ meta }: { meta: AgentRunMeta }) {
   const elapsed = typeof meta.serverElapsedMs === 'number' ? `${Math.round(meta.serverElapsedMs)}ms` : '-'
   const firstToken = typeof meta.firstTokenMs === 'number' ? `${Math.round(meta.firstTokenMs)}ms` : '-'
+  const phase = meta.phaseTiming
   return (
     <div className="chat-agent-run-meta" aria-label="本次 Agent 运行信息">
       <span>本次 Agent</span>
       <span>服务端 {elapsed}</span>
-      <span>首 token {firstToken}</span>
+      <span>端到端首 token {firstToken}</span>
+      {typeof phase?.retrieve_ms === 'number' ? <span>检索 {Math.round(phase.retrieve_ms)}ms</span> : null}
+      {typeof phase?.rerank_ms === 'number' ? <span>重排 {Math.round(phase.rerank_ms)}ms</span> : null}
+      {typeof phase?.llm_total_ms === 'number' ? <span>模型 {Math.round(phase.llm_total_ms)}ms</span> : null}
       {meta.streamId ? <span className="chat-agent-stream-id" title={`流 ID：${meta.streamId}`}>流 {meta.streamId}</span> : null}
     </div>
   )

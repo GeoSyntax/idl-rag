@@ -145,6 +145,8 @@ def test_agent_stream_terminal_event_contains_safe_timing_provenance(
         yield {"type": "done", "session_id": 19, "citations": [], "artifacts": []}
 
     monkeypatch.setattr(chat.service, "agent_answer_stream_async", completed_stream)
+    chat.service.retrieval_service.last_timing = {"retrieve_ms": 12.34, "rerank_ms": 4.56}
+    chat.service.llm_service.last_timing = {"first_token_ms": 78.9, "total_ms": 123.4}
 
     with TestClient(create_app()) as client:
         registered = _register(client, username="provenance-reviewer")
@@ -159,6 +161,12 @@ def test_agent_stream_terminal_event_contains_safe_timing_provenance(
     assert terminal["type"] == "done"
     assert len(terminal["stream_id"]) == 12
     assert terminal["server_elapsed_ms"] >= 0
+    assert terminal["phase_timing"] == {
+        "retrieve_ms": 12.3,
+        "rerank_ms": 4.6,
+        "llm_first_token_ms": 78.9,
+        "llm_total_ms": 123.4,
+    }
     assert "测试运行元数据" not in json.dumps(terminal, ensure_ascii=False)
     assert "private" not in json.dumps(terminal, ensure_ascii=False).lower()
 

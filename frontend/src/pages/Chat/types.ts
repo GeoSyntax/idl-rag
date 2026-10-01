@@ -1,4 +1,4 @@
-import type { ChatArtifact } from '../../api/types'
+import type { ChatArtifact, PhaseTiming } from '../../api/types'
 
 export type AgentStepItem = {
   id: number
@@ -17,6 +17,7 @@ export type AgentRunMeta = {
   streamId: string | null
   serverElapsedMs: number | null
   firstTokenMs: number | null
+  phaseTiming: PhaseTiming | null
 }
 
 export type AttachedFile = {

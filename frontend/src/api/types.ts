@@ -350,8 +350,15 @@ export type DashboardSummary = {
 export type StreamEvent =
   | { type: 'run_started'; session_id: number; message_id?: number; retry_context?: Record<string, unknown>; stream_id?: string }
   | { type: 'token'; content: string; stream_id?: string }
-  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
-  | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
+  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number; phase_timing?: PhaseTiming }
+  | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number; phase_timing?: PhaseTiming }
+
+export type PhaseTiming = {
+  retrieve_ms?: number
+  rerank_ms?: number
+  llm_first_token_ms?: number
+  llm_total_ms?: number
+}
 
 export type AgentStep =
   | { step: 'thinking'; content: string }
@@ -364,8 +371,8 @@ export type AgentStreamEvent =
   | { type: 'run_started'; session_id: number; message_id?: number; retry_context?: Record<string, unknown>; stream_id?: string }
   | { type: 'step'; step: string; content?: string; tool?: string; args?: Record<string, unknown>; output?: string; metadata?: Record<string, unknown>; stream_id?: string }
   | { type: 'token'; content: string; stream_id?: string }
-  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
-  | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
+  | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number; phase_timing?: PhaseTiming }
+  | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number; phase_timing?: PhaseTiming }
 
 export type ChatRun = {
   id: number
