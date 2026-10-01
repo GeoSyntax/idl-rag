@@ -1,10 +1,11 @@
 # 权威资料补充清单
 
-本轮已在本地资料目录补充 3 份 USGS Landsat Collection 2 资料，并导入“Remote Sensing Algorithms”知识库：
+本轮已在本地资料目录补充 4 份 USGS/NASA 产品资料，并导入“Remote Sensing Algorithms”知识库：
 
 - Landsat 8–9 Collection 2 Level-2 Science Product Guide v6（45 页）
 - Landsat 4–7 Collection 2 Level-2 Science Product Guide v4（44 页）
 - USGS Fact Sheet 2021–3055：Landsat Collection 2 Level-2 Science Products（2 页）
+- NASA/USGS HLS User Guide V2（Harmonized Landsat and Sentinel-2，30 页）
 
 这些资料覆盖了当前算法库里比较缺的一块：产品级输入约定，而不仅是指数公式。重点包括：
 
@@ -46,4 +47,3 @@ data/sources/remote_sensing_official/
 - IDL/ENVI 版本对应的 API 手册、示例代码和批处理约定
 
 收集时要把资料分成“官方产品规范、开放全文论文、论文候选元数据、代码示例、内部资料”五类，并为每类记录来源、许可、版本、获取时间和 SHA-256。不能把搜索摘要或论文元数据直接升级为已核验全文。
-
