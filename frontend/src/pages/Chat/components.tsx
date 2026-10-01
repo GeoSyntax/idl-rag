@@ -516,6 +516,16 @@ function getArtifactBadgeLabel(artifact: ChatArtifact): string {
   return suffix ? suffix.slice(0, 4).toUpperCase() : 'FILE'
 }
 
+function getArtifactValidationLabel(artifact: ChatArtifact): { label: string; status: 'passed' | 'failed' | 'unverified' } | null {
+  const validation = artifact.metadata?.validation
+  if (!validation || typeof validation !== 'object' || Array.isArray(validation)) return null
+  const record = validation as Record<string, unknown>
+  const status = record.validation_status
+  if (status === 'passed') return { label: 'IDL 编译通过', status: 'passed' }
+  if (status === 'failed') return { label: 'IDL 编译失败', status: 'failed' }
+  return { label: '仅静态分析', status: 'unverified' }
+}
+
 function ArtifactItem({
   artifact,
   onDownloadArtifact,
@@ -536,6 +546,7 @@ function ArtifactItem({
   const isChatInput = artifact.kind === 'chat_input'
   const canPreview = artifact.previewable || artifact.media_type.startsWith('image/')
   const badgeLabel = getArtifactBadgeLabel(artifact)
+  const validationLabel = getArtifactValidationLabel(artifact)
 
   if (canPreview) {
     return <ArtifactImagePreview artifact={artifact} onDownloadArtifact={onDownloadArtifact} />
@@ -547,6 +558,16 @@ function ArtifactItem({
       <FileTextOutlined />
       <span className="chat-artifact-name">{artifact.file_name}</span>
       <span className="chat-artifact-size">{formatBytes(artifact.size)}</span>
+      {validationLabel ? (
+        <span
+          className={`chat-artifact-validation is-${validationLabel.status}`}
+          title={typeof artifact.metadata?.validation === 'object'
+            ? String((artifact.metadata?.validation as Record<string, unknown>).validation_notice || '')
+            : undefined}
+        >
+          {validationLabel.label}
+        </span>
+      ) : null}
       {isChatInput ? <span className="chat-artifact-input-note">已保存上下文，可用于历史重试</span> : null}
       {canRun ? (
         <Button size="small" type="link" icon={<PlayCircleOutlined />} loading={running} onClick={() => onRunArtifact(artifact)}>

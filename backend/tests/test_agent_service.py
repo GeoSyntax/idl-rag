@@ -548,7 +548,10 @@ def test_agent_service_generates_and_persists_pro_artifact(monkeypatch, tmp_path
         assert assistant_message.role == "assistant"
         assert assistant_message.citations[0].symbol_name == "build_demo"
         assert len(assistant_message.artifacts) == 1
-        assert response.answer == "已生成 .pro 文件 build_demo.pro，可以在当前对话中下载使用。"
+        assert response.answer.startswith("已生成 .pro 文件 build_demo.pro，可以在当前对话中下载使用。")
+        assert "代码验证：" in response.answer
+        validation = assistant_message.artifacts[0].metadata["validation"]
+        assert validation["validation_status"] in {"passed", "failed", "unverified"}
 
         artifact = assistant_message.artifacts[0]
         assert artifact.file_name == "build_demo.pro"

@@ -350,7 +350,7 @@ class AgentService:
                 input_artifact_ids=[item["id"] for item in input_artifacts],
             )
             artifacts_json.append(artifact)
-            answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
+            answer = self._format_pro_artifact_answer(artifact)
         else:
             answer = self.llm_service.generate_answer(db, payload.question, citations, recent_messages,
                                                        attached_file_content=payload.attached_file_content)
@@ -454,7 +454,7 @@ class AgentService:
                 code,
                 input_artifact_ids=[item["id"] for item in input_artifacts],
             )
-            answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
+            answer = self._format_pro_artifact_answer(artifact)
             artifacts_json: list[dict[str, str | int]] = [artifact]
         else:
             # Phase 2: 流式生成（逐块 yield）
@@ -576,7 +576,7 @@ class AgentService:
                 code,
                 input_artifact_ids=[item["id"] for item in input_artifacts],
             )
-            answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
+            answer = self._format_pro_artifact_answer(artifact)
             artifacts_json: list[dict[str, str | int]] = [artifact]
         else:
             full_answer: list[str] = []
@@ -1194,7 +1194,7 @@ class AgentService:
                         input_artifact_ids=[item["id"] for item in input_artifacts],
                     )
                     artifacts_json.append(artifact)
-                    answer = f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。"
+                    answer = self._format_pro_artifact_answer(artifact)
                     full_answer_parts = [answer]
                 break
 
@@ -2498,6 +2498,42 @@ class AgentService:
         messages.reverse()
         return messages
 
+    @staticmethod
+    def _validate_generated_pro_code(code: str) -> dict[str, str]:
+        """Validate generated IDL before presenting the file as an artifact.
+
+        The validator may use a local IDL executable, but the product must also
+        work on machines that only have Python tooling installed.  In that
+        case ``tool_lint_code`` returns a bounded static-analysis result and
+        the metadata explicitly says that compilation remains unverified.
+        """
+        try:
+            result = tool_lint_code(code)
+            metadata = result.metadata or {}
+            mode = str(metadata.get("validation_mode") or "static_analysis")
+            status = str(metadata.get("validation_status") or "unverified")
+            notice = str(metadata.get("validation_notice") or result.output.splitlines()[0] or "已完成代码检查。")
+            return {
+                "validation_mode": mode,
+                "validation_status": status,
+                "validation_notice": notice[:240],
+            }
+        except Exception:  # noqa: BLE001
+            # A validator failure must not discard the generated file.  It is
+            # safer to expose the unknown state than to imply compilation.
+            return {
+                "validation_mode": "unavailable",
+                "validation_status": "unverified",
+                "validation_notice": "代码验证服务不可用，尚未确认可编译。",
+            }
+
+    @staticmethod
+    def _format_pro_artifact_answer(artifact: dict) -> str:
+        validation = artifact.get("metadata", {}).get("validation", {})
+        notice = validation.get("validation_notice") if isinstance(validation, dict) else None
+        suffix = f"\n代码验证：{notice}" if notice else ""
+        return f"已生成 .pro 文件 {artifact['file_name']}，可以在当前对话中下载使用。{suffix}"
+
     def _save_pro_artifact(
         self,
         session_id: int,
@@ -2514,6 +2550,7 @@ class AgentService:
         file_path = artifact_dir / f"{artifact_id}_{file_name}"
         file_path.write_text(code.rstrip() + "\n", encoding="utf-8", newline="\n")
         dependency_ids = list(dict.fromkeys(input_artifact_ids or []))
+        validation = self._validate_generated_pro_code(code)
         return {
             "id": artifact_id,
             "file_name": file_name,
@@ -2523,7 +2560,10 @@ class AgentService:
             "kind": "pro",
             "previewable": False,
             "input_artifact_ids": dependency_ids,
-            "metadata": {"uses_gee_data": bool(dependency_ids)},
+            "metadata": {
+                "uses_gee_data": bool(dependency_ids),
+                "validation": validation,
+            },
         }
 
     def _save_chat_input_artifact(

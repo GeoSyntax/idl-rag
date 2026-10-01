@@ -1941,6 +1941,36 @@ body { min-height: 100dvh; }
   font-size: 12px;
 }
 
+.chat-artifact-validation {
+  flex: 0 1 auto;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.chat-artifact-validation.is-passed {
+  border-color: #86efac;
+  color: #166534;
+  background: #f0fdf4;
+}
+
+.chat-artifact-validation.is-failed {
+  border-color: #fca5a5;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.chat-artifact-validation.is-unverified {
+  border-color: #fcd34d;
+  color: #92400e;
+  background: #fffbeb;
+}
+
 .chat-artifact-actions {
   display: flex;
   align-items: center;

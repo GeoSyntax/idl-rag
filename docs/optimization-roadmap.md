@@ -287,3 +287,4 @@
 - [x] 真实 Gemini2API 回放：IDL GeoTIFF 请求从此前 7 次空检索/21 秒兜底，变为 0 次工具调用、正常输出完整 IDL 示例；SSE 只有 1 条助手回答、0 个错误气泡、0 个引用，页面 500px 无横向溢出。
 - [x] 无资料 Agent 现在直接进入一次无工具流式回答，不再先请求一份草稿再二次改写；实测单次 `POST /api/chat/agent-stream` 返回 `run_started → thinking → plan → waiting → token* → answer → done`，`done` 携带模型总耗时与首 token 耗时，避免把上游两次调用误显示成两条回答。
 - [x] 无工具路径改用精简的 IDL 系统提示，不再把完整研究工具协议发送给 Gemini2API；同一 IDL GeoTIFF 回放从约 19.3 秒降至约 11.8 秒，模型首 token 从约 16.1 秒降至约 8.7 秒，仍保持 1 条回答、0 个引用和 0 个错误。
+- [x] `.pro` 生成不再只保存模型文本：artifact 保存前自动调用本地 IDL 编译检查；没有 IDL 运行时时降级为明确标注的静态分析。聊天文件卡片显示“IDL 编译通过 / IDL 编译失败 / 仅静态分析”，验证结果写入受控 metadata，不把未验证代码标记为已验证。

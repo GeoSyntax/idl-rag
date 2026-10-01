@@ -433,7 +433,15 @@ def tool_lint_code(code: str) -> ToolResult:
         stdout = result.stdout.strip()
 
         if result.returncode == 0 and not stderr:
-            return ToolResult(name="lint_code", output="✅ 代码编译通过，未发现语法错误。")
+            return ToolResult(
+                name="lint_code",
+                output="✅ 代码编译通过，未发现语法错误。",
+                metadata={
+                    "validation_mode": "idl_compile",
+                    "validation_status": "passed",
+                    "validation_notice": "本地 IDL 编译通过，未发现语法错误。",
+                },
+            )
 
         # 解析错误信息
         errors = stderr or stdout
@@ -442,13 +450,34 @@ def tool_lint_code(code: str) -> ToolResult:
         for line in error_lines[:20]:
             output_parts.append(f"  ❌ {line}")
 
-        return ToolResult(name="lint_code", output="\n".join(output_parts))
+        return ToolResult(
+            name="lint_code",
+            output="\n".join(output_parts),
+            metadata={
+                "validation_mode": "idl_compile",
+                "validation_status": "failed",
+                "validation_notice": f"本地 IDL 编译发现 {len(error_lines)} 个问题。",
+            },
+        )
 
     except FileNotFoundError:
         # IDL 命令不可用，降级到静态分析
-        return tool_analyze_code(code)
+        result = tool_analyze_code(code)
+        result.metadata.update({
+            "validation_mode": "static_analysis",
+            "validation_status": "unverified",
+            "validation_notice": "未检测到本地 IDL 运行时，仅完成静态结构分析。",
+        })
+        return result
     except subprocess.TimeoutExpired:
-        return ToolResult(name="lint_code", output="⚠ 编译超时（30 秒），降级为静态分析。")
+        result = tool_analyze_code(code)
+        result.output = "⚠ 编译超时（30 秒），降级为静态分析。\n\n" + result.output
+        result.metadata.update({
+            "validation_mode": "static_analysis",
+            "validation_status": "unverified",
+            "validation_notice": "IDL 编译超时，仅保留静态结构分析。",
+        })
+        return result
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
