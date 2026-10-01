@@ -1165,6 +1165,7 @@ body { min-height: 100dvh; }
 /* ── Message bubble ── */
 .chat-msg {
   display: flex;
+  width: 100%;
   gap: 10px;
   margin-bottom: 20px;
   align-items: flex-start;
@@ -1203,9 +1204,13 @@ body { min-height: 100dvh; }
 
 .chat-bubble {
   max-width: 85%;
-  flex: 0 1 85%;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
+}
+
+.chat-msg-assistant .chat-bubble {
+  flex: 1 1 auto;
 }
 
 .chat-bubble-user {
@@ -1317,6 +1322,12 @@ body { min-height: 100dvh; }
   margin-bottom: 6px;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.chat-agent-live-status > span:first-child {
+  min-width: 0;
+  flex: 1 1 180px;
+  overflow-wrap: anywhere;
 }
 
 .chat-agent-live-elapsed {
@@ -2397,6 +2408,10 @@ body { min-height: 100dvh; }
 
   .chat-bubble {
     max-width: calc(100% - 36px);
+  }
+
+  .chat-msg-assistant .chat-bubble {
+    flex-basis: calc(100% - 36px);
   }
 
   .chat-artifact-image-thumb {

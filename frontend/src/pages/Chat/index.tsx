@@ -94,6 +94,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const abortRef = useRef<AbortController | null>(null)
   const streamTerminalRef = useRef(false)
   const streamRequestIdRef = useRef(0)
+  // React state is updated after the current event handler returns. A fast
+  // Enter + click (or two rapid Enter presses) can therefore reach
+  // handleSubmit before `isStreaming` becomes true and start two SSE
+  // requests. Keep a synchronous guard for that tiny race window.
+  const submitLockRef = useRef(false)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const stepIdRef = useRef(0)
@@ -217,6 +222,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     streamRequestIdRef.current += 1
     abortRef.current?.abort()
     streamTerminalRef.current = true
+    submitLockRef.current = false
     setMessages([])
     setSessionId(null)
     clearStreamingBuffer()
@@ -248,6 +254,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     streamRequestIdRef.current += 1
     abortRef.current?.abort()
     streamTerminalRef.current = true
+    submitLockRef.current = false
     setMessages([])
     setSessionId(null)
     clearStreamingBuffer()
@@ -368,7 +375,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const handleSubmit = () => {
     const question = inputValue.trim()
     if (!question) return
-    if (isStreaming) return
+    if (isStreaming || submitLockRef.current) return
     // Agent supports a lightweight no-context path for general questions.
     // Normal chat still requires a knowledge base or an uploaded file so it
     // cannot silently look like a grounded answer without evidence.
@@ -380,6 +387,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       messageApi.warning('研究项目上下文需要使用 Agent 模式；普通聊天请选择知识库')
       return
     }
+
+    submitLockRef.current = true
 
     const userMessage: ChatMessage = {
       id: Date.now(),
@@ -428,6 +437,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const finishStream = () => {
     clearStreamingBuffer()
     setIsStreaming(false)
+    submitLockRef.current = false
     agentStartedAtRef.current = null
     setAgentLiveStatus('')
     // The final answer is loaded from the persisted session immediately after
