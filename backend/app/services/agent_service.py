@@ -166,6 +166,10 @@ _ALLOWED_AGENT_TOOLS = {
 
 # 代码修复意图检测关键词
 _FIX_INTENT_KEYWORDS = ("修复", "修改", "bug", "错误", "报错", "异常", "fix", "error", "不对", "有问题", "改一下", "改正")
+_CODE_INTENT_KEYWORDS = (
+    "代码", "脚本", "idl", "python", "gdal", "rasterio", ".pro", "procedure",
+    "function", "函数", "语法", "编译", "lint", "调用关系", "symbol", "code",
+)
 
 # IDL 专用 System Prompt
 _IDL_SYSTEM_PROMPT = (
@@ -1782,7 +1786,16 @@ class AgentService:
                 names.add("research_fetch_gee_asset")
             return names
         if kb_ids and not payload.generate_pro_file and not fix_intent:
-            names = set(_KNOWLEDGE_AGENT_TOOL_NAMES)
+            # A bound knowledge base is enough reason for retrieval, not for
+            # arbitrary code execution tools. Keeping the default schema to
+            # kb_search prevents a plain formula/method question from being
+            # misrouted to lint_code/fix_code or producing an unsolicited
+            # .pro artifact. Expand only when the user clearly asks about
+            # code, or explicitly supplied an artifact as input.
+            code_intent = AgentService._detect_code_intent(payload.question)
+            names = {"kb_search"}
+            if code_intent or payload.input_artifact_ids:
+                names.update(_KNOWLEDGE_AGENT_TOOL_NAMES)
             if payload.allow_external_research:
                 names.add("public_literature_search")
             return names
@@ -1834,6 +1847,14 @@ class AgentService:
         """检测用户是否想要修复代码。"""
         lower_q = question.lower()
         return any(kw in lower_q for kw in _FIX_INTENT_KEYWORDS)
+
+    @staticmethod
+    def _detect_code_intent(question: str) -> bool:
+        """Return whether the user explicitly asks for code-level help."""
+        lower_q = (question or "").lower()
+        if re.search(r"(?:不要|不需要|无需|不用|不生成|不写|不输出).{0,8}(?:代码|脚本|idl|python|\.pro)", lower_q):
+            return False
+        return any(keyword in lower_q for keyword in _CODE_INTENT_KEYWORDS)
 
     @staticmethod
     def _should_use_direct_stream(payload: ChatRequest, fix_intent: bool, kb_ids: list[int]) -> bool:

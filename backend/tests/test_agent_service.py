@@ -174,7 +174,21 @@ def test_agent_tool_schema_is_scoped_by_request() -> None:
     knowledge = AgentService._select_agent_tool_names(ChatRequest(question="检索 IDL 函数"), [7], False)
     assert knowledge is not None
     assert "kb_search" in knowledge
+    assert "lint_code" in knowledge
     assert "research_project_context" not in knowledge
+
+    plain_knowledge = AgentService._select_agent_tool_names(
+        ChatRequest(question="请解释 MNDWI 公式和含义。"),
+        [7],
+        False,
+    )
+    assert plain_knowledge == {"kb_search"}
+    explicitly_no_code = AgentService._select_agent_tool_names(
+        ChatRequest(question="请解释 MNDWI 公式，不要生成代码。"),
+        [7],
+        False,
+    )
+    assert explicitly_no_code == {"kb_search"}
 
 
 def test_research_status_fast_path_is_narrow_and_read_only() -> None:

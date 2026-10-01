@@ -18,6 +18,7 @@
 - [x] Docker/Nginx 代理配置已补齐 SSE 必需项：关闭 buffering/cache、HTTP/1.1、清除 `Connection`、`X-Accel-Buffering: no` 和 1 小时读写超时；配置说明已同步到部署文档。
 - [ ] 在 Docker daemon 可用的真实反向代理/部署环境中复现网关 502、SSE 截断和下载服务故障，确认代理层不会改写或吞掉终止事件。
 - [x] SSE 的 `run_started`、`error` 和 `done` 共用受控的 12 位 `stream_id`；失败气泡可显示该 ID 供定位，禁止把 token、私有路径、原始请求体写入界面或日志。
+- [x] Agent 工具 schema 按用户意图收窄：绑定知识库的普通公式/方法问题只开放 `kb_search`；只有明确代码意图或上传输入 artifact 时才开放代码工具，避免误触发 lint/fix 或生成 `.pro`。单元回归 30 passed；Gemini2API 实际浏览器回放确认生成一条助手回答、无代码产物且 500px 无横向溢出。
 
 ## 优先级与验收标准
 
