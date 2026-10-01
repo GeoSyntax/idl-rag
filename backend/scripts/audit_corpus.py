@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from pypdf import PdfReader
 
 MANIFEST_NAME = "source_manifest.json"
 OPEN_ACCESS_MANIFEST = "open_access_papers_manifest.jsonl"
@@ -114,6 +115,7 @@ def _audit_open_access(directory: Path, errors: list[str], verify_hashes: bool) 
     missing_fields = 0
     license_review = 0
     hash_mismatches: list[str] = []
+    invalid_pdfs: list[str] = []
     for record in records:
         file_name = str(record.get("file_name") or "")
         missing = [field for field in PROVENANCE_FIELDS if not record.get(field)]
@@ -129,11 +131,18 @@ def _audit_open_access(directory: Path, errors: list[str], verify_hashes: bool) 
         seen_files.add(file_name)
         if verify_hashes and record.get("sha256") and _sha256(file_path) != record["sha256"]:
             hash_mismatches.append(file_name)
+        try:
+            if len(PdfReader(file_path, strict=False).pages) < 1:
+                invalid_pdfs.append(file_name)
+        except Exception:  # noqa: BLE001 - audit records invalid third-party PDFs
+            invalid_pdfs.append(file_name)
     unrecorded = sorted(set(pdfs) - seen_files)
     if unrecorded:
         errors.append(f"{path}: unrecorded PDFs: {', '.join(unrecorded[:5])}")
     if hash_mismatches:
         errors.append(f"{path}: SHA-256 mismatch: {', '.join(hash_mismatches[:5])}")
+    if invalid_pdfs:
+        errors.append(f"{path}: invalid or unreadable PDFs: {', '.join(invalid_pdfs[:5])}")
     return {
         "manifest_present": True,
         "records": len(records),
@@ -142,6 +151,7 @@ def _audit_open_access(directory: Path, errors: list[str], verify_hashes: bool) 
         "license_review_records": license_review,
         "unrecorded_pdfs": unrecorded,
         "hash_mismatches": hash_mismatches,
+        "invalid_pdfs": invalid_pdfs,
     }
 
 

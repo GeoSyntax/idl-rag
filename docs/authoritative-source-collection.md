@@ -20,7 +20,7 @@
 - NASA Earthdata MCD43 BRDF/Albedo User Guide V5：`https://www.earthdata.nasa.gov/s3fs-public/2025-04/MCD43_User_Guide_V5.pdf`
 - GDAL COG、Rasterio windowed I/O/reprojection、STAC 核心规范、GEE Python 认证导出和 GeoTIFF 验证清单
 
-此外，本地 `data/sources/open_access_papers/` 已加入 173 篇开放获取候选论文（约 1.05 GB；其中 138 篇为前两轮、35 篇为本轮增量补充），覆盖：
+此外，本地 `data/sources/open_access_papers/` 已加入 175 篇开放获取候选论文（约 1.05 GB；包含中断恢复后重新登记和修复来源 URL 的全文），覆盖：
 
 - 地表反射率、大气校正与跨传感器校准
 - Landsat/Sentinel/MODIS 的 LST、植被指数和水体指数

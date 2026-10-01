@@ -45,7 +45,9 @@ python backend/scripts/audit_corpus.py data/sources `
   --strict
 ```
 
-审计会校验每个来源目录的 SHA-256 manifest、清单中的文件是否存在、文件是否被遗漏、开放获取论文是否具备 DOI/原始 URL/许可证状态，以及论文 manifest 中的 SHA-256 是否仍与本地 PDF 一致。`--strict` 发现错误时返回非零退出码，适合接入 CI 或 Docker 发布前检查。审计结果只写入本地日志，不会把论文全文或私有资料上传到 GitHub。
+审计会校验每个来源目录的 SHA-256 manifest、清单中的文件是否存在、文件是否被遗漏、开放获取论文是否具备 DOI/原始 URL/许可证状态、PDF 是否能被 `pypdf` 完整解析，以及论文 manifest 中的 SHA-256 是否仍与本地 PDF 一致。`--strict` 发现错误时返回非零退出码，适合接入 CI 或 Docker 发布前检查。审计结果只写入本地日志，不会把论文全文或私有资料上传到 GitHub。
+
+开放获取论文采集器 `backend/scripts/collect_open_access_papers.py` 按文件成功下载后立即原子更新 JSONL manifest；重新运行时会按确定的候选排名回收上一次中断留下的有效 PDF，并在入库前执行 PDF 解析检查。可通过 `--timeout`、`--connect-timeout` 和 `--retries` 控制外部站点不稳定时的行为。下载到但无法解析的文件不会进入 manifest，必须先修复来源或移除后才能通过严格审计。
 
 发布前可以再运行统一闸门，它会把来源审计、数据库 readiness、评测新鲜度、embedding 签名和备份校验合并成一个退出码：
 
