@@ -640,13 +640,20 @@ function ArtifactImagePreview({
 }
 
 function AgentStepList({ steps, completed = false }: { steps: AgentStepItem[]; completed?: boolean }) {
-  const latestResearchSummaryId = [...steps]
+  // The backend step id is useful for tracing, but it is not guaranteed to be
+  // unique while a stream is being reconciled with its persisted trace (for
+  // example, a replay can contain the same server event twice).  React keys
+  // must describe the rendered position, otherwise Ant Design Collapse can
+  // reuse the wrong panel and make a tool result look duplicated.  Keep the
+  // id in the key for debuggability and add the event index for uniqueness.
+  const latestResearchSummaryIndex = [...steps]
+    .map((step, index) => ({ step, index }))
     .reverse()
-    .find((step) => step.step === 'tool_result' && step.metadata?.research_run)?.id
-  const items = steps.map((step) => ({
-    key: String(step.id),
+    .find(({ step }) => step.step === 'tool_result' && step.metadata?.research_run)?.index
+  const items = steps.map((step, index) => ({
+    key: `agent-step-${step.id}-${index}`,
     label: getStepLabel(step),
-    children: <StepContent step={step} allSteps={steps} completed={completed} showResearchSummary={step.id === latestResearchSummaryId} />,
+    children: <StepContent step={step} allSteps={steps} completed={completed} showResearchSummary={index === latestResearchSummaryIndex} />,
   }))
   return <Collapse items={items} size="small" className="chat-agent-collapse" defaultActiveKey={items.length ? [items[items.length - 1].key] : []} />
 }
