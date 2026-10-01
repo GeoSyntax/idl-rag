@@ -23,6 +23,9 @@
 - NASA/JPL VIIRS VNP21 User Guide 与 LST&E ATBD（TES、发射率、WVS 大气校正和验证假设）：`https://lpdaac.usgs.gov/documents/1662/VNP21_User_Guide_V2.pdf`、`https://viirsland.gsfc.nasa.gov/PDF/VNP21_LSTE_ATBD_v2.1.pdf`
 - USGS Landsat COG Data Format Control Book LSDS-1388（COG、STAC 元数据、内部瓦片、overview 和 HTTP range 访问）：`https://www.usgs.gov/media/files/landsat-cloud-optimized-geotiff-data-format-control-book`
 - ESA Earth Observation Framework Sentinel-1 Product Unit Definition and Metadata ICD（ESA-EOPG-EOPGC-SP-1 v2.1，产品单元、辅助数据、OData 属性映射和 Sentinel-1 元数据）：`https://eof.esa.int/document/esa-eo-framework-eof-csc-sentinel-1-product-unit-definition-and-metadata-icd/`
+- ESA Sentinel-1 Product Definition 与 2021 Product Specification（Level-1/Level-2 产品族、manifest、measurement/annotation/representation 数据集和元数据 cardinality）：`https://sentinels.copernicus.eu/documents/247904/1877131/Sentinel-1-Product-Definition.pdf`、`https://sentinels.copernicus.eu/documents/247904/1877131/Sentinel-1-Product-Specification-18052021.pdf`
+- USGS Landsat Collection 2 QA Bands 与 Known Issues（QA_PIXEL、QA_RADSAT、SR_QA_AEROSOL、SR_CLOUD_QA、ST_QA bit 语义、clear bit 和 NoData 已知问题）：`https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands`、`https://www.usgs.gov/landsat-missions/landsat-collection-2-known-issues`
+- NASA MODIS MCD43 BRDF/Albedo Algorithm Theoretical Basis Document V5（BRDF/albedo 反演、角度采样、质量标记和算法假设）：`https://lpdaac.usgs.gov/documents/97/MCD43_ATBD.pdf`
 
 本地还保存了一份可增量更新的 OpenAlex 遥感候选清单：当前为 1,500 条记录，其中 1,481 条有 DOI、1,238 条含摘要、1,500 条有落地页。它们是发现和去重线索，不是自动核验的全文，也不代表许可已经允许再分发；候选 Markdown 与 JSONL manifest 位于 `data/sources/collected/`，并通过严格来源审计后才进入本地检索库。
 
