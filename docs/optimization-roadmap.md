@@ -184,6 +184,7 @@
 - [x] 修复设置直链初始化竞态：等待当前用户恢复后再判断管理员身份，管理员刷新 `/settings` 不会被暂时的未登录状态误导回概览。
 - [x] 概览页统计表在 640px 以下切换为纵向指标列表，保留桌面表格语义；500px 实测不再产生内部横向滚动，桌面仍显示完整三列统计。
 - [x] 研究项目选择表在 640px 以下切换为可点击的项目列表，保留原生单选和项目状态；桌面继续使用完整表格，避免移动端为了选择项目横向拖动五列信息。
+- [x] 研究页“数据资产”和“冻结数据快照”在 640px 以下切换为摘要列表，保留名称、类型/来源、校验指纹、资产数和时间；桌面仍保留完整表格，方便审阅全部字段。
 - [x] 对 Research 工作台完成桌面与 500px 窄屏 Lighthouse 回放：Accessibility、Best Practices 和 Agentic Browsing 均为 100；修复项目选择列无标签、入口下拉框的非法 aria 属性、Ant Design 默认蓝/灰文字对比度不足、协议表单未挂载警告，以及窄屏研究标签溢出菜单导致的 ARIA 树错误；500px 页面无横向溢出。
 - [x] 清理 Research 数据与快照流程的第二层可用性问题：GEE/STAC/验证样本/数据资产表单的必填 Select 改为不污染 ARIA 树的自定义校验；文件选择器和多波段对齐控件补齐可读名称；InputNumber 去除 addonAfter 弃用警告。数据 Tab 在 500px 下 Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过。
 - [x] 收紧 Research 实验与影像证据页：实验选择表格补齐选择列的表头和每行标签，重跑基准、候选参数和 JSON 编辑控件补齐名称；500px 与桌面实验 Tab Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过，页面无横向溢出。

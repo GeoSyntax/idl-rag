@@ -1803,22 +1803,35 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         生成对齐多波段栅格
                       </Button>
                     </Space>
-                    <Table<ResearchDataAsset>
-                      rowKey="id"
-                      size="small"
-                      loading={assetsQuery.isLoading}
-                      dataSource={assets}
-                      pagination={false}
-                      scroll={{ x: 760 }}
-                      columns={[
-                        { title: 'ID', dataIndex: 'id', width: 80 },
-                        { title: '名称', dataIndex: 'name' },
-                        { title: '类型', dataIndex: 'asset_kind', width: 110 },
-                        { title: '来源', dataIndex: 'source_type', width: 100 },
-                        { title: '校验', dataIndex: 'sha256', width: 140, render: (value) => value ? `${value.slice(0, 12)}…` : '-' },
-                        { title: '时间', dataIndex: 'created_at', width: 180, render: formatDate },
-                      ]}
-                    />
+                    <div className="research-data-table">
+                      <Table<ResearchDataAsset>
+                        rowKey="id"
+                        size="small"
+                        loading={assetsQuery.isLoading}
+                        dataSource={assets}
+                        pagination={false}
+                        scroll={{ x: 760 }}
+                        columns={[
+                          { title: 'ID', dataIndex: 'id', width: 80 },
+                          { title: '名称', dataIndex: 'name' },
+                          { title: '类型', dataIndex: 'asset_kind', width: 110 },
+                          { title: '来源', dataIndex: 'source_type', width: 100 },
+                          { title: '校验', dataIndex: 'sha256', width: 140, render: (value) => value ? `${value.slice(0, 12)}…` : '-' },
+                          { title: '时间', dataIndex: 'created_at', width: 180, render: formatDate },
+                        ]}
+                      />
+                    </div>
+                    <div className="research-data-list" aria-label="数据资产列表">
+                      {assetsQuery.isLoading ? <div className="research-project-list-state"><Spin size="small" /> 正在读取数据资产…</div> : null}
+                      {!assetsQuery.isLoading && !assets.length ? <DisplayEmpty compact illustration="database" title="还没有数据资产" description="上传本地资料或受控获取数据后，这里会显示资产。" /> : null}
+                      {assets.map((asset) => (
+                        <div className="research-data-list-item" key={asset.id}>
+                          <strong className="research-data-list-name">#{asset.id} {asset.name}</strong>
+                          <span className="research-data-list-meta">{asset.asset_kind} · {asset.source_type}</span>
+                          <span className="research-data-list-detail">校验 {asset.sha256 ? `${asset.sha256.slice(0, 12)}…` : '-'} · {formatDate(asset.created_at)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </Card>
                   <Card className="section-card" title="冻结数据快照">
                     <Form form={snapshotForm} layout="vertical" onFinish={(values) => createSnapshot.mutate(values)}>
@@ -1833,19 +1846,31 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       <Form.Item label="说明" name="description"><Input /></Form.Item>
                       <Button htmlType="submit" type="primary" loading={createSnapshot.isPending}>冻结快照</Button>
                     </Form>
-                    <Table<ResearchDataSnapshot>
-                      className="research-inline-table"
-                      rowKey="id"
-                      size="small"
-                      dataSource={snapshots}
-                      pagination={false}
-                      columns={[
-                        { title: '名称', dataIndex: 'name' },
-                        { title: '资产数', dataIndex: 'asset_ids', width: 100, render: (value: number[]) => value.length },
-                        { title: '指纹', dataIndex: 'snapshot_hash', width: 160, render: (value) => `${value.slice(0, 12)}…` },
-                        { title: '冻结时间', dataIndex: 'frozen_at', width: 180, render: formatDate },
-                      ]}
-                    />
+                    <div className="research-snapshot-table">
+                      <Table<ResearchDataSnapshot>
+                        className="research-inline-table"
+                        rowKey="id"
+                        size="small"
+                        dataSource={snapshots}
+                        pagination={false}
+                        columns={[
+                          { title: '名称', dataIndex: 'name' },
+                          { title: '资产数', dataIndex: 'asset_ids', width: 100, render: (value: number[]) => value.length },
+                          { title: '指纹', dataIndex: 'snapshot_hash', width: 160, render: (value) => `${value.slice(0, 12)}…` },
+                          { title: '冻结时间', dataIndex: 'frozen_at', width: 180, render: formatDate },
+                        ]}
+                      />
+                    </div>
+                    <div className="research-snapshot-list" aria-label="冻结数据快照列表">
+                      {!snapshots.length ? <DisplayEmpty compact illustration="database" title="还没有冻结快照" description="冻结一个或多个资产后，这里会显示可复现的快照。" /> : null}
+                      {snapshots.map((snapshot) => (
+                        <div className="research-data-list-item" key={snapshot.id}>
+                          <strong className="research-data-list-name">{snapshot.name}</strong>
+                          <span className="research-data-list-meta">{snapshot.asset_ids.length} 个资产 · 指纹 {snapshot.snapshot_hash.slice(0, 12)}…</span>
+                          <span className="research-data-list-detail">冻结于 {formatDate(snapshot.frozen_at)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </Card>
                   <Card className="section-card" title="验证样本与独立划分">
                     <Alert

@@ -303,6 +303,38 @@ body { min-height: 100dvh; }
   padding: 12px 0;
 }
 
+.research-data-list,
+.research-snapshot-list {
+  display: none;
+}
+
+.research-data-list-item {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.research-data-list-item:last-child {
+  border-bottom: 0;
+}
+
+.research-data-list-name {
+  overflow-wrap: anywhere;
+}
+
+.research-data-list-meta,
+.research-data-list-detail {
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.research-data-list-meta {
+  color: var(--text-secondary);
+}
+
 .research-tab-label-short {
   display: none;
 }
@@ -2917,6 +2949,16 @@ body { min-height: 100dvh; }
   }
 
   .research-project-list {
+    display: block;
+  }
+
+  .research-data-table,
+  .research-snapshot-table {
+    display: none;
+  }
+
+  .research-data-list,
+  .research-snapshot-list {
     display: block;
   }
 
