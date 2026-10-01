@@ -24,6 +24,8 @@
 - USGS Landsat COG Data Format Control Book LSDS-1388（COG、STAC 元数据、内部瓦片、overview 和 HTTP range 访问）：`https://www.usgs.gov/media/files/landsat-cloud-optimized-geotiff-data-format-control-book`
 - ESA Earth Observation Framework Sentinel-1 Product Unit Definition and Metadata ICD（ESA-EOPG-EOPGC-SP-1 v2.1，产品单元、辅助数据、OData 属性映射和 Sentinel-1 元数据）：`https://eof.esa.int/document/esa-eo-framework-eof-csc-sentinel-1-product-unit-definition-and-metadata-icd/`
 
+本地还保存了一份可增量更新的 OpenAlex 遥感候选清单：当前为 1,500 条记录，其中 1,481 条有 DOI、1,238 条含摘要、1,500 条有落地页。它们是发现和去重线索，不是自动核验的全文，也不代表许可已经允许再分发；候选 Markdown 与 JSONL manifest 位于 `data/sources/collected/`，并通过严格来源审计后才进入本地检索库。
+
 此外，本地 `data/sources/open_access_papers/` 已加入 186 篇开放获取候选论文（约 1.18 GB；包含中断恢复后重新登记和修复来源 URL 的全文），覆盖：
 
 - 地表反射率、大气校正与跨传感器校准
