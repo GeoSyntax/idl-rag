@@ -61,6 +61,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [streamError, setStreamError] = useState('')
+  const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [retryQuestion, setRetryQuestion] = useState('')
   const [retryAttachment, setRetryAttachment] = useState<AttachedFile | null>(null)
   const [retryingRunId, setRetryingRunId] = useState<number | null>(null)
@@ -289,6 +290,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setSessionId(null)
     clearStreamingBuffer()
     setStreamError('')
+    setActiveStreamId(null)
     setRetryQuestion('')
     setRetryAttachment(null)
     setIsStreaming(false)
@@ -325,6 +327,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setSessionId(null)
     clearStreamingBuffer()
     setStreamError('')
+    setActiveStreamId(null)
     setRetryQuestion('')
     setRetryAttachment(null)
     setIsStreaming(false)
@@ -356,6 +359,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setMessages(fullMessages)
       clearStreamingBuffer()
       setStreamError('')
+      setActiveStreamId(null)
       setRetryQuestion('')
       setRetryAttachment(null)
       setIsStreaming(false)
@@ -489,6 +493,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setIsStreaming(true)
     clearStreamingBuffer()
     setStreamError('')
+    setActiveStreamId(null)
     setAgentSteps([])
     setAgentLiveStatus(activeChatMode === 'agent' ? 'Agent 正在处理请求…' : '')
     agentStartedAtRef.current = activeChatMode === 'agent' ? Date.now() : null
@@ -558,11 +563,12 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     }
   }
 
-  const handleStreamError = (errorMsg: string, requestId: number) => {
+  const handleStreamError = (errorMsg: string, requestId: number, streamId?: string) => {
     if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
     streamTerminalRef.current = true
     setAgentRunComplete(false)
     setAgentRunMeta(null)
+    if (streamId) setActiveStreamId(streamId)
     setStreamError(errorMsg)
     if (activeRunSessionIdRef.current !== null) {
       void refreshChatRuns(activeRunSessionIdRef.current)
@@ -611,9 +617,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           input_artifact_ids: inputArtifacts.map((artifact) => artifact.id),
         },
         {
-          onRunStarted: (newSessionId) => {
+          onRunStarted: (newSessionId, streamId) => {
             activeRunSessionIdRef.current = newSessionId
             setSessionId(newSessionId)
+            setActiveStreamId(streamId ?? null)
             void refreshChatRuns(newSessionId)
           },
           onToken: (content: string) => {
@@ -629,7 +636,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             finishStream()
             void loadCompletedSession(newSessionId, requestId, false)
           },
-          onError: (errorMsg) => handleStreamError(errorMsg, requestId),
+          onError: (errorMsg, streamId) => handleStreamError(errorMsg, requestId, streamId),
         },
         signal,
       )
@@ -665,9 +672,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           allow_gee_fetch: allowGeeFetch,
         },
         {
-          onRunStarted: (newSessionId) => {
+          onRunStarted: (newSessionId, streamId) => {
             activeRunSessionIdRef.current = newSessionId
             setSessionId(newSessionId)
+            setActiveStreamId(streamId ?? null)
             void refreshChatRuns(newSessionId)
           },
           onStep: (event: AgentStreamEvent) => {
@@ -717,7 +725,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             // bubble so a completed answer never looks like a second response.
             setAgentRunComplete(true)
             setAgentRunMeta({
-              streamId: event.stream_id ?? null,
+              streamId: event.stream_id ?? activeStreamId,
               serverElapsedMs: event.server_elapsed_ms ?? null,
               firstTokenMs: event.first_token_ms ?? null,
             })
@@ -725,7 +733,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             finishStream()
             void loadCompletedSession(newSessionId, requestId, true)
           },
-          onError: (errorMsg) => handleStreamError(errorMsg, requestId),
+          onError: (errorMsg, streamId) => handleStreamError(errorMsg, requestId, streamId),
         },
         signal,
       )
@@ -1172,6 +1180,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             streamError={streamError}
+            streamId={activeStreamId}
             retryQuestion={retryQuestion}
             onRetry={() => handleSubmit(retryQuestion, retryAttachment)}
             messagesEndRef={messagesEndRef}

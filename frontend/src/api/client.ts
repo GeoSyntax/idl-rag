@@ -786,10 +786,10 @@ export const api = {
       input_artifact_ids?: string[]
     },
     callbacks: {
-      onRunStarted?: (sessionId: number) => void
+      onRunStarted?: (sessionId: number, streamId?: string) => void
       onToken: (content: string) => void
       onDone: (sessionId: number, citations: unknown[], artifacts: unknown[]) => void
-      onError: (message: string) => void
+      onError: (message: string, streamId?: string) => void
     },
     signal?: AbortSignal,
   ): Promise<void> => {
@@ -810,13 +810,13 @@ export const api = {
 
     await consumeSse<StreamEvent>(response, (event) => {
       if (event.type === 'run_started') {
-        callbacks.onRunStarted?.(event.session_id)
+        callbacks.onRunStarted?.(event.session_id, event.stream_id)
       } else if (event.type === 'token') {
         callbacks.onToken(event.content)
       } else if (event.type === 'done') {
         callbacks.onDone(event.session_id, event.citations, event.artifacts)
       } else if (event.type === 'error') {
-        callbacks.onError(event.message)
+        callbacks.onError(event.message, event.stream_id)
       }
     })
   },
@@ -837,11 +837,11 @@ export const api = {
       allow_gee_fetch?: boolean
     },
     callbacks: {
-      onRunStarted?: (sessionId: number) => void
+      onRunStarted?: (sessionId: number, streamId?: string) => void
       onStep: (step: AgentStreamEvent) => void
       onToken: (content: string) => void
       onDone: (event: Extract<AgentStreamEvent, { type: 'done' }>) => void
-      onError: (message: string) => void
+      onError: (message: string, streamId?: string) => void
     },
     signal?: AbortSignal,
   ): Promise<void> => {
@@ -862,7 +862,7 @@ export const api = {
 
     await consumeSse<AgentStreamEvent>(response, (event) => {
       if (event.type === 'run_started') {
-        callbacks.onRunStarted?.(event.session_id)
+        callbacks.onRunStarted?.(event.session_id, event.stream_id)
       } else if (event.type === 'step') {
         callbacks.onStep(event)
       } else if (event.type === 'token') {
@@ -870,7 +870,7 @@ export const api = {
       } else if (event.type === 'done') {
         callbacks.onDone(event)
       } else if (event.type === 'error') {
-        callbacks.onError(event.message)
+        callbacks.onError(event.message, event.stream_id)
       }
     })
   },

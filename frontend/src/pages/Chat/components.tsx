@@ -122,6 +122,7 @@ export function MessageList({
   isStreaming,
   streamingContent,
   streamError,
+  streamId,
   retryQuestion,
   onRetry,
   messagesEndRef,
@@ -144,6 +145,7 @@ export function MessageList({
   isStreaming: boolean
   streamingContent: string
   streamError: string
+  streamId: string | null
   retryQuestion: string
   onRetry: () => void
   messagesEndRef: RefObject<HTMLDivElement>
@@ -204,6 +206,7 @@ export function MessageList({
               <div className="chat-stream-error">
                 <CloseCircleOutlined />
                 <span className="chat-stream-error-message">{streamError}</span>
+                {streamId ? <span className="chat-stream-error-id">流 {streamId}</span> : null}
                 {retryQuestion ? (
                   <Button size="small" type="link" onClick={onRetry} disabled={isStreaming}>
                     重试

@@ -1506,6 +1506,14 @@ body { min-height: 100dvh; }
   flex: 1 1 auto;
 }
 
+.chat-stream-error-id {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .chat-stream-error .ant-btn {
   flex-shrink: 0;
   align-self: center;
@@ -1529,6 +1537,17 @@ body { min-height: 100dvh; }
   .chat-agent-live-status::before,
   .streaming-cursor {
     animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-stream-error {
+    flex-wrap: wrap;
+  }
+
+  .chat-stream-error-id {
+    flex-basis: 100%;
+    margin-left: 23px;
   }
 }
 
