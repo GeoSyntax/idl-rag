@@ -22,6 +22,7 @@
 - ESA Sentinel-2 User Handbook（MSI 波段、产品级别、分辨率、tile 结构和处理等级）：`https://sentinels.copernicus.eu/documents/247904/685211/Sentinel-2_User_Handbook`
 - NASA/JPL VIIRS VNP21 User Guide 与 LST&E ATBD（TES、发射率、WVS 大气校正和验证假设）：`https://lpdaac.usgs.gov/documents/1662/VNP21_User_Guide_V2.pdf`、`https://viirsland.gsfc.nasa.gov/PDF/VNP21_LSTE_ATBD_v2.1.pdf`
 - USGS Landsat COG Data Format Control Book LSDS-1388（COG、STAC 元数据、内部瓦片、overview 和 HTTP range 访问）：`https://www.usgs.gov/media/files/landsat-cloud-optimized-geotiff-data-format-control-book`
+- ESA Earth Observation Framework Sentinel-1 Product Unit Definition and Metadata ICD（ESA-EOPG-EOPGC-SP-1 v2.1，产品单元、辅助数据、OData 属性映射和 Sentinel-1 元数据）：`https://eof.esa.int/document/esa-eo-framework-eof-csc-sentinel-1-product-unit-definition-and-metadata-icd/`
 
 此外，本地 `data/sources/open_access_papers/` 已加入 186 篇开放获取候选论文（约 1.18 GB；包含中断恢复后重新登记和修复来源 URL 的全文），覆盖：
 
