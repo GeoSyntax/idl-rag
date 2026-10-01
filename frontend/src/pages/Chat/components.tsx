@@ -1,7 +1,12 @@
 import { Button, Collapse, Drawer, Tag } from 'antd'
 import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, FileTextOutlined, PictureOutlined, PlayCircleOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons'
+import ReactMarkdown from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
+import remarkMath from 'remark-math'
 import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
+
+import 'katex/dist/katex.min.css'
 
 import { api } from '../../api/client'
 import type { ChatArtifact, ChatMessage, ChatRun, Citation, ResearchProject, ResearchProtocolReadiness, ResearchRun } from '../../api/types'
@@ -304,7 +309,7 @@ function MessageBubble({
           {parseIdlRunContent(message.content) ? (
             <IdlRunResult content={message.content} artifactCount={message.artifacts.length} />
           ) : (
-            message.content
+            <MarkdownContent content={message.content} />
           )}
         </div>
         {message.artifacts.length > 0 && (
@@ -335,6 +340,33 @@ function MessageBubble({
           <UserOutlined />
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Render model answers as safe Markdown with KaTeX math support.
+ *
+ * `react-markdown` does not enable raw HTML by default, so model output cannot
+ * inject arbitrary markup into the chat surface. Links are deliberately kept
+ * in the same tab: citations and private artifact links should remain inside
+ * the authenticated app instead of silently opening a new context.
+ */
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <div className="chat-markdown">
+      <ReactMarkdown
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          a: ({ node: _node, ...props }) => <a {...props} rel="noreferrer" />,
+          code: ({ node: _node, className, children, ...props }) => (
+            <code className={className} {...props}>{children}</code>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   )
 }

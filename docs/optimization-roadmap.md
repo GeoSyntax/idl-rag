@@ -192,3 +192,9 @@
 - [x] 上传附件以私有 `chat_input` artifact 保存文本提取结果，历史消息可显示“已保存上下文”；原始二进制不被伪装成可下载的历史文件。
 - [x] 对 `failed` / `cancelled` 运行提供同一会话内的一键“重试”，自动恢复可用的知识库/项目上下文、输入资料和附件文本；附件已清理时给出明确提示，不静默发送缺上下文的请求。
 - [x] 回归证据：真实 Gemini2API Agent 请求 `session_id=89` 返回唯一 `done`，`run_id=49` 记录 `message_id=198`、附件 artifact `aac47da23ba249abad856ebc0210ea47`，历史消息中用户输入与 `chat_input` artifact 一一对应；前端 `npm run build` 通过。
+
+## 当前轮次进度（科研回答排版）
+
+- [x] Agent/Chat 助手回答使用安全 Markdown 渲染，支持标题、段落、列表、引用、行内代码和 fenced code block；原始 HTML 默认不执行，避免把模型输出当成页面代码。
+- [x] 接入 KaTeX 数学公式渲染，`$...$`、`$$...$$` 和常见 LaTeX 公式在回答气泡中以可读的数学排版显示，长公式在窄屏内部横向滚动，不撑破页面。
+- [x] 真实浏览器回放确认 NDVI 公式从原始 `$\\text{...}$` 字符串变成可读分式；页面无 console error，768px 下仍无横向溢出。
