@@ -31,6 +31,9 @@
 - USGS Landsat 8–9 Collection 2 Provisional Aquatic Reflectance Algorithm Description v6（水体反射率、Rayleigh 校正、中间反射率和水体掩膜）：`https://www.usgs.gov/media/files/landsat-8-9-collection-2-level-2-provisional-aquatic-reflectance-algorithm-description`
 - NASA MODIS MOD13 Vegetation Index ATBD V5（NDVI/EVI、BRDF/正视合成、QA 和大气校正输入）：`https://lpdaac.usgs.gov/documents/449/MOD13_ATBD_V5.pdf`
 - NASA/VIIRS VNP13 User Guide and Abridged ATBD V2.1.2（VIIRS NDVI/EVI、物候合成、质量标记和验证）：`https://lpdaac.usgs.gov/documents/1372/VNP13_User_Guide_ATBD_V2.1.2.pdf`
+- USGS Landsat Collection 2 Level-3 Dynamic Surface Water Extent (DSWE) ADD v1（MNDWI/NDVI 五组水体测试、地形阴影、QA_PIXEL 和掩膜流程）：`https://www.usgs.gov/media/files/landsat-collection-2-level-3-dynamic-surface-water-extent-algorithm-description`
+- NASA/JPL ECOSTRESS L2 User Guide V2（LST/发射率/云产品结构、HDF5 元数据、不确定性和解释边界）：`https://lpdaac.usgs.gov/documents/1574/ECOL2_User_Guide_V2.pdf`
+- NASA/JPL ECOSTRESS L2 LST and Emissivity ATBD V1（TES 温度-发射率分离、辐射传输、大气校正、不确定性和验证方法）：`https://lpdaac.usgs.gov/documents/1324/ECO2_LSTE_ATBD_V1.pdf`
 
 其中 825 页的 USGS LaSRC 文档保留完整原文，并通过 `backend/scripts/split_pdf_for_indexing.py` 生成 4 个带页码范围和 SHA-256 映射的索引分片，避免因单文档页数限制而截断证据。
 
