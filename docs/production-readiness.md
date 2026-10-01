@@ -15,6 +15,10 @@
 
 当前本地工作区已经完成一次生产门禁：owner=1 的 6 个知识库共 3,343 份资料全部为 `ready`，3,343 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 的 10 条遥感产品/工具 golden cases 在新增 QA、Sentinel-1、MOD43 和全文论文后重新评测，命中率 1.0、recall 1.0、MRR 0.883、Precision@6 0.567、答案相关性 1.0。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
+本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Gemini2API `gemini-3.6-flash` 的 `/v1/models` 和最小 Chat 请求均返回成功。两者职责分离：Ollama 负责本地 embedding，Gemini2API 负责聊天/Agent，不把聊天网关误当成 embedding 服务。
+
+307 篇本地 OA PDF 当前全部进入许可人工复核队列，尚未自动标记为可再分发。可用 `backend/scripts/license_review_report.py` 生成 JSON/Markdown 队列；只有明确填写许可证据并将状态设为 `cleared_*` 后，公开资料包的 `--require-cleared-licenses` 闸门才会通过。内部受控部署可以检索这些资料，但教师/企业跨组织共享前仍需完成这一步。
+
 注意：43 条混合 golden question 不能直接用于评价每个知识库的整体质量；知识库 5 若混入 IDL 符号题会得到误导性的低命中率。因此评测必须按知识库/资料域分组，报告中同时保留快速检索评测和可选的 Gemini2API 端到端慢评测。
 
 ## Embedding 选择
