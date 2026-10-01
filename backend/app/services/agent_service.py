@@ -408,6 +408,10 @@ class AgentService:
         db.commit()
         db.refresh(user_message)
 
+        # This event is intentionally metadata-only. The route uses it to
+        # persist a safe run record when the model fails before ``done``.
+        yield {"type": "run_started", "session_id": session.id}
+
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
         citations = self._search_knowledge_bases(db, kb_ids, retrieval_query, payload.top_k, payload.strategy)
@@ -506,6 +510,11 @@ class AgentService:
         db.add(user_message)
         db.commit()
         db.refresh(user_message)
+
+        # Keep ordinary Chat and Agent streams on the same run lifecycle. The
+        # event is metadata-only so a failure before ``done`` can still be
+        # associated with the newly created session without exposing content.
+        yield {"type": "run_started", "session_id": session.id}
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
@@ -615,6 +624,8 @@ class AgentService:
         db.add(user_message)
         db.commit()
         db.refresh(user_message)
+
+        yield {"type": "run_started", "session_id": session.id}
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         # 检测代码修复意图

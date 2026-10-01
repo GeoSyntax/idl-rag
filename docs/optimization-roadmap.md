@@ -176,3 +176,13 @@
 - [x] 按会话上下文裁剪 Gemini2API 的 function schema：研究项目、知识库和外部搜索/Preview/GEE 授权分别只暴露相关工具；服务器端权限校验保持不变。
 - [x] 对常见的研究项目状态查询启用只读快路径：直接执行项目摘要、协议就绪检查和运行摘要，再进行一次无工具最终回答；研究检索、公式、代码、GEE 和写入任务继续使用完整 ReAct。
 - [x] 本地 Gemini2API 真实回放：状态查询从上一轮约 58–87 秒的多轮决策，降为 `session_id=85`、约 7.7 秒、3 个只读工具调用、1 个 `done`、0 个 `error`，仍保留 6 个可追踪工具步骤。
+
+## 当前轮次进度（运行落盘与历史核查）
+
+- [x] 普通 Chat 与 Agent SSE 在收到 `run_started` 后建立安全关联；该事件只携带会话 ID，不携带问题、文件路径、私有 URI 或密钥。
+- [x] 每次流式请求落盘 `stream_id`、终态（`completed` / `failed` / `cancelled`）、服务端耗时、首 token 耗时、引用/产物数量、Agent 步数和受限错误摘要；旧数据库会在启动时兼容补列。
+- [x] 新增 `GET /api/chat/sessions/{session_id}/runs?limit=20`，只返回当前用户拥有会话的安全运行元数据，不返回 prompt、原始模型输出或凭据。
+- [x] 历史会话加载后在同一个聊天区域展示运行记录，失败/取消请求不会伪装为成功；旧记录没有 stream ID 的字段会保守显示为“已完成/失败”，不影响原有消息恢复。
+- [x] 回归证据：后端全量 `163 passed, 1 skipped`；Ruff、Python 编译检查和前端生产构建均通过；本地 Gemini2API 实时 Agent 回放收到 `run_started → step × 8 → token → done`，并在 session 87 的运行接口中读取到 `completed`、`agent_step_count=8`、`error_message=null`。
+
+下一步仍需把这份运行记录与“从历史失败记录一键重试”以及浏览器自动化验收串起来；当前已经可以用于人工核对一次请求是否真的开始、如何结束和是否写入安全审计元数据。

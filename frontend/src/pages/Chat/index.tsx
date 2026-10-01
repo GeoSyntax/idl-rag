@@ -18,6 +18,7 @@ import type {
   AgentStreamEvent,
   ChatArtifact,
   ChatMessage,
+  ChatRun,
   ChatSession,
   GeeFetchRequest,
   KnowledgeBase,
@@ -66,6 +67,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [agentElapsedMs, setAgentElapsedMs] = useState(0)
   const [agentRunComplete, setAgentRunComplete] = useState(false)
   const [agentRunMeta, setAgentRunMeta] = useState<AgentRunMeta | null>(null)
+  const [agentRunHistory, setAgentRunHistory] = useState<ChatRun[]>([])
   const [chatMode, setChatMode] = useState<'normal' | 'agent'>('normal')
   const [fixTarget, setFixTarget] = useState<{ artifactId: string; fileName: string } | null>(null)
   const [generateProFile, setGenerateProFile] = useState(false)
@@ -101,6 +103,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   // handleSubmit before `isStreaming` becomes true and start two SSE
   // requests. Keep a synchronous guard for that tiny race window.
   const submitLockRef = useRef(false)
+  const activeRunSessionIdRef = useRef<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const stepIdRef = useRef(0)
@@ -156,6 +159,16 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       messageApi.error((err as Error).message || '会话列表加载失败')
     } finally {
       setSessionsLoading(false)
+    }
+  }
+
+  const refreshChatRuns = async (targetSessionId: number) => {
+    try {
+      setAgentRunHistory(await api.listChatRuns(targetSessionId))
+    } catch {
+      // Run history is an audit enhancement; a deployment with an older API
+      // must not make the actual chat transcript unavailable.
+      setAgentRunHistory([])
     }
   }
 
@@ -225,6 +238,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     abortRef.current?.abort()
     streamTerminalRef.current = true
     submitLockRef.current = false
+    activeRunSessionIdRef.current = null
     setMessages([])
     setSessionId(null)
     clearStreamingBuffer()
@@ -233,6 +247,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setRetryAttachment(null)
     setIsStreaming(false)
     setAgentSteps([])
+    setAgentRunHistory([])
     setAgentLiveStatus('')
     setAgentElapsedMs(0)
     setAgentRunComplete(false)
@@ -259,6 +274,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     abortRef.current?.abort()
     streamTerminalRef.current = true
     submitLockRef.current = false
+    activeRunSessionIdRef.current = null
     setMessages([])
     setSessionId(null)
     clearStreamingBuffer()
@@ -267,6 +283,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setRetryAttachment(null)
     setIsStreaming(false)
     setAgentSteps([])
+    setAgentRunHistory([])
     setAgentLiveStatus('')
     setAgentElapsedMs(0)
     setAgentRunComplete(false)
@@ -289,6 +306,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       if (streamRequestIdRef.current !== requestId) return
       restoringSessionRef.current = true
       setSessionId(targetSessionId)
+      activeRunSessionIdRef.current = targetSessionId
       setMessages(fullMessages)
       clearStreamingBuffer()
       setStreamError('')
@@ -308,6 +326,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setInputValue('')
       setSelectedKBIds(session?.knowledge_base_id ? [session.knowledge_base_id] : [])
       setResearchProjectId(session?.research_project_id ?? undefined)
+      void refreshChatRuns(targetSessionId)
       if (session?.research_project_id) setChatMode('agent')
     } catch (err) {
       if (streamRequestIdRef.current === requestId) {
@@ -461,10 +480,12 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const loadCompletedSession = async (newSessionId: number, requestId: number, attachAgentTrace = false) => {
     if (streamRequestIdRef.current !== requestId) return
     setSessionId(newSessionId)
+    activeRunSessionIdRef.current = newSessionId
     try {
       const fullMessages = await api.listMessages(newSessionId)
       if (streamRequestIdRef.current !== requestId) return
       setMessages(fullMessages)
+      void refreshChatRuns(newSessionId)
       const persistedTrace = extractPersistedAgentTrace(fullMessages)
       if (persistedTrace.steps.length > 0) setAgentSteps(persistedTrace.steps)
       setAgentRunComplete(attachAgentTrace || persistedTrace.steps.length > 0)
@@ -484,6 +505,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setAgentRunComplete(false)
     setAgentRunMeta(null)
     setStreamError(errorMsg)
+    if (activeRunSessionIdRef.current !== null) {
+      void refreshChatRuns(activeRunSessionIdRef.current)
+    }
     messageApi.error(errorMsg)
     finishStream()
   }
@@ -497,6 +521,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     if ((err as Error).name !== 'AbortError') {
       const message = (err as Error).message || fallback
       setStreamError(message)
+      if (activeRunSessionIdRef.current !== null) {
+        void refreshChatRuns(activeRunSessionIdRef.current)
+      }
       messageApi.error(message)
     }
     finishStream()
@@ -516,6 +543,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           input_artifact_ids: selectedInputArtifacts.map((artifact) => artifact.id),
         },
         {
+          onRunStarted: (newSessionId) => {
+            activeRunSessionIdRef.current = newSessionId
+            setSessionId(newSessionId)
+            void refreshChatRuns(newSessionId)
+          },
           onToken: (content: string) => {
             appendStreamingText(content, requestId)
           },
@@ -556,6 +588,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           allow_gee_fetch: allowGeeFetch,
         },
         {
+          onRunStarted: (newSessionId) => {
+            activeRunSessionIdRef.current = newSessionId
+            setSessionId(newSessionId)
+            void refreshChatRuns(newSessionId)
+          },
           onStep: (event: AgentStreamEvent) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             const stepEvent = event as AgentStepItem & { type: string }
@@ -1033,6 +1070,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             agentSteps={agentSteps}
             agentRunComplete={agentRunComplete}
             agentRunMeta={agentRunMeta}
+            agentRunHistory={agentRunHistory}
             agentLiveStatus={agentLiveStatus}
             agentElapsedMs={agentElapsedMs}
             researchProjectId={researchProjectId}

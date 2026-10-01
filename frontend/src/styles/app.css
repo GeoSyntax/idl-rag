@@ -1642,6 +1642,63 @@ body { min-height: 100dvh; }
   line-height: 1.4;
 }
 
+.chat-agent-history {
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.chat-agent-history-title {
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.chat-agent-history-list {
+  display: grid;
+  gap: 5px;
+}
+
+.chat-agent-history-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.chat-agent-history-status,
+.chat-agent-history-mode {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  white-space: nowrap;
+}
+
+.chat-agent-history-status.is-completed {
+  border-color: #bbf7d0;
+  color: var(--success);
+}
+
+.chat-agent-history-status.is-failed,
+.chat-agent-history-status.is-cancelled {
+  border-color: #fecaca;
+  color: var(--error);
+}
+
+.chat-agent-history-error {
+  min-width: min(220px, 100%);
+  flex: 1 1 220px;
+  overflow-wrap: anywhere;
+  color: var(--error);
+}
+
 .chat-agent-run-meta span + span {
   padding-left: 10px;
   border-left: 1px solid var(--border);

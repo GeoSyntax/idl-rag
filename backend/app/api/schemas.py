@@ -318,6 +318,25 @@ class ChatSessionRenameRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
 
 
+class ChatRunResponse(BaseModel):
+    """Bounded, non-sensitive history entry for one chat/Agent stream."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    session_id: int | None
+    mode: str
+    stream_id: str | None
+    terminal_status: Literal["completed", "failed", "cancelled", "unknown"]
+    total_ms: float
+    llm_first_token_ms: float | None
+    citation_count: int
+    artifact_count: int
+    agent_step_count: int
+    error_message: str | None
+    created_at: datetime
+
+
 class EvaluationRunRequest(BaseModel):
     knowledge_base_id: int
     categories: list[str] | None = None

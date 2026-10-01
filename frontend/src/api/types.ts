@@ -347,6 +347,7 @@ export type DashboardSummary = {
 }
 
 export type StreamEvent =
+  | { type: 'run_started'; session_id: number; stream_id?: string }
   | { type: 'token'; content: string; stream_id?: string }
   | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
   | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
@@ -359,10 +360,26 @@ export type AgentStep =
   | { step: 'error'; content: string }
 
 export type AgentStreamEvent =
+  | { type: 'run_started'; session_id: number; stream_id?: string }
   | { type: 'step'; step: string; content?: string; tool?: string; args?: Record<string, unknown>; output?: string; metadata?: Record<string, unknown>; stream_id?: string }
   | { type: 'token'; content: string; stream_id?: string }
   | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
   | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
+
+export type ChatRun = {
+  id: number
+  session_id: number | null
+  mode: string
+  stream_id: string | null
+  terminal_status: 'completed' | 'failed' | 'cancelled' | 'unknown'
+  total_ms: number
+  llm_first_token_ms: number | null
+  citation_count: number
+  artifact_count: number
+  agent_step_count: number
+  error_message: string | null
+  created_at: string
+}
 
 export type AgentChatRequest = {
   knowledge_base_ids?: number[]

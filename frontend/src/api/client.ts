@@ -2,6 +2,7 @@ import type {
   AgentStreamEvent,
   AuthUser,
   ChatMessage,
+  ChatRun,
   ChatResponse,
   ChatSession,
   DashboardSummary,
@@ -337,6 +338,8 @@ export const api = {
   deleteSession: (sessionId: number) => request<void>(`/chat/sessions/${sessionId}`, { method: 'DELETE' }),
   listMessages: (sessionId: number) =>
     request<ChatMessage[]>(`/chat/sessions/${sessionId}/messages`),
+  listChatRuns: (sessionId: number, limit = 20) =>
+    request<ChatRun[]>(`/chat/sessions/${sessionId}/runs?limit=${limit}`),
   runChatArtifactWithIdl: (sessionId: number, artifactId: string, payload: IdlRunRequest = {}) =>
     request<IdlRunResponse>(`/chat/sessions/${sessionId}/artifacts/${artifactId}/run-idl`, {
       method: 'POST',
@@ -719,6 +722,7 @@ export const api = {
       input_artifact_ids?: string[]
     },
     callbacks: {
+      onRunStarted?: (sessionId: number) => void
       onToken: (content: string) => void
       onDone: (sessionId: number, citations: unknown[], artifacts: unknown[]) => void
       onError: (message: string) => void
@@ -746,7 +750,9 @@ export const api = {
     }
 
     await consumeSse<StreamEvent>(response, (event) => {
-      if (event.type === 'token') {
+      if (event.type === 'run_started') {
+        callbacks.onRunStarted?.(event.session_id)
+      } else if (event.type === 'token') {
         callbacks.onToken(event.content)
       } else if (event.type === 'done') {
         callbacks.onDone(event.session_id, event.citations, event.artifacts)
@@ -771,6 +777,7 @@ export const api = {
       allow_gee_fetch?: boolean
     },
     callbacks: {
+      onRunStarted?: (sessionId: number) => void
       onStep: (step: AgentStreamEvent) => void
       onToken: (content: string) => void
       onDone: (event: Extract<AgentStreamEvent, { type: 'done' }>) => void
@@ -799,7 +806,9 @@ export const api = {
     }
 
     await consumeSse<AgentStreamEvent>(response, (event) => {
-      if (event.type === 'step') {
+      if (event.type === 'run_started') {
+        callbacks.onRunStarted?.(event.session_id)
+      } else if (event.type === 'step') {
         callbacks.onStep(event)
       } else if (event.type === 'token') {
         callbacks.onToken(event.content)

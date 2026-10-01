@@ -580,6 +580,8 @@ def test_answer_stream_filters_citation_markers_split_across_chunks(monkeypatch,
             ]
 
         events = asyncio.run(collect())
+        assert events[0]["type"] == "run_started"
+        assert events[0]["session_id"] > 0
         streamed_answer = "".join(event["content"] for event in events if event.get("type") == "token")
         assert streamed_answer == "没有来源，继续输出"
         assert events[-1]["type"] == "done"
@@ -635,6 +637,9 @@ def test_agent_stream_stops_before_persisting_after_cancellation(monkeypatch, tm
             owner_user_id=user.id,
             cancel_event=cancel_event,
         )
+        run_started = next(stream)
+        assert run_started["type"] == "run_started"
+        assert run_started["session_id"] > 0
         assert next(stream)["step"] == "thinking"
         cancel_event.set()
         assert list(stream) == []

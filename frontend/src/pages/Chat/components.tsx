@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 
 import { api } from '../../api/client'
-import type { ChatArtifact, ChatMessage, Citation, ResearchProject, ResearchProtocolReadiness, ResearchRun } from '../../api/types'
+import type { ChatArtifact, ChatMessage, ChatRun, Citation, ResearchProject, ResearchProtocolReadiness, ResearchRun } from '../../api/types'
 import { DisplayPlaceholder, FileTypeBadge, MetricSummary } from '../../components/DisplayPrimitives'
 import type { AgentRunMeta, AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
 
@@ -107,6 +107,7 @@ export function MessageList({
   agentSteps,
   agentRunComplete,
   agentRunMeta,
+  agentRunHistory,
   agentLiveStatus,
   agentElapsedMs,
   researchProjectId,
@@ -126,6 +127,7 @@ export function MessageList({
   agentSteps: AgentStepItem[]
   agentRunComplete: boolean
   agentRunMeta: AgentRunMeta | null
+  agentRunHistory: ChatRun[]
   agentLiveStatus: string
   agentElapsedMs: number
   researchProjectId?: number
@@ -166,6 +168,9 @@ export function MessageList({
           runningArtifactId={runningArtifactId}
         />
       ))}
+      {agentRunHistory.length > 1 || agentRunHistory.some((run) => run.terminal_status !== 'completed') ? (
+        <AgentRunHistory runs={agentRunHistory} />
+      ) : null}
       {(isStreaming || (agentSteps.length > 0 && !traceAttachedToMessage && !agentRunComplete) || Boolean(streamError)) && (
         <div className="chat-msg chat-msg-assistant">
           <div className="chat-avatar chat-avatar-assistant">
@@ -205,6 +210,40 @@ export function MessageList({
       ) : null}
     </div>
   )
+}
+
+function AgentRunHistory({ runs }: { runs: ChatRun[] }) {
+  return (
+    <section className="chat-agent-history" aria-label="Agent 运行记录">
+      <div className="chat-agent-history-title">运行记录</div>
+      <div className="chat-agent-history-list">
+        {runs.slice(0, 8).map((run) => (
+          <div className="chat-agent-history-row" key={run.id}>
+            <span className={`chat-agent-history-status is-${run.terminal_status}`}>
+              {runStatusLabel(run.terminal_status)}
+            </span>
+            <span className="chat-agent-history-mode">{run.mode === 'agent-stream' ? 'Agent' : '普通'}</span>
+            <span>{formatHistoryTime(run.created_at)}</span>
+            <span>{formatDuration(String(run.total_ms))}</span>
+            {run.agent_step_count > 0 ? <span>{run.agent_step_count} 步</span> : null}
+            {run.error_message ? <span className="chat-agent-history-error">{run.error_message}</span> : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function runStatusLabel(status: ChatRun['terminal_status']): string {
+  if (status === 'completed') return '已完成'
+  if (status === 'cancelled') return '已取消'
+  if (status === 'failed') return '失败'
+  return '未知'
+}
+
+function formatHistoryTime(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '时间未知' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function MessageBubble({

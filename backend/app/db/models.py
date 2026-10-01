@@ -226,6 +226,12 @@ class ChatRequestLog(Base):
     citation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     artifact_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     has_error: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    # Safe correlation and terminal state for replaying failed/cancelled runs.
+    # No prompt, uploaded content, private path or credential is stored here.
+    stream_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    terminal_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    agent_step_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=func.now())
 
     owner: Mapped[User] = relationship()

@@ -163,6 +163,62 @@ def test_agent_stream_terminal_event_contains_safe_timing_provenance(
     assert "private" not in json.dumps(terminal, ensure_ascii=False).lower()
 
 
+def test_agent_stream_persists_run_status_and_safe_correlation(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A completed stream exposes a replayable, prompt-free run record."""
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.api.routes import chat
+    from app.db.database import get_session_factory
+    from app.db.models import ChatRequestLog, ChatSession
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        registered = _register(client, username="run-history-reviewer")
+        with get_session_factory()() as db:
+            session = ChatSession(owner_user_id=registered["user"]["id"], title="run history")
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+            session_id = session.id
+
+        async def completed_stream(db, payload, user_id):
+            yield {"type": "run_started", "session_id": session_id}
+            yield {"type": "step", "step": "tool_call", "tool": "research_project_context"}
+            yield {"type": "done", "session_id": session_id, "citations": [], "artifacts": []}
+
+        monkeypatch.setattr(chat.service, "agent_answer_stream_async", completed_stream)
+        response = client.post(
+            "/api/chat/agent-stream",
+            json={"question": "检查运行记录"},
+            headers=_headers(registered["access_token"]),
+        )
+
+        assert response.status_code == 200
+        with get_session_factory()() as db:
+            log = (
+                db.query(ChatRequestLog)
+                .filter(ChatRequestLog.session_id == session_id)
+                .order_by(ChatRequestLog.id.desc())
+                .first()
+            )
+            assert log is not None
+            assert log.stream_id
+            assert log.terminal_status == "completed"
+            assert log.agent_step_count == 1
+            assert log.error_message is None
+
+        history = client.get(
+            f"/api/chat/sessions/{session_id}/runs",
+            headers=_headers(registered["access_token"]),
+        )
+        assert history.status_code == 200
+        assert history.json()[0]["terminal_status"] == "completed"
+        assert history.json()[0]["agent_step_count"] == 1
+        assert "检查运行记录" not in history.text
+
+
 @pytest.mark.asyncio
 async def test_agent_stream_persists_cancelled_request_and_does_not_emit_fallback(
     monkeypatch, tmp_path: Path

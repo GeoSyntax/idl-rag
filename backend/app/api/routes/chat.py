@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from app.api.schemas import (
     ChatMessageResponse,
     ChatRequest,
     ChatResponse,
+    ChatRunResponse,
     ChatSessionRenameRequest,
     ChatSessionResponse,
     GeeFetchRequest,
@@ -79,6 +80,10 @@ def _persist_chat_request_log(
     citation_count: int,
     artifact_count: int,
     has_error: bool,
+    stream_id: str | None = None,
+    terminal_status: str | None = None,
+    error_message: str | None = None,
+    agent_step_count: int = 0,
 ) -> None:
     """在独立 session 中写入请求日志，不阻塞响应流。"""
     try:
@@ -98,6 +103,10 @@ def _persist_chat_request_log(
                 citation_count=citation_count,
                 artifact_count=artifact_count,
                 has_error=has_error,
+                stream_id=stream_id,
+                terminal_status=terminal_status,
+                error_message=(error_message or "")[:500] or None,
+                agent_step_count=max(0, int(agent_step_count)),
             ))
             log_db.commit()
     except Exception:  # noqa: BLE001
@@ -183,6 +192,8 @@ def ask_question(
             citation_count=0,
             artifact_count=0,
             has_error=True,
+            terminal_status="failed",
+            error_message=str(exc),
         )
         db.add(log)
         db.commit()
@@ -202,6 +213,7 @@ def ask_question(
         citation_count=len(response.citations),
         artifact_count=len(response.messages[-1].artifacts) if response.messages else 0,
         has_error=False,
+        terminal_status="completed",
     )
     db.add(log)
     db.commit()
@@ -228,16 +240,26 @@ async def ask_question_stream(
         citation_count = 0
         artifact_count = 0
         result_session_id = None
+        terminal_status = "running"
+        error_message = None
+        agent_step_count = 0
         try:
             async for token in service.answer_stream_async(db, payload, current_user.id):
                 if terminal_sent:
                     continue
+                if token.get("type") == "run_started":
+                    result_session_id = token.get("session_id")
+                if token.get("type") == "step":
+                    agent_step_count += 1
                 if token.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
                 if token.get("type") == "error":
                     has_error = True
+                    terminal_status = "failed"
+                    error_message = token.get("message") or "流式请求失败"
                 if token.get("type") == "done":
                     terminal_sent = True
+                    terminal_status = "completed"
                     result_session_id = token.get("session_id")
                     citation_count = len(token.get("citations", []))
                     artifact_count = len(token.get("artifacts", []))
@@ -246,9 +268,13 @@ async def ask_question_stream(
                 yield f"data: {json.dumps(_decorate_stream_event(token, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
+            terminal_status = "cancelled"
+            error_message = "客户端取消了流式请求。"
             raise
         except Exception as exc:  # noqa: BLE001
             has_error = True
+            terminal_status = "failed"
+            error_message = str(exc) or "流式请求失败"
             logger.exception("ask-stream failed")
             if not terminal_sent:
                 error_event = {"type": "error", "message": str(exc) or "流式请求失败"}
@@ -257,6 +283,8 @@ async def ask_question_stream(
         else:
             if not terminal_sent:
                 has_error = True
+                terminal_status = "failed"
+                error_message = "流式请求未返回完成事件，请重试。"
                 error_event = {"type": "error", "message": "流式请求未返回完成事件，请重试。"}
                 yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         finally:
@@ -276,6 +304,10 @@ async def ask_question_stream(
                 citation_count=citation_count,
                 artifact_count=artifact_count,
                 has_error=has_error,
+                stream_id=stream_id,
+                terminal_status=terminal_status,
+                error_message=error_message,
+                agent_step_count=agent_step_count,
             )
 
     return StreamingResponse(
@@ -305,16 +337,26 @@ async def agent_stream(
         citation_count = 0
         artifact_count = 0
         result_session_id = None
+        terminal_status = "running"
+        error_message = None
+        agent_step_count = 0
         try:
             async for event in service.agent_answer_stream_async(db, payload, current_user.id):
                 if terminal_sent:
                     continue
+                if event.get("type") == "run_started":
+                    result_session_id = event.get("session_id")
+                if event.get("type") == "step":
+                    agent_step_count += 1
                 if event.get("type") == "token" and first_token_ms is None:
                     first_token_ms = (time.perf_counter() - started_at) * 1000
                 if event.get("type") == "error":
                     has_error = True
+                    terminal_status = "failed"
+                    error_message = event.get("message") or "Agent 流式请求失败"
                 if event.get("type") == "done":
                     terminal_sent = True
+                    terminal_status = "completed"
                     result_session_id = event.get("session_id")
                     citation_count = len(event.get("citations", []))
                     artifact_count = len(event.get("artifacts", []))
@@ -323,9 +365,13 @@ async def agent_stream(
                 yield f"data: {json.dumps(_decorate_stream_event(event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
+            terminal_status = "cancelled"
+            error_message = "客户端取消了 Agent 流式请求。"
             raise
         except Exception as exc:  # noqa: BLE001
             has_error = True
+            terminal_status = "failed"
+            error_message = str(exc) or "Agent 流式请求失败"
             logger.exception("agent-stream failed")
             if not terminal_sent:
                 error_event = {"type": "error", "message": str(exc) or "Agent 流式请求失败"}
@@ -334,6 +380,8 @@ async def agent_stream(
         else:
             if not terminal_sent:
                 has_error = True
+                terminal_status = "failed"
+                error_message = "Agent 流式请求未返回完成事件，请重试。"
                 error_event = {"type": "error", "message": "Agent 流式请求未返回完成事件，请重试。"}
                 yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms), ensure_ascii=False)}\n\n"
         finally:
@@ -353,6 +401,10 @@ async def agent_stream(
                 citation_count=citation_count,
                 artifact_count=artifact_count,
                 has_error=has_error,
+                stream_id=stream_id,
+                terminal_status=terminal_status,
+                error_message=error_message,
+                agent_step_count=agent_step_count,
             )
 
     return StreamingResponse(
@@ -459,6 +511,54 @@ def list_sessions(
         .all()
     )
     return [ChatSessionResponse.model_validate(s) for s in sessions]
+
+
+@router.get("/sessions/{session_id}/runs", response_model=list[ChatRunResponse])
+def list_chat_runs(
+    session_id: int,
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ChatRunResponse]:
+    """Return safe terminal history for one chat session.
+
+    Request logs intentionally contain no prompt or document content. Older
+    rows created before terminal_status existed are mapped conservatively from
+    ``has_error`` so existing installations remain readable after migration.
+    """
+    session = db.get(ChatSession, session_id)
+    if session is None or session.owner_user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="会话不存在。")
+    logs = (
+        db.query(ChatRequestLog)
+        .filter(
+            ChatRequestLog.owner_user_id == current_user.id,
+            ChatRequestLog.session_id == session_id,
+        )
+        .order_by(ChatRequestLog.created_at.desc(), ChatRequestLog.id.desc())
+        .limit(limit)
+        .all()
+    )
+    runs: list[ChatRunResponse] = []
+    for log in logs:
+        status = log.terminal_status or ("failed" if log.has_error else "completed")
+        if status not in {"completed", "failed", "cancelled"}:
+            status = "unknown"
+        runs.append(ChatRunResponse(
+            id=log.id,
+            session_id=log.session_id,
+            mode=log.mode,
+            stream_id=log.stream_id,
+            terminal_status=status,
+            total_ms=float(log.total_ms or 0),
+            llm_first_token_ms=log.llm_first_token_ms,
+            citation_count=log.citation_count,
+            artifact_count=log.artifact_count,
+            agent_step_count=log.agent_step_count,
+            error_message=log.error_message,
+            created_at=log.created_at,
+        ))
+    return runs
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
