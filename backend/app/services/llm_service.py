@@ -634,9 +634,16 @@ class LlmService:
             "model": settings.chat_model,
             "temperature": 0.2,
             "messages": messages,
-            "tools": get_openai_tools(tool_names),
-            "tool_choice": "auto",
         }
+        # An empty scoped tool set is an explicit decision: this request can
+        # answer directly and must not be sent an empty tools array. Some
+        # OpenAI-compatible gateways interpret ``tools=[]`` inconsistently or
+        # still emit phantom tool calls, which can trap the Agent loop in a
+        # repeated empty retrieval.
+        scoped_tools = get_openai_tools(tool_names)
+        if scoped_tools:
+            payload["tools"] = scoped_tools
+            payload["tool_choice"] = "auto"
         provider_name = str(getattr(settings, "provider_name", "") or "").strip().lower()
         # gemin2api currently streams ordinary chat but rejects the OpenAI
         # tools payload when `stream=true`; do not spend a full upstream

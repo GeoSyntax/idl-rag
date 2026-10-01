@@ -274,6 +274,25 @@ def test_agent_tool_schema_is_scoped_by_request() -> None:
         False,
     )
     assert explicitly_no_code == {"kb_search"}
+    no_kb_code = AgentService._select_agent_tool_names(
+        ChatRequest(question="请生成一个读取 GeoTIFF 的 IDL 示例。"),
+        [],
+        False,
+    )
+    assert no_kb_code == set()
+    no_kb_plan = AgentService._build_agent_plan(
+        ChatRequest(question="请生成一个读取 GeoTIFF 的 IDL 示例。"),
+        [],
+        False,
+    )
+    assert no_kb_plan[-1]["label"] == "基于模型知识生成回答，并明确未使用检索来源"
+    no_kb_artifact = AgentService._select_agent_tool_names(
+        ChatRequest(question="请检查这个 IDL 文件。", input_artifact_ids=["artifact-1"]),
+        [],
+        False,
+    )
+    assert "kb_search" not in no_kb_artifact
+    assert {"read_artifact", "analyze_code", "lint_code"}.issubset(no_kb_artifact)
 
     gated_plan = AgentService._build_agent_plan(
         ChatRequest(research_project_id=3, question="请获取 GEE 数据并运行 preview 实验。"),

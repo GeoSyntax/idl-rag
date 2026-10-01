@@ -756,6 +756,13 @@ class AgentService:
                 "如果缺少某些候选运行或指标，必须明确说‘当前无法排名’，把候选交回研究页 parameter sweep，不能用常识补齐数字或顺序。"
             )
 
+        if agent_tool_names == set():
+            system_prompt += (
+                "\n\n本次请求没有绑定知识库、项目资料或可用检索工具。"
+                "请直接基于模型知识回答；不要尝试调用 kb_search、grep_search 或其他未声明工具，"
+                "并在需要依据时明确说明当前回答未使用检索来源。\n"
+            )
+
         # 如果检测到修复意图且有历史代码，注入提示
         fix_context = ""
         if fix_intent and last_artifact_code:
@@ -1991,7 +1998,13 @@ class AgentService:
                     authorized=payload.allow_external_research,
                 )
 
-        add_item("evidence_answer", "基于实际检索结果生成回答，并标注可核查来源", "answer")
+        if payload.research_project_id is not None or kb_ids or payload.allow_external_research:
+            answer_label = "基于检索与项目事实生成回答，并标注可核查来源"
+        elif payload.input_artifact_ids or payload.attached_file_content:
+            answer_label = "基于用户提供资料生成回答，并说明验证边界"
+        else:
+            answer_label = "基于模型知识生成回答，并明确未使用检索来源"
+        add_item("evidence_answer", answer_label, "answer")
         return items[:6]
 
     @staticmethod
@@ -2029,7 +2042,23 @@ class AgentService:
             if payload.allow_external_research:
                 names.add("public_literature_search")
             return names
-        return None
+        # Without a selected knowledge base, retrieval tools cannot produce
+        # useful evidence. Exposing kb_search (or the full tool set) here made
+        # code-generation requests loop over the same empty search result until
+        # the round budget was exhausted. Keep local artifact/code checks when
+        # the user actually supplied an artifact; otherwise let the model
+        # answer directly from the question instead of pretending retrieval is
+        # available.
+        if payload.input_artifact_ids:
+            names = {"read_artifact", "analyze_code", "lint_code"}
+            if fix_intent:
+                names.add("fix_code")
+            if payload.allow_external_research:
+                names.add("public_literature_search")
+            return names
+        if payload.allow_external_research:
+            return {"public_literature_search"}
+        return set()
 
     @staticmethod
     def _should_use_research_status_fast_path(payload: ChatRequest) -> bool:
