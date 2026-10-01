@@ -237,3 +237,73 @@ def test_hybrid_skips_hash_fallback_vectors(monkeypatch: pytest.MonkeyPatch, ret
     rows = service._hybrid_ranked_rows(db, kb_id, "query", candidate_limit=10)
 
     assert [row["chunk_id"] for row in rows] == [1]
+
+
+def test_source_tier_nudge_prefers_authoritative_material_when_evidence_is_close(
+    retrieval_env: tuple[Session, int],
+) -> None:
+    db, kb_id = retrieval_env
+    service = RetrievalService()
+    rows = [
+        {
+            "chunk_id": 1,
+            "document_id": 1,
+            "file_path": "E:/workspace/data/sources/collected/openalex_remote_sensing_articles/paper.md",
+            "file_name": "paper.md",
+            "title": "candidate metadata",
+            "section": None,
+            "symbol_name": None,
+            "chunk_kind": "paragraph",
+        },
+        {
+            "chunk_id": 2,
+            "document_id": 2,
+            "file_path": "E:/workspace/data/sources/remote_sensing_official/product.md",
+            "file_name": "product.md",
+            "title": "official product guide",
+            "section": None,
+            "symbol_name": None,
+            "chunk_kind": "paragraph",
+        },
+    ]
+
+    ranked = service._rank_rows("product scale factor", [rows, list(reversed(rows))])
+
+    assert ranked[0]["chunk_id"] == 2
+    assert ranked[0]["source_tier_nudge"] > ranked[1]["source_tier_nudge"]
+    db.close()
+
+
+def test_filename_and_title_tokens_disambiguate_product_notes(
+    retrieval_env: tuple[Session, int],
+) -> None:
+    db, _kb_id = retrieval_env
+    service = RetrievalService()
+    target = {
+        "chunk_id": 1,
+        "document_id": 1,
+        "file_path": "E:/workspace/data/sources/remote_sensing_official/gee_sentinel2_harmonized.md",
+        "file_name": "gee_sentinel2_harmonized.md",
+        "title": "Sentinel-2 Harmonized products in Google Earth Engine",
+        "section": "Product facts",
+        "symbol_name": None,
+        "chunk_kind": "paragraph",
+    }
+    distractor = {
+        "chunk_id": 2,
+        "document_id": 2,
+        "file_path": "E:/workspace/data/sources/remote_sensing_official/Sentinel-1_Product_Definition.pdf",
+        "file_name": "Sentinel-1_Product_Definition.pdf",
+        "title": "Sentinel-1 product definition",
+        "section": "Product facts",
+        "symbol_name": None,
+        "chunk_kind": "paragraph",
+    }
+
+    ranked = service._rank_rows(
+        "GEE Sentinel-2 SR Harmonized 缩放因子",
+        [[target, distractor], [distractor, target]],
+    )
+
+    assert ranked[0]["chunk_id"] == 1
+    db.close()

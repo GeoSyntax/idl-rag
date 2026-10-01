@@ -20,6 +20,29 @@ DEFAULT_RETRIEVAL_STRATEGY = "hybrid_rrf_no_rerank"
 _RERANK_STRATEGIES = {"hybrid_rrf", "rag_fusion", "hyde", "parent_child", "dependency_graphrag", "agentic_react"}
 _TOOL_STRATEGIES = {"grep", "grep_search", "symbol", "symbol_search", "read_context", "symbol_context", "find_callers", "find_callees"}
 
+# A larger corpus contains both authoritative product specifications and
+# discovery-only OpenAlex metadata.  Retrieval should still use semantic and
+# lexical evidence first, but when candidates are otherwise close the source
+# tier must prefer material that can support a reproducible research decision.
+# The values are deliberately small score nudges rather than hard filters so a
+# highly relevant paper can still outrank an unrelated official note.
+_SOURCE_TIER_NUDGES = (
+    ("/remote_sensing_official/", 0.08),
+    ("\\remote_sensing_official\\", 0.08),
+    ("/tooling_official/", 0.08),
+    ("\\tooling_official\\", 0.08),
+    ("/open_access_papers/", 0.02),
+    ("\\open_access_papers\\", 0.02),
+    ("/live_remote_sensing_theory/", 0.01),
+    ("\\live_remote_sensing_theory\\", 0.01),
+    ("/collected/", -0.04),
+    ("\\collected\\", -0.04),
+)
+_RANK_STOPWORDS = {
+    "the", "and", "are", "for", "from", "with", "this", "that", "what", "why", "how",
+    "use", "using", "into", "does", "can", "的", "是", "在", "中", "和", "要", "需要",
+}
+
 
 class RetrievalService:
     def __init__(self) -> None:
@@ -572,6 +595,11 @@ class RetrievalService:
 
         document_counts = Counter(row["document_id"] for row in merged.values())
         lowered_query = query.lower()
+        query_terms = {
+            token
+            for token in re.findall(r"[a-z0-9]+", lowered_query.replace("_", " ").replace("-", " "))
+            if len(token) >= 3 and token not in _RANK_STOPWORDS
+        }
         heuristic_raw: dict[int, float] = defaultdict(float)
         for chunk_id, row in merged.items():
             symbol_name = (row.get("symbol_name") or "").lower()
@@ -584,6 +612,19 @@ class RetrievalService:
                 heuristic_raw[chunk_id] += 2.0
             if section and section in lowered_query:
                 heuristic_raw[chunk_id] += 1.0
+            label = " ".join(
+                str(value or "")
+                for value in (row.get("file_name"), row.get("title"), row.get("section"))
+            ).lower()
+            label_terms = {
+                token
+                for token in re.findall(r"[a-z0-9]+", label.replace("_", " ").replace("-", " "))
+                if len(token) >= 3 and token not in _RANK_STOPWORDS
+            }
+            # Filename/title overlap is especially valuable for product notes:
+            # it separates Sentinel-2 Harmonized from a generic Sentinel-1
+            # product document that happens to mention the same processing term.
+            heuristic_raw[chunk_id] += min(len(query_terms & label_terms), 4) * 0.65
             if chunk_kind == "symbol_summary":
                 heuristic_raw[chunk_id] += 1.5
             elif chunk_kind == "overview":
@@ -595,21 +636,35 @@ class RetrievalService:
         h_range = h_max - h_min or 1.0
         heuristic_normalized = {cid: (score - h_min) / h_range for cid, score in heuristic_raw.items()}
 
-        scores = {
-            chunk_id: 0.65 * rrf_normalized.get(chunk_id, 0.0) + 0.35 * heuristic_normalized.get(chunk_id, 0.0)
-            for chunk_id in merged
-        }
+        scores = {}
+        for chunk_id, row in merged.items():
+            source_tier_nudge = self._source_tier_nudge(row)
+            scores[chunk_id] = (
+                0.62 * rrf_normalized.get(chunk_id, 0.0)
+                + 0.34 * heuristic_normalized.get(chunk_id, 0.0)
+                + source_tier_nudge
+            )
         for chunk_id, row in merged.items():
             row["rrf_score"] = rrf_scores.get(chunk_id, 0.0)
             row["rrf_normalized"] = rrf_normalized.get(chunk_id, 0.0)
             row["heuristic_score"] = heuristic_raw.get(chunk_id, 0.0)
             row["heuristic_normalized"] = heuristic_normalized.get(chunk_id, 0.0)
+            row["source_tier_nudge"] = self._source_tier_nudge(row)
             row["combined_score"] = scores[chunk_id]
         return sorted(
             merged.values(),
             key=lambda row: (row["combined_score"], row.get("chunk_kind") == "symbol_summary"),
             reverse=True,
         )
+
+    @staticmethod
+    def _source_tier_nudge(row: dict[str, Any]) -> float:
+        """Return a small provenance-aware tie-breaker for retrieval ranking."""
+        path = str(row.get("file_path") or "").replace("\\", "/").lower()
+        for marker, nudge in _SOURCE_TIER_NUDGES:
+            if marker.replace("\\", "/") in path:
+                return nudge
+        return 0.0
 
     def _fuse_ranked_lists(self, ranked_lists: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
         merged: dict[int, dict[str, Any]] = {}
