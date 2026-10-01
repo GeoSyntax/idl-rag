@@ -314,6 +314,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   }, [streamingContent, messages, agentSteps, agentRunHistory.length, agentRunComplete, streamError])
 
   useEffect(() => {
+    const handleSettingsUpdated = (event: StorageEvent) => {
+      if (event.key !== 'idl-rag:model-settings-updated' || !event.newValue) return
+      setStreamError((current) => (current ? '模型配置已更新，请点击“重试”继续本次问题。' : current))
+    }
+    window.addEventListener('storage', handleSettingsUpdated)
+    return () => window.removeEventListener('storage', handleSettingsUpdated)
+  }, [])
+
+  useEffect(() => {
     if (!isStreaming) {
       inputRef.current?.focus()
     }

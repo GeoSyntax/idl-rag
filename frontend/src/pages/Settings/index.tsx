@@ -109,6 +109,14 @@ export function SettingsPage({ settings, loading, knowledgeBases, onSaved }: Set
     onSuccess: (value) => {
       onSaved(value)
       form.setFieldsValue({ api_key: '', embedding_api_key: '', rerank_api_key: '', langsmith_api_key: '' })
+      // The settings page can be opened in a separate tab from a failed Chat
+      // run. Notify that original tab so it can offer an immediate retry
+      // without a reload or re-entering the question.
+      try {
+        window.localStorage.setItem('idl-rag:model-settings-updated', String(Date.now()))
+      } catch {
+        // Ignore storage restrictions; the saved response is authoritative.
+      }
       messageApi.success('设置已保存')
     },
     onError: (error: Error) => {
