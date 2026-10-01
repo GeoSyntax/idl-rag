@@ -291,3 +291,4 @@
 - [x] IDL 验证改为响应后后台任务：SSE 先以 `pending` 返回可下载 artifact，后台更新同一消息的验证 metadata，前端最多轮询 20 次刷新状态；真实 Gemini2API 回放确认约 12.8 秒完成首响应，约 8 秒后状态从 `pending` 更新为 `idl_compile/failed`，没有第二条助手消息。代码块提取同时兼容 `idl`、`idldoc`、`envi` 和 `pro` 标签，避免模型换 fence 名称导致 artifact 丢失。
 - [x] IDL 编译失败不再只显示问题数量：后端从不同版本的 IDL 输出中尽力解析行/列号并去除临时路径，写入受控 `validation_issues`；文件卡片可展开查看逐条诊断，修复请求会把同一批诊断带入上下文。
 - [x] `.pro` artifact 增加源码预览抽屉：按行显示源码，验证错误中的行号可以直接打开并滚动到对应位置；预览限制在抽屉内部滚动，500px 窄屏不会产生页面级横向溢出。
+- [x] 源码预览支持受控编辑：保存会复用同一条 assistant message 和 artifact id，不产生第二条回答；旧文件保留在私有 sandbox，当前版本重置为 `pending` 并在后台重新执行 IDL/静态验证，前端沿用同一轮状态轮询。

@@ -1,4 +1,4 @@
-import { Button, Collapse, Drawer, Tag } from 'antd'
+import { Button, Collapse, Drawer, Input, Tag } from 'antd'
 import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, FileTextOutlined, PictureOutlined, PlayCircleOutlined, RobotOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
@@ -158,6 +158,7 @@ export function MessageList({
   onOpenSettings,
   messagesEndRef,
   onDownloadArtifact,
+  onArtifactUpdated,
   onStartFix,
   onRunArtifact,
   onUseArtifactAsInput,
@@ -183,6 +184,7 @@ export function MessageList({
   onOpenSettings: () => void
   messagesEndRef: RefObject<HTMLDivElement>
   onDownloadArtifact: AsyncArtifactAction
+  onArtifactUpdated: (message: ChatMessage) => void
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
   onUseArtifactAsInput: ArtifactAction
@@ -209,6 +211,7 @@ export function MessageList({
           agentRunMeta={msg.id === lastAssistantMessageId ? agentRunMeta : null}
           agentRunComplete={msg.id === lastAssistantMessageId && agentRunComplete}
           onDownloadArtifact={onDownloadArtifact}
+          onArtifactUpdated={onArtifactUpdated}
           onStartFix={onStartFix}
           onRunArtifact={onRunArtifact}
           onUseArtifactAsInput={onUseArtifactAsInput}
@@ -338,6 +341,7 @@ function MessageBubble({
   agentRunMeta = null,
   agentRunComplete = false,
   onDownloadArtifact,
+  onArtifactUpdated,
   onStartFix,
   onRunArtifact,
   onUseArtifactAsInput,
@@ -348,6 +352,7 @@ function MessageBubble({
   agentRunMeta?: AgentRunMeta | null
   agentRunComplete?: boolean
   onDownloadArtifact: AsyncArtifactAction
+  onArtifactUpdated: (message: ChatMessage) => void
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
   onUseArtifactAsInput: ArtifactAction
@@ -379,6 +384,7 @@ function MessageBubble({
                 key={artifact.id}
                 artifact={artifact}
                 onDownloadArtifact={onDownloadArtifact}
+                onArtifactUpdated={onArtifactUpdated}
                 onStartFix={onStartFix}
                 onRunArtifact={onRunArtifact}
                 onUseArtifactAsInput={onUseArtifactAsInput}
@@ -544,10 +550,21 @@ function getArtifactValidationIssues(artifact: ChatArtifact): Array<{ line?: num
 
 type ArtifactValidationIssue = { line?: number; column?: number; message: string }
 
-function ArtifactCodePreview({ artifact, issues }: { artifact: ChatArtifact; issues: ArtifactValidationIssue[] }) {
+function ArtifactCodePreview({
+  artifact,
+  issues,
+  onArtifactUpdated,
+}: {
+  artifact: ChatArtifact
+  issues: ArtifactValidationIssue[]
+  onArtifactUpdated: (message: ChatMessage) => void
+}) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [code, setCode] = useState('')
+  const [draftCode, setDraftCode] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [activeLine, setActiveLine] = useState<number | null>(null)
   const lineRefs = useRef<Record<number, HTMLDivElement | null>>({})
@@ -558,7 +575,9 @@ function ArtifactCodePreview({ artifact, issues }: { artifact: ChatArtifact; iss
     setError('')
     try {
       const text = await api.readChatArtifactText(artifact.download_url)
-      setCode(text.slice(0, 200_000))
+      const bounded = text.slice(0, 200_000)
+      setCode(bounded)
+      setDraftCode(bounded)
     } catch (err) {
       setError((err as Error).message || '源码加载失败，请重试。')
     } finally {
@@ -570,6 +589,41 @@ function ArtifactCodePreview({ artifact, issues }: { artifact: ChatArtifact; iss
     setActiveLine(line && line > 0 ? line : null)
     setPreviewOpen(true)
     void loadCode()
+  }
+
+  const cancelEditing = () => {
+    setDraftCode(code)
+    setEditing(false)
+    setError('')
+  }
+
+  const saveSource = async () => {
+    if (!draftCode.trim()) {
+      setError('源码不能为空。')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const sessionMatch = artifact.download_url.match(/\/sessions\/(\d+)\/artifacts\//)
+      const artifactSessionId = sessionMatch ? Number(sessionMatch[1]) : NaN
+      if (!Number.isInteger(artifactSessionId) || artifactSessionId <= 0) {
+        throw new Error('无法识别附件所属会话，请刷新后重试。')
+      }
+      const updatedMessage = await api.updateChatArtifactSource(
+        artifactSessionId,
+        artifact.id,
+        draftCode,
+      )
+      onArtifactUpdated(updatedMessage)
+      setCode(draftCode)
+      setEditing(false)
+      setActiveLine(null)
+    } catch (err) {
+      setError((err as Error).message || '保存失败，请重试。')
+    } finally {
+      setSaving(false)
+    }
   }
 
   useEffect(() => {
@@ -609,6 +663,19 @@ function ArtifactCodePreview({ artifact, issues }: { artifact: ChatArtifact; iss
         onClose={() => setPreviewOpen(false)}
         width="min(100vw, 760px)"
       >
+        <div className="chat-artifact-code-toolbar">
+          {editing ? (
+            <>
+              <Button size="small" onClick={cancelEditing} disabled={saving}>取消编辑</Button>
+              <Button size="small" type="primary" loading={saving} onClick={() => void saveSource()}>保存并验证</Button>
+            </>
+          ) : (
+            <Button size="small" onClick={() => { setEditing(true); setDraftCode(code) }} disabled={!code || loading}>
+              编辑源码
+            </Button>
+          )}
+          {editing ? <span>保存后会重新执行本地 IDL 验证。</span> : null}
+        </div>
         {loading ? <div className="chat-artifact-code-state">正在读取源码…</div> : null}
         {error ? (
           <div className="chat-artifact-code-state is-error" role="alert">
@@ -616,7 +683,17 @@ function ArtifactCodePreview({ artifact, issues }: { artifact: ChatArtifact; iss
             <Button size="small" type="link" onClick={() => void loadCode()}>重试</Button>
           </div>
         ) : null}
-        {!loading && !error && code ? (
+        {!loading && editing ? (
+          <Input.TextArea
+            className="chat-artifact-code-editor"
+            value={draftCode}
+            onChange={(event) => setDraftCode(event.target.value)}
+            autoSize={{ minRows: 18, maxRows: 36 }}
+            spellCheck={false}
+            aria-label={`${artifact.file_name} 源码编辑器`}
+          />
+        ) : null}
+        {!loading && !error && !editing && code ? (
           <div className="chat-artifact-code-scroll" role="region" aria-label={`${artifact.file_name} 源码`}>
             {lines.map((line, index) => {
               const lineNumber = index + 1
@@ -641,6 +718,7 @@ function ArtifactCodePreview({ artifact, issues }: { artifact: ChatArtifact; iss
 function ArtifactItem({
   artifact,
   onDownloadArtifact,
+  onArtifactUpdated,
   onStartFix,
   onRunArtifact,
   onUseArtifactAsInput,
@@ -648,6 +726,7 @@ function ArtifactItem({
 }: {
   artifact: ChatArtifact
   onDownloadArtifact: AsyncArtifactAction
+  onArtifactUpdated: (message: ChatMessage) => void
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
   onUseArtifactAsInput: ArtifactAction
@@ -681,7 +760,7 @@ function ArtifactItem({
           {validationLabel.label}
         </span>
       ) : null}
-      {canRun ? <ArtifactCodePreview artifact={artifact} issues={validationIssues} /> : null}
+      {canRun ? <ArtifactCodePreview artifact={artifact} issues={validationIssues} onArtifactUpdated={onArtifactUpdated} /> : null}
       {isChatInput ? <span className="chat-artifact-input-note">已保存上下文，可用于历史重试</span> : null}
       {canRun ? (
         <Button size="small" type="link" icon={<PlayCircleOutlined />} loading={running} onClick={() => onRunArtifact(artifact)}>

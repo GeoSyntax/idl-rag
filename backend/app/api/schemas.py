@@ -283,6 +283,12 @@ class IdlRunRequest(BaseModel):
     input_artifact_ids: list[str] = Field(default_factory=list, max_length=8)
 
 
+class ChatArtifactSourceUpdateRequest(BaseModel):
+    """Source text submitted from the artifact preview editor."""
+
+    content: str = Field(min_length=1, max_length=500_000)
+
+
 class IdlRunResponse(BaseModel):
     run_id: str
     session_id: int

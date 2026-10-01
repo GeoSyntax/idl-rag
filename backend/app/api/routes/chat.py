@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
     ChatMessageResponse,
+    ChatArtifactSourceUpdateRequest,
     ChatModelStatusResponse,
     ChatRequest,
     ChatResponse,
@@ -605,6 +606,34 @@ def download_artifact(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     validated_path = _validate_artifact_path(str(file_path))
     return FileResponse(path=validated_path, media_type=media_type, filename=file_name)
+
+
+@router.put("/sessions/{session_id}/artifacts/{artifact_id}/source", response_model=ChatMessageResponse)
+def update_artifact_source(
+    session_id: int,
+    artifact_id: str,
+    payload: ChatArtifactSourceUpdateRequest,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ChatMessageResponse:
+    """Save an edited .pro source and validate it without adding a chat reply."""
+    try:
+        response = service.update_pro_artifact_source(
+            db,
+            session_id,
+            artifact_id,
+            current_user.id,
+            payload.content,
+        )
+        if background_tasks is None:
+            background_tasks = BackgroundTasks()
+        background_tasks.add_task(service.validate_pending_artifacts, session_id, current_user.id, [artifact_id])
+        return response
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "不存在" in message else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
 
 
 @router.post("/sessions/{session_id}/artifacts/{artifact_id}/run-idl", response_model=IdlRunResponse)

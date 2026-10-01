@@ -416,6 +416,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  updateChatArtifactSource: (sessionId: number, artifactId: string, content: string) =>
+    request<ChatMessage>(`/chat/sessions/${sessionId}/artifacts/${artifactId}/source`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
   fetchChatArtifactBlob: async (downloadPath: string) => {
     const accessToken = getStoredAccessToken()
     const response = await fetch(`${API_BASE}${downloadPath}`, {

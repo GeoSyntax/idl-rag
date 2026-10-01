@@ -2351,6 +2351,79 @@ class AgentService:
                     return artifact
         raise ValueError("附件不存在。")
 
+    def update_pro_artifact_source(
+        self,
+        db: Session,
+        session_id: int,
+        artifact_id: str,
+        owner_user_id: int,
+        content: str,
+    ) -> ChatMessageResponse:
+        """Replace a generated .pro source and reset its validation state.
+
+        The previous file is deliberately left on disk as a recoverable
+        snapshot, while the message keeps one stable artifact id so the UI
+        does not create a second assistant answer.  Only the latest file path
+        is exposed through the normal artifact download endpoint.
+        """
+        self._get_owned_session(db, session_id, owner_user_id)
+        source = str(content or "").strip()
+        if not source:
+            raise ValueError("源码不能为空。")
+        messages = (
+            db.query(ChatMessage)
+            .filter(ChatMessage.session_id == session_id, ChatMessage.role == "assistant")
+            .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+            .all()
+        )
+        sandbox = get_app_settings().chat_artifacts_dir.resolve()
+        for message in messages:
+            artifacts = list(message.artifacts_json or [])
+            for artifact in artifacts:
+                if not isinstance(artifact, dict) or str(artifact.get("id")) != str(artifact_id):
+                    continue
+                raw_file_name = str(artifact.get("file_name") or "generated.pro")
+                file_name = Path(raw_file_name).name or "generated.pro"
+                if artifact.get("kind") != "pro" and not file_name.lower().endswith(".pro"):
+                    raise ValueError("只能编辑生成的 .pro 文件。")
+                storage_path = artifact.get("storage_path")
+                if not storage_path:
+                    raise ValueError("附件不存在。")
+                old_path = Path(str(storage_path)).resolve()
+                if not old_path.is_relative_to(sandbox) or not old_path.is_file():
+                    raise ValueError("附件不存在。")
+                user_dir = sandbox / f"user-{owner_user_id}" / f"session-{session_id}"
+                user_dir.mkdir(parents=True, exist_ok=True)
+                new_path = user_dir / f"{uuid4().hex}_{file_name}"
+                new_path.write_text(source.rstrip() + "\n", encoding="utf-8", newline="\n")
+
+                metadata = dict(artifact.get("metadata") or {})
+                previous_revision = metadata.get("revision")
+                revision = int(previous_revision) + 1 if isinstance(previous_revision, int) else 1
+                metadata["revision"] = revision
+                metadata["edited"] = True
+                metadata["validation"] = {
+                    "validation_mode": "pending",
+                    "validation_status": "pending",
+                    "validation_notice": "验证任务已排队，正在检查。",
+                }
+                artifact["storage_path"] = new_path.as_posix()
+                artifact["size"] = new_path.stat().st_size
+                artifact["metadata"] = metadata
+                message_content = str(message.content or "")
+                if "代码验证：" in message_content:
+                    message.content = message_content.split("代码验证：", 1)[0].rstrip() + (
+                        "\n代码验证：验证任务已排队，正在检查。"
+                    )
+                else:
+                    message.content = message_content.rstrip() + "\n代码验证：验证任务已排队，正在检查。"
+                message.artifacts_json = artifacts
+                flag_modified(message, "artifacts_json")
+                db.commit()
+                db.refresh(message)
+                return self._to_message_response(message)
+        raise ValueError("附件不存在。")
+
     def _get_or_create_session(self, db: Session, payload: ChatRequest, owner_user_id: int) -> ChatSession:
         if payload.session_id is not None:
             session = self._get_owned_session(db, payload.session_id, owner_user_id)

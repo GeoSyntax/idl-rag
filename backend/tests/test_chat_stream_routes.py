@@ -79,6 +79,77 @@ def test_chat_model_status_exposes_safe_runtime_summary(monkeypatch, tmp_path: P
     assert "127.0.0.1:8000" not in response.text
 
 
+def test_editing_pro_artifact_keeps_one_message_and_refreshes_validation(monkeypatch, tmp_path: Path) -> None:
+    """Editing source updates the existing artifact instead of creating a second answer."""
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.api.routes import chat
+    from app.db.database import get_session_factory
+    from app.db.models import ChatMessage, ChatSession
+    from app.main import create_app
+    from app.services.agent_service import AgentService
+
+    with TestClient(create_app()) as client:
+        registered = _register(client, username="artifact-editor-reviewer")
+        with get_session_factory()() as db:
+            session = ChatSession(owner_user_id=registered["user"]["id"], title="artifact editor")
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+            artifact = AgentService()._save_pro_artifact(
+                session.id,
+                registered["user"]["id"],
+                "生成示例",
+                "pro demo\nend",
+            )
+            old_path = Path(artifact["storage_path"])
+            message = ChatMessage(
+                session_id=session.id,
+                role="assistant",
+                content="已生成 .pro 文件 demo.pro。\n代码验证：验证任务已排队，正在检查。",
+                citations_json=[],
+                artifacts_json=[artifact],
+            )
+            db.add(message)
+            db.commit()
+            db.refresh(message)
+            session_id = session.id
+            artifact_id = artifact["id"]
+
+        monkeypatch.setattr(
+            chat.service,
+            "_validate_generated_pro_code",
+            lambda _code: {
+                "validation_mode": "static_analysis",
+                "validation_status": "unverified",
+                "validation_notice": "编辑后的代码已完成静态分析。",
+                "validation_issues": [{"line": 2, "message": "示例诊断"}],
+            },
+        )
+        response = client.put(
+            f"/api/chat/sessions/{session_id}/artifacts/{artifact_id}/source",
+            json={"content": "pro demo\nprint, 'edited'\nend"},
+            headers=_headers(registered["access_token"]),
+        )
+        refreshed = client.get(
+            f"/api/chat/sessions/{session_id}/messages",
+            headers=_headers(registered["access_token"]),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["artifacts"][0]["metadata"]["validation"]["validation_status"] == "pending"
+    assert refreshed.status_code == 200
+    updated = refreshed.json()[-1]
+    assert updated["id"] == message.id
+    assert len(updated["artifacts"]) == 1
+    edited = updated["artifacts"][0]
+    assert edited["metadata"]["revision"] == 1
+    assert edited["metadata"]["validation"]["validation_status"] == "unverified"
+    assert edited["metadata"]["validation"]["validation_issues"] == [{"line": 2, "message": "示例诊断"}]
+    assert edited["size"] == len("pro demo\nprint, 'edited'\nend\n".encode("utf-8"))
+    assert old_path.exists()
+
+
 def test_agent_stream_converts_backend_failure_to_one_sse_error(
     monkeypatch, tmp_path: Path
 ) -> None:

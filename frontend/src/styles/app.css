@@ -2040,6 +2040,28 @@ button.chat-artifact-validation-issue-location:focus-visible {
   color: var(--text-muted);
 }
 
+.chat-artifact-code-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.chat-artifact-code-editor {
+  width: 100%;
+  min-height: 360px;
+  margin-bottom: 8px;
+  resize: vertical;
+  background: #191b1c !important;
+  border-color: #303536 !important;
+  color: #e6eceb !important;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace !important;
+  tab-size: 2;
+}
+
 .chat-artifact-code-state.is-error {
   color: var(--error);
 }

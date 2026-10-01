@@ -896,6 +896,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     await api.downloadChatArtifact(artifact.download_url, artifact.file_name)
   }
 
+  const updateArtifactMessage = (updatedMessage: ChatMessage) => {
+    setMessages((prev) => prev.map((message) => message.id === updatedMessage.id ? updatedMessage : message))
+    messageApi.success('源码已保存，正在重新验证')
+  }
+
   const startFixMode = (artifact: ChatArtifact) => {
     setFixTarget({ artifactId: artifact.id, fileName: artifact.file_name })
     inputRef.current?.focus()
@@ -1323,6 +1328,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             onOpenSettings={onOpenSettings}
             messagesEndRef={messagesEndRef}
             onDownloadArtifact={downloadArtifact}
+            onArtifactUpdated={updateArtifactMessage}
             onStartFix={startFixMode}
             onRunArtifact={runArtifactWithIdl}
             onUseArtifactAsInput={useArtifactAsInput}
