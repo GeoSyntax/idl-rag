@@ -68,7 +68,7 @@ def test_langsmith_sync_dry_run_does_not_require_api_key(monkeypatch: pytest.Mon
         db.close()
 
     assert result["dataset"] == "idl-rag-golden-qa"
-    assert result["total_cases"] == 33
+    assert result["total_cases"] == 43
     assert result["dry_run"] is True
 
 
@@ -115,8 +115,8 @@ def test_langsmith_sync_creates_missing_examples(monkeypatch: pytest.MonkeyPatch
     client = FakeLangSmithClient.instances[0]
     assert client.api_key == "ls-test"
     assert client.created_dataset["name"] == "idl-rag-golden-qa-test"
-    assert result["total_cases"] == 33
-    assert result["created"] == 32
+    assert result["total_cases"] == 43
+    assert result["created"] == 42
     assert client.created_examples["dataset_id"] == "dataset-id"
     assert client.created_examples["inputs"][0]["question"]
     assert client.created_examples["outputs"][0]["expected_keywords"]

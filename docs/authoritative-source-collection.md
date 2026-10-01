@@ -12,10 +12,12 @@
 - Sen2Cor 2.12 Quick Guide（ESA/STEP，1.0 MB）
 - Sen2Cor L2A Algorithm Theoretical Baseline Document v2.10（ESA/STEP，4.7 MB）
 - MODIS MOD11 User Guide V6 与 MOD11 Algorithm Theoretical Basis Document（NASA LP DAAC，用户指南 33 页、ATBD 77 页）
+- MODIS MCD43 BRDF/Albedo User Guide V5（NASA Earthdata，覆盖 BRDF、反照率、质量波段与时间合成说明）
 - MODIS Collection 6 Vegetation Index User Guide（NASA MODIS，NDVI/EVI 理论基础、合成和 QA）
 - USGS LEDAPS Algorithm Description（Landsat 4–7 大气校正和地表反射率处理）
 - ESA WorldCover 2020 v100 Product User Manual、2021 v200 Product User Manual 与 v200 Product Validation Report（共 81 页）
 - Google Earth Engine Dynamic World、WorldCover、MOD11A1 与 Landsat Collection 2 官方 catalog note
+- NASA Earthdata MCD43 BRDF/Albedo User Guide V5：`https://www.earthdata.nasa.gov/s3fs-public/2025-04/MCD43_User_Guide_V5.pdf`
 - GDAL COG、Rasterio windowed I/O/reprojection、STAC 核心规范、GEE Python 认证导出和 GeoTIFF 验证清单
 
 此外，本地 `data/sources/open_access_papers/` 已加入 56 篇开放获取候选论文（约 378 MB），覆盖：
