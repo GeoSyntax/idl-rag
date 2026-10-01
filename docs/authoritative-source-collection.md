@@ -41,8 +41,12 @@
 - USGS Landsat Collection 2 Level-3 DSWE DFCB v3（DIAG/INTR/INTSM/INWAM/MASK/SHADE 层、有效/填充值范围和产品元数据）：`https://www.usgs.gov/media/files/landsat-collection-2-level-3-dynamic-surface-water-extent-data-format-control-book`
 - NASA/JPL OPERA DSWx-HLS Product Specification v1.0.0（30 m HLS 产品结构、WTR/BWTR/CONF/DIAG 波段、填充值、元数据和质量标记）：`https://d2pn8kiwq2w21t.cloudfront.net/documents/OPERA_DSWx-HLS_ProductSpec_v1.0.0_D-107395_RevB.pdf`
 - NASA/JPL OPERA DSWx-HLS Algorithm Theoretical Basis Document v1.4（HLS 输入、五组水体诊断测试、FMask/地形阴影/土地覆盖细化、置信度和验证假设）：`https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-docs/web-misc/opera/atbd/DSWx-HLS_ATBD_V1_4_DAAC_Distribution.pdf`
+- USGS Landsat Collection 2 U.S. Analysis Ready Data DFCB v4（ARD tile、Albers 网格、COG、波段缩放/有效范围、QA 与 XML/JSON 元数据）：`https://www.usgs.gov/media/files/landsat-collection-2-us-analysis-ready-data-dfcb`
+- ESA/Copernicus Sentinel-2 Products Specification Document 15.1（MSI 产品级别、波段/粒度、元数据、质量层和 processing baseline 兼容性）：`https://sentinels.copernicus.eu/documents/d/sentinel/sentinel-2-products-specification-document-15_1`
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
+
+Sentinel-2 PSD 15.1 共 488 页，原文保留在 `data/sources/remote_sensing_official/`，并按最多 250 页拆成两个索引分片；`split_manifest.json` 保存原文和分片 SHA-256 以及页码范围，检索引用必须能回到原始 PSD 版本和 processing baseline。Landsat C2 U.S. ARD DFCB 则补充了 tile/Albers/COG/QA 的机器可读约定，使 GEE 或 STAC 下载后的 GDAL 验证不再只依赖经验参数。
 
 其中 825 页的 USGS LaSRC 文档保留完整原文，并通过 `backend/scripts/split_pdf_for_indexing.py` 生成 4 个带页码范围和 SHA-256 映射的索引分片，避免因单文档页数限制而截断证据。
 
