@@ -1215,31 +1215,59 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
       </Card>
 
       <Card className="section-card" title="研究项目">
-        <Table<ResearchProject>
-          rowKey="id"
-          size="middle"
-          loading={projectsQuery.isLoading}
-          dataSource={projectsQuery.data ?? []}
-          pagination={false}
-          scroll={{ x: 720 }}
-          locale={{ emptyText: <DisplayEmpty compact illustration="map" title="还没有研究项目" description="从开放研究或研究模板开始创建。" /> }}
-          rowSelection={{
-            type: 'radio',
-            columnTitle: '选择',
-            // Ant Design's CheckboxProps type omits native aria attributes, but
-            // Table forwards this object to the actual input element at runtime.
-            getCheckboxProps: (record) => ({ 'aria-label': `选择项目 ${record.name}` } as never),
-            selectedRowKeys: selectedProjectId ? [selectedProjectId] : [],
-            onChange: (keys) => setSelectedProjectId(Number(keys[0]) || undefined),
-          }}
-          columns={[
-            { title: '名称', dataIndex: 'name', width: 240 },
-            { title: '入口', dataIndex: 'entry_mode', width: 120, render: (value) => (value === 'open' ? '开放研究' : '研究模板') },
-            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
-            { title: '数据策略', dataIndex: 'egress_policy', width: 150, render: (value) => <FileTypeBadge label={value} /> },
-            { title: '更新于', dataIndex: 'updated_at', width: 180, render: formatDate },
-          ]}
-        />
+        <div className="research-project-table-wrapper">
+          <Table<ResearchProject>
+            rowKey="id"
+            size="middle"
+            loading={projectsQuery.isLoading}
+            dataSource={projectsQuery.data ?? []}
+            pagination={false}
+            scroll={{ x: 720 }}
+            locale={{ emptyText: <DisplayEmpty compact illustration="map" title="还没有研究项目" description="从开放研究或研究模板开始创建。" /> }}
+            rowSelection={{
+              type: 'radio',
+              columnTitle: '选择',
+              // Ant Design's CheckboxProps type omits native aria attributes, but
+              // Table forwards this object to the actual input element at runtime.
+              getCheckboxProps: (record) => ({ 'aria-label': `选择项目 ${record.name}` } as never),
+              selectedRowKeys: selectedProjectId ? [selectedProjectId] : [],
+              onChange: (keys) => setSelectedProjectId(Number(keys[0]) || undefined),
+            }}
+            columns={[
+              { title: '名称', dataIndex: 'name', width: 240 },
+              { title: '入口', dataIndex: 'entry_mode', width: 120, render: (value) => (value === 'open' ? '开放研究' : '研究模板') },
+              { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
+              { title: '数据策略', dataIndex: 'egress_policy', width: 150, render: (value) => <FileTypeBadge label={value} /> },
+              { title: '更新于', dataIndex: 'updated_at', width: 180, render: formatDate },
+            ]}
+          />
+        </div>
+        <div className="research-project-list" aria-label="研究项目列表">
+          {projectsQuery.isLoading ? <div className="research-project-list-state"><Spin size="small" /> 正在读取研究项目…</div> : null}
+          {!projectsQuery.isLoading && !(projectsQuery.data ?? []).length ? (
+            <DisplayEmpty compact illustration="map" title="还没有研究项目" description="从开放研究或研究模板开始创建。" />
+          ) : null}
+          {(projectsQuery.data ?? []).map((project) => (
+            <label className={`research-project-list-item ${selectedProjectId === project.id ? 'is-selected' : ''}`} key={project.id}>
+              <input
+                type="radio"
+                name="research-project-mobile"
+                checked={selectedProjectId === project.id}
+                onChange={() => setSelectedProjectId(project.id)}
+                aria-label={`选择项目 ${project.name}`}
+              />
+              <span className="research-project-list-content">
+                <strong className="research-project-list-name">{project.name}</strong>
+                <span className="research-project-list-meta">
+                  <span>{project.entry_mode === 'open' ? '开放研究' : '研究模板'}</span>
+                  <Tag color={statusColor(project.status)}>{statusLabel(project.status)}</Tag>
+                  <FileTypeBadge label={project.egress_policy} />
+                </span>
+                <span className="research-project-list-updated">更新于 {formatDate(project.updated_at)}</span>
+              </span>
+            </label>
+          ))}
+        </div>
       </Card>
 
       {selectedProject ? (

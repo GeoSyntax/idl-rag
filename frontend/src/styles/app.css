@@ -239,6 +239,70 @@ body { min-height: 100dvh; }
   color: var(--text-muted) !important;
 }
 
+.research-project-list {
+  display: none;
+}
+
+.research-project-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.research-project-list-item:last-child {
+  border-bottom: 0;
+}
+
+.research-project-list-item.is-selected {
+  color: var(--text);
+}
+
+.research-project-list-item input {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  accent-color: var(--primary);
+}
+
+.research-project-list-content {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.research-project-list-name {
+  overflow-wrap: anywhere;
+}
+
+.research-project-list-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.research-project-list-meta .ant-tag {
+  margin-inline-end: 0;
+}
+
+.research-project-list-updated,
+.research-project-list-state {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.research-project-list-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+
 .research-tab-label-short {
   display: none;
 }
@@ -2846,6 +2910,14 @@ body { min-height: 100dvh; }
   .research-tabs .ant-tabs-tab {
     margin-inline-end: 4px;
     padding-inline: 8px;
+  }
+
+  .research-project-table-wrapper {
+    display: none;
+  }
+
+  .research-project-list {
+    display: block;
   }
 
   .retrieval-lab-grid,
