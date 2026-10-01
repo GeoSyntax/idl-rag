@@ -43,6 +43,7 @@ import type {
   ResearchProjectMember,
 } from '../../api/types'
 import { DisplayEmpty, FileTypeBadge, MetricSummary } from '../../components/DisplayPrimitives'
+import { ResearchEvidenceBoundary } from '../../components/ResearchEvidenceBoundary'
 
 type ProjectFormValues = {
   name: string
@@ -269,7 +270,7 @@ function parameterSweepFromRun(run: ResearchRun): Record<string, unknown> | null
   return sweep as Record<string, unknown>
 }
 
-function RunOutputPreview({ projectId, experimentId, run }: { projectId: number; experimentId: number; run: ResearchRun }) {
+function RunOutputPreview({ projectId, experimentId, run, executionMode }: { projectId: number; experimentId: number; run: ResearchRun; executionMode?: ResearchExperiment['execution_mode'] }) {
   const [urls, setUrls] = useState<Record<string, string>>({})
   const verifyPackage = useMutation({
     mutationFn: () => api.verifyResearchRun(projectId, experimentId, run.id),
@@ -349,6 +350,12 @@ function RunOutputPreview({ projectId, experimentId, run }: { projectId: number;
 
   return (
     <div className="research-run-products">
+      <ResearchEvidenceBoundary
+        executionMode={executionMode}
+        hasValidationMetrics={Boolean(validationMetricsFromRun(run))}
+        hasEvidencePackage={Boolean(evidencePackage)}
+        evidenceVerified={verifyPackage.data?.verified === true}
+      />
       {evidencePackage ? (
         <Alert
           type="success"
@@ -2396,7 +2403,7 @@ export function ResearchPage({ currentUserId, onOpenAgent }: { currentUserId: nu
                                 />
                               </>
                             ) : null}
-                            <RunOutputPreview projectId={selectedProject.id} experimentId={selectedExperimentId} run={visibleRun} />
+                            <RunOutputPreview projectId={selectedProject.id} experimentId={selectedExperimentId} run={visibleRun} executionMode={selectedExperiment?.execution_mode} />
                           </div>
                         ) : <DisplayEmpty compact illustration="terminal" title="尚未运行所选实验" />}
                       </>

@@ -210,3 +210,4 @@
 - [x] Chat 中的研究运行卡显式区分 `preview` 与 `formal`，不再只用绿色 `completed` 状态让探索性结果看起来像正式结论。
 - [x] Preview 没有 `validation_metrics` 时，卡片说明当前只有阶段图/运行清单，必须补充参考资产或样本验证设计后才能比较指标。
 - [x] Formal 卡片仍提示必须检查证据包和独立测试；这只是证据边界提示，不会把运行状态自动升级为科学结论。
+- [x] Chat 运行卡与 Research 运行详情共用 `ResearchEvidenceBoundary`，Preview/Formal、validation_metrics 和 Evidence Package 校验状态不再由两套文案分别维护。

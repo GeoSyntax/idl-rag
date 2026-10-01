@@ -11,6 +11,7 @@ import 'katex/dist/katex.min.css'
 import { api } from '../../api/client'
 import type { ChatArtifact, ChatMessage, ChatRun, Citation, ResearchProject, ResearchProtocolReadiness, ResearchRun } from '../../api/types'
 import { DisplayPlaceholder, FileTypeBadge, MetricSummary } from '../../components/DisplayPrimitives'
+import { ResearchEvidenceBoundary } from '../../components/ResearchEvidenceBoundary'
 import type { AgentRunMeta, AgentStepItem, ArtifactAction, AsyncArtifactAction, KnowledgeStatus } from './types'
 
 export function KnowledgeStatusBar({
@@ -763,20 +764,12 @@ function ResearchRunSummary({ metadata, projectWide = false }: { metadata: Recor
             <span>{run.output_count ?? run.outputs?.length ?? 0} 个产物</span>
           </div>
           {run.execution_mode === 'preview' ? (
-            <div className="chat-research-run-boundary is-preview">
-              <strong>探索性 Preview</strong>
-              <span>阶段图和指标只用于方法探索，不等于正式实验或最终科学结论。</span>
-            </div>
+            <ResearchEvidenceBoundary
+              executionMode="preview"
+              hasValidationMetrics={Boolean(run.validation_metrics && Object.keys(run.validation_metrics).length > 0)}
+            />
           ) : run.execution_mode === 'formal' ? (
-            <div className="chat-research-run-boundary is-formal">
-              <strong>Formal 运行</strong>
-              <span>仍需确认证据包完整且通过独立测试，才能用于正式报告。</span>
-            </div>
-          ) : null}
-          {run.execution_mode === 'preview' && (!run.validation_metrics || Object.keys(run.validation_metrics).length === 0) ? (
-            <div className="chat-research-run-note">
-              当前运行没有可核验的 validation_metrics；请补充参考资产或样本验证设计后再比较结果。
-            </div>
+            <ResearchEvidenceBoundary executionMode="formal" />
           ) : null}
           {(run.formula || run.parameters || run.data_snapshot || run.input_assets?.length) ? (
             <details className="chat-research-run-provenance">
