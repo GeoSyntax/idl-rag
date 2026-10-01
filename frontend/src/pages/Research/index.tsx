@@ -2207,6 +2207,8 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       scroll={{ x: 760 }}
                       rowSelection={{
                         type: 'radio',
+                        columnTitle: '选择',
+                        getCheckboxProps: (record) => ({ 'aria-label': `选择实验 ${record.name}` } as never),
                         selectedRowKeys: selectedExperimentId ? [selectedExperimentId] : [],
                         onChange: (keys) => setSelectedExperimentId(Number(keys[0]) || undefined),
                       }}
@@ -2243,6 +2245,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       </Button>
                       <Button disabled={!selectedExperimentId} onClick={() => void runsQuery.refetch()}>刷新运行记录</Button>
                       <Select
+                        aria-label="选择重跑基准运行"
                         style={{ minWidth: 220 }}
                         placeholder="选择重跑基准运行"
                         value={reproducibilityReferenceRunId}
@@ -2277,6 +2280,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                     />
                     <div className="research-sweep-controls">
                       <Select
+                        aria-label="候选参数评估数据划分"
                         value={sweepEvaluationSplit}
                         onChange={setSweepEvaluationSplit}
                         options={[
@@ -2286,6 +2290,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         disabled={!selectedExperimentId || selectedExperiment?.execution_mode !== 'preview'}
                       />
                       <Select
+                        aria-label="候选参数排序指标"
                         value={sweepRankingMetric}
                         onChange={setSweepRankingMetric}
                         options={[
@@ -2315,6 +2320,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       </Button>
                     </div>
                     <Input.TextArea
+                      aria-label="候选参数 JSON"
                       className="research-json-input"
                       rows={4}
                       value={sweepCandidatesJson}
