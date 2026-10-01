@@ -2,6 +2,7 @@ import type {
   AgentStreamEvent,
   AuthUser,
   ChatMessage,
+  ChatModelStatus,
   ChatRun,
   ChatResponse,
   ChatSession,
@@ -287,6 +288,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getDashboardSummary: () => request<DashboardSummary>('/dashboard/summary'),
+  getChatModelStatus: () => request<ChatModelStatus>('/chat/model-status'),
   getSettings: () => request<SystemSettingsResponse>('/settings'),
   updateSettings: (payload: SystemSettingsPayload) =>
     request<SystemSettingsResponse>('/settings', {

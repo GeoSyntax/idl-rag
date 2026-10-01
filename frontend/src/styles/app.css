@@ -1085,6 +1085,19 @@ body { min-height: 100dvh; }
   color: var(--warning);
 }
 
+.chat-model-status-ready,
+.chat-model-status-warning {
+  font-weight: 600;
+}
+
+.chat-model-status-ready {
+  color: #166534;
+}
+
+.chat-model-status-warning {
+  color: #9a3412;
+}
+
 .chat-inline-error {
   flex: 0 0 auto;
   min-width: 0;

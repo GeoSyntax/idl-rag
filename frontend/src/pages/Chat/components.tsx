@@ -19,14 +19,21 @@ export function KnowledgeStatusBar({
   selectedCount,
   status,
   retrievalConfig,
+  modelStatus,
 }: {
   loading: boolean
   selectedCount: number
   status: KnowledgeStatus
   retrievalConfig?: { strategy: string; topK: number; rerank: boolean; note?: string }
+  modelStatus?: { configured: boolean; provider_name: string; chat_model: string; message: string } | null
 }) {
   return (
     <div className={`chat-kb-status ${status.ready === 0 && !loading ? 'chat-kb-status-warning' : ''}`}>
+      {modelStatus ? (
+        <span className={modelStatus.configured ? 'chat-model-status-ready' : 'chat-model-status-warning'}>
+          模型：{modelProviderLabel(modelStatus.provider_name)} · {modelStatus.chat_model} · {modelStatus.configured ? '已配置' : '待配置'}
+        </span>
+      ) : null}
       {loading ? (
         <span>正在读取文档状态...</span>
       ) : selectedCount === 0 ? (
@@ -58,6 +65,18 @@ function retrievalStrategyLabel(strategy: string): string {
     vector_only: '语义检索',
   }
   return labels[strategy] || strategy.replace(/_/g, ' ')
+}
+
+function modelProviderLabel(provider: string): string {
+  const labels: Record<string, string> = {
+    gemini2api: 'Gemini2API',
+    'openai-compatible': 'OpenAI 兼容服务',
+    ollama: 'Ollama',
+    lmstudio: 'LM Studio',
+    'lm-studio': 'LM Studio',
+    local: '本地模型服务',
+  }
+  return labels[provider.toLowerCase()] || provider
 }
 
 export function ResearchContextBar({

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user
 from app.api.schemas import (
     ChatMessageResponse,
+    ChatModelStatusResponse,
     ChatRequest,
     ChatResponse,
     ChatRunResponse,
@@ -34,6 +35,7 @@ from app.services.gee_service import GeeService
 from app.services.idl_execution_service import IdlExecutionService
 from app.services.retrieve_service import RetrievalService
 from app.services.runtime_metrics import runtime_metrics
+from app.services.settings_service import get_chat_model_status
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -177,6 +179,15 @@ def gee_status(
     current_user: User = Depends(get_current_user),
 ) -> GeeStatusResponse:
     return gee_service.status()
+
+
+@router.get("/model-status", response_model=ChatModelStatusResponse)
+def chat_model_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ChatModelStatusResponse:
+    """Expose only the provider/model readiness needed by the workbench."""
+    return get_chat_model_status(db)
 
 
 @router.post("/gee/fetch", response_model=GeeFetchResponse)

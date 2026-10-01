@@ -30,6 +30,13 @@ export type TestConnectionResponse = {
   message: string
 }
 
+export type ChatModelStatus = {
+  configured: boolean
+  provider_name: string
+  chat_model: string
+  message: string
+}
+
 export type AuthUser = {
   id: number
   username: string

@@ -54,6 +54,20 @@ class TestConnectionResponse(BaseModel):
     message: str
 
 
+class ChatModelStatusResponse(BaseModel):
+    """Safe model configuration summary for the authenticated workbench.
+
+    This deliberately omits API keys and the full endpoint URL.  Users need
+    to know which provider/model a request will use, but the connection
+    credentials remain an administrator-only concern.
+    """
+
+    configured: bool
+    provider_name: str
+    chat_model: str
+    message: str
+
+
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=100)
     password: str = Field(min_length=6, max_length=128)

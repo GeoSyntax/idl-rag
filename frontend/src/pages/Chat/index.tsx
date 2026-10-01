@@ -17,6 +17,7 @@ import { api } from '../../api/client'
 import type {
   AgentStreamEvent,
   ChatArtifact,
+  ChatModelStatus,
   ChatMessage,
   ChatRun,
   ChatSession,
@@ -74,6 +75,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [agentRunComplete, setAgentRunComplete] = useState(false)
   const [agentRunMeta, setAgentRunMeta] = useState<AgentRunMeta | null>(null)
   const [agentRunHistory, setAgentRunHistory] = useState<ChatRun[]>([])
+  const [modelStatus, setModelStatus] = useState<ChatModelStatus | null>(null)
   const [chatMode, setChatMode] = useState<'normal' | 'agent'>('normal')
   const [fixTarget, setFixTarget] = useState<{ artifactId: string; fileName: string } | null>(null)
   const [generateProFile, setGenerateProFile] = useState(false)
@@ -144,6 +146,25 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   }, [messageApi])
 
   const { loading: documentsLoading, status: knowledgeStatus } = useKnowledgeStatus(selectedKBIds, showError)
+
+  const refreshModelStatus = useCallback(async () => {
+    try {
+      const status = await api.getChatModelStatus()
+      setModelStatus(status)
+    } catch {
+      // A model status badge is helpful but must never block Chat/Agent.
+      setModelStatus(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshModelStatus()
+    const handleSettingsUpdated = () => {
+      void refreshModelStatus()
+    }
+    window.addEventListener('storage', handleSettingsUpdated)
+    return () => window.removeEventListener('storage', handleSettingsUpdated)
+  }, [refreshModelStatus])
 
   useEffect(() => () => clearStreamingBuffer(), [clearStreamingBuffer])
 
@@ -1191,6 +1212,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         selectedCount={selectedKBIds.length}
         status={knowledgeStatus}
         retrievalConfig={selectedRetrievalConfig}
+        modelStatus={modelStatus}
       />
       {researchContext ? (
         <ResearchContextBar

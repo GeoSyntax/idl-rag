@@ -46,6 +46,39 @@ def _sse_payloads(body: str) -> list[dict]:
     return payloads
 
 
+def test_chat_model_status_exposes_safe_runtime_summary(monkeypatch, tmp_path: Path) -> None:
+    """普通用户可以确认模型身份，但永远不能读取 API Key 或完整配置。"""
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.db.database import get_session_factory
+    from app.db.models import SystemSetting
+    from app.main import create_app
+
+    with TestClient(create_app()) as client:
+        registered = _register(client, username="model-status-reviewer")
+        with get_session_factory()() as db:
+            db.add_all([
+                SystemSetting(key="provider_name", value="gemini2api"),
+                SystemSetting(key="api_base_url", value="http://127.0.0.1:8000/v1"),
+                SystemSetting(key="api_key", value="top-secret-key"),
+                SystemSetting(key="chat_model", value="gemini-2.5-flash"),
+            ])
+            db.commit()
+
+        response = client.get("/api/chat/model-status", headers=_headers(registered["access_token"]))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "configured": True,
+        "provider_name": "gemini2api",
+        "chat_model": "gemini-2.5-flash",
+        "message": "已配置，Agent 将使用当前模型服务。",
+    }
+    assert "top-secret-key" not in response.text
+    assert "127.0.0.1:8000" not in response.text
+
+
 def test_agent_stream_converts_backend_failure_to_one_sse_error(
     monkeypatch, tmp_path: Path
 ) -> None:

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app.api.schemas import SystemSettingsPayload, SystemSettingsResponse, TestConnectionResponse
+from app.api.schemas import ChatModelStatusResponse, SystemSettingsPayload, SystemSettingsResponse, TestConnectionResponse
 from app.core.config import get_app_settings
 from app.core.security import decrypt_secret_with_rotation, encrypt_secret
 from app.db.models import Document, SystemSetting
@@ -110,6 +111,32 @@ def get_current_settings(db: Session) -> SystemSettingsResponse:
     for key in _SENSITIVE_KEYS:
         data[key] = ""
     return SystemSettingsResponse(**data)
+
+
+def get_chat_model_status(db: Session) -> ChatModelStatusResponse:
+    """Return a non-sensitive model summary for every authenticated user."""
+    runtime = get_runtime_settings(db)
+    provider = (runtime.provider_name or "openai-compatible").strip()
+    model = (runtime.chat_model or "未指定模型").strip()
+    provider_key = provider.lower()
+    try:
+        hostname = (urlparse(runtime.api_base_url).hostname or "").lower()
+    except ValueError:
+        hostname = ""
+    keyless_local = provider_key in {"local", "ollama", "lmstudio", "lm-studio"} or hostname in {
+        "localhost", "127.0.0.1", "::1", "host.docker.internal",
+    }
+    configured = bool(runtime.api_key or keyless_local) and bool(runtime.api_base_url and runtime.chat_model)
+    if configured:
+        message = "已配置，Agent 将使用当前模型服务。"
+    else:
+        message = "尚未配置可用的模型服务，Agent 请求会明确提示配置问题。"
+    return ChatModelStatusResponse(
+        configured=configured,
+        provider_name=provider,
+        chat_model=model,
+        message=message,
+    )
 
 
 def save_settings(db: Session, payload: SystemSettingsPayload) -> SystemSettingsResponse:

@@ -176,7 +176,8 @@
 - [x] 修复 Agent 步骤折叠面板的重复 React key：流式事件与已落盘轨迹合并时不再只依赖后端步骤 ID，而是使用“步骤 ID + 事件位置”的稳定键；Gemini2API 500px 实时回放无重复 key 警告，最终仍只有一个助手回答。
 - [x] 修复 Agent 工具标签 `kb_search` 的窄屏对比度：绿色标签改为高对比度样式；Chat Lighthouse 移动/桌面快照均恢复为 Accessibility、Best Practices、SEO、Agentic Browsing 100/100/100/100。
 - [x] 将 Chat 顶部知识库状态从 `ready`、`fallback embedding`、`hybrid_rrf_no_rerank` 等内部标识改为“已就绪 / 备用向量 / 混合检索（不重排）/ 候选 / 重排”中文状态；保留诊断含义但不再把实现名直接暴露给老师和学生。
-- [x] 本轮门禁使用项目 `backend/.venv` 执行全量后端测试 `168 passed, 1 skipped`；前端构建通过，Chat 移动/桌面 Lighthouse 均为 100/100/100/100。
+- [x] 本轮门禁使用项目 `backend/.venv` 执行全量后端测试 `169 passed, 1 skipped`；前端构建通过，Chat 移动/桌面 Lighthouse 均为 100/100/100/100。
+- [x] Chat 新增只读模型状态摘要：普通用户可看到 `Gemini2API · 当前模型 · 已配置/待配置`，接口不返回 API Key、完整 URL 或提示词；设置更新事件会自动刷新状态，避免只能等到发送失败后才知道模型配置。
 - [x] 对 Research 工作台完成桌面与 500px 窄屏 Lighthouse 回放：Accessibility、Best Practices 和 Agentic Browsing 均为 100；修复项目选择列无标签、入口下拉框的非法 aria 属性、Ant Design 默认蓝/灰文字对比度不足、协议表单未挂载警告，以及窄屏研究标签溢出菜单导致的 ARIA 树错误；500px 页面无横向溢出。
 - [x] 清理 Research 数据与快照流程的第二层可用性问题：GEE/STAC/验证样本/数据资产表单的必填 Select 改为不污染 ARIA 树的自定义校验；文件选择器和多波段对齐控件补齐可读名称；InputNumber 去除 addonAfter 弃用警告。数据 Tab 在 500px 下 Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过。
 - [x] 收紧 Research 实验与影像证据页：实验选择表格补齐选择列的表头和每行标签，重跑基准、候选参数和 JSON 编辑控件补齐名称；500px 与桌面实验 Tab Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过，页面无横向溢出。
