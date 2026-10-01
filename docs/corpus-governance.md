@@ -69,6 +69,17 @@ python backend/scripts/runtime_diagnostics.py `
 
 它会实际探测聊天模型 `/models`、Ollama embedding 维度、数据库 readiness，并报告 GEE 是否启用、IDL 可执行文件是否存在。GEE 或 IDL 是可选能力时保留 `warn`；如果某个部署把它们列为必需依赖，可以加 `--require-gee` 或 `--require-idl`，缺失时直接返回非零状态。
 
+如果要确认 IDL 不只是“文件存在”，而是真的能启动运行时，可执行现场探针：
+
+```powershell
+python backend/scripts/runtime_diagnostics.py `
+  --owner-id 1 `
+  --probe-idl `
+  --require-idl
+```
+
+现场探针只启动 `idl.exe -version`，5 秒内未成功返回或出现许可证初始化错误都会失败；它不会把 IDL 误判成已可执行的生产运行时。
+
 ## 生产发布条件
 
 资料集只有同时满足以下条件才能标记为 `production_ready`：

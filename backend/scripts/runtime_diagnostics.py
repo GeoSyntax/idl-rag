@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import math
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -78,7 +79,7 @@ def _check_chat(base_url: str, api_key: str, model: str) -> dict[str, Any]:
         return {"status": "fail", "host": _safe_host(base_url), "message": str(exc)[:300]}
 
 
-def _check_idl(executable: str, required: bool) -> dict[str, Any]:
+def _check_idl(executable: str, required: bool, probe: bool = False) -> dict[str, Any]:
     if not executable:
         return {"status": "fail" if required else "warn", "message": "IDL executable is not configured"}
     reason = validate_project_pro_executable(executable)
@@ -88,7 +89,36 @@ def _check_idl(executable: str, required: bool) -> dict[str, Any]:
             "status": "fail" if required else "warn",
             "message": reason or f"executable not found: {executable}",
         }
-    return {"status": "ok", "executable": str(resolved)}
+    if not probe:
+        return {
+            "status": "fail" if required else "warn",
+            "executable": str(resolved),
+            "message": "IDL binary exists; runtime/license probe was not run",
+        }
+    try:
+        completed = subprocess.run(
+            [str(resolved), "-version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "status": "fail" if required else "warn",
+            "executable": str(resolved),
+            "message": "IDL process did not finish its startup probe within 5 seconds; license/runtime is not verified",
+            "stdout": (exc.stdout or "")[-300:] if isinstance(exc.stdout, str) else "",
+        }
+    output = f"{completed.stdout}\n{completed.stderr}".strip()
+    if completed.returncode != 0:
+        return {
+            "status": "fail" if required else "warn",
+            "executable": str(resolved),
+            "message": f"IDL startup probe exited with code {completed.returncode}",
+            "output": output[-300:],
+        }
+    return {"status": "ok", "executable": str(resolved), "runtime_probe": output[-300:]}
 
 
 def _check_gee(enabled: bool, auth_mode: str, project: str, has_credentials: bool, required: bool) -> dict[str, Any]:
@@ -101,7 +131,13 @@ def _check_gee(enabled: bool, auth_mode: str, project: str, has_credentials: boo
     return {"status": "ok", "auth_mode": auth_mode, "project": project}
 
 
-def diagnose(*, owner_user_id: int, require_gee: bool = False, require_idl: bool = False) -> dict[str, Any]:
+def diagnose(
+    *,
+    owner_user_id: int,
+    require_gee: bool = False,
+    require_idl: bool = False,
+    probe_idl: bool = False,
+) -> dict[str, Any]:
     app_settings = get_app_settings()
     session_factory = get_session_factory()
     db = session_factory()
@@ -132,7 +168,7 @@ def diagnose(*, owner_user_id: int, require_gee: bool = False, require_idl: bool
             gee_credentials or app_settings.gee_auth_mode == "adc",
             require_gee,
         ),
-        "idl": _check_idl(app_settings.idl_executable, require_idl),
+        "idl": _check_idl(app_settings.idl_executable, require_idl, probe=probe_idl),
     }
     required_failures = [name for name, value in checks.items() if value.get("status") == "fail"]
     return {
@@ -148,9 +184,15 @@ def main() -> None:
     parser.add_argument("--owner-id", type=int, default=1)
     parser.add_argument("--require-gee", action="store_true")
     parser.add_argument("--require-idl", action="store_true")
+    parser.add_argument("--probe-idl", action="store_true", help="launch IDL with -version and enforce a 5-second timeout")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = diagnose(owner_user_id=args.owner_id, require_gee=args.require_gee, require_idl=args.require_idl)
+    result = diagnose(
+        owner_user_id=args.owner_id,
+        require_gee=args.require_gee,
+        require_idl=args.require_idl,
+        probe_idl=args.probe_idl,
+    )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json_dumps(result), encoding="utf-8")
