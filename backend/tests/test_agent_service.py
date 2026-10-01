@@ -22,6 +22,20 @@ def test_agent_model_error_is_not_silently_downgraded(monkeypatch) -> None:
         service.agent_generate(None, [])
 
 
+def test_idl_validation_parser_keeps_safe_locations() -> None:
+    from app.services.agent_tools import _parse_idl_validation_issues
+
+    issues = _parse_idl_validation_issues(
+        "C:/tmp/generated.pro:12:4: syntax error\n第 18 行，未知函数",
+        "C:/tmp/generated.pro",
+    )
+
+    assert issues == [
+        {"message": "[temporary-file]:12:4: syntax error", "line": 12, "column": 4},
+        {"message": "第 18 行，未知函数", "line": 18},
+    ]
+
+
 def test_stream_retry_reuses_original_user_message(monkeypatch, tmp_path: Path) -> None:
     """Retrying a cancelled/failed stream must not append a duplicate prompt."""
     monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
@@ -568,12 +582,14 @@ def test_agent_service_generates_and_persists_pro_artifact(monkeypatch, tmp_path
                 "validation_mode": "static_analysis",
                 "validation_status": "unverified",
                 "validation_notice": "测试验证完成。",
+                "validation_issues": [{"line": 7, "message": "示例问题"}],
             },
         )
         service.validate_pending_artifacts(response.session_id, user.id, [artifact_id])
         db.expire_all()
         refreshed = service.list_messages(db, response.session_id, user.id)[-1]
         assert refreshed.artifacts[0].metadata["validation"]["validation_status"] == "unverified"
+        assert refreshed.artifacts[0].metadata["validation"]["validation_issues"] == [{"line": 7, "message": "示例问题"}]
         assert "测试验证完成" in refreshed.content
 
         artifact = assistant_message.artifacts[0]

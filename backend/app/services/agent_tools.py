@@ -411,6 +411,44 @@ def tool_fix_code(
     return ToolResult(name="fix_code", output="\n".join(parts))
 
 
+def _parse_idl_validation_issues(raw_errors: str, temporary_path: str | None = None) -> list[dict[str, object]]:
+    """Normalize IDL diagnostics into a bounded, UI-safe issue list.
+
+    IDL/ENVI releases do not share one diagnostic format: some emit
+    ``Line 12`` while others use ``:12:4`` or Chinese ``第 12 行``.  We keep
+    the original line as the message, strip the temporary file path, and
+    extract a best-effort location without making the validator depend on a
+    particular runtime version.
+    """
+    path_token = str(temporary_path or "")
+    issues: list[dict[str, object]] = []
+    for raw_line in str(raw_errors or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if path_token:
+            line = line.replace(path_token, "[temporary-file]")
+        line_match = re.search(
+            r"(?:\bline\b|\bligne\b|行|第)\s*[:=]?\s*(\d+)|:(\d+)(?::(\d+))?\b",
+            line,
+            flags=re.IGNORECASE,
+        )
+        column_match = re.search(r"(?:\bcolumn\b|\bcol\b|列)\s*[:=]?\s*(\d+)", line, flags=re.IGNORECASE)
+        issue: dict[str, object] = {"message": line[:320]}
+        if line_match:
+            line_value = line_match.group(1) or line_match.group(2)
+            if line_value:
+                issue["line"] = int(line_value)
+            if line_match.group(3):
+                issue["column"] = int(line_match.group(3))
+        if column_match:
+            issue["column"] = int(column_match.group(1))
+        issues.append(issue)
+        if len(issues) >= 20:
+            break
+    return issues
+
+
 def tool_lint_code(code: str) -> ToolResult:
     """使用 IDL 编译器检查代码语法。
 
@@ -443,10 +481,12 @@ def tool_lint_code(code: str) -> ToolResult:
                 },
             )
 
-        # 解析错误信息
+        # 解析错误信息。保留结构化行号，前端可以把问题和生成的代码对应起来；
+        # 同时继续输出原始摘要，避免不同 IDL 版本的诊断文本被吞掉。
         errors = stderr or stdout
-        error_lines = [line.strip() for line in errors.splitlines() if line.strip()]
-        output_parts = [f"编译发现 {len(error_lines)} 个问题："]
+        issues = _parse_idl_validation_issues(errors, tmp_path)
+        error_lines = [str(issue["message"]) for issue in issues]
+        output_parts = [f"编译发现 {len(issues)} 个问题："]
         for line in error_lines[:20]:
             output_parts.append(f"  ❌ {line}")
 
@@ -456,7 +496,9 @@ def tool_lint_code(code: str) -> ToolResult:
             metadata={
                 "validation_mode": "idl_compile",
                 "validation_status": "failed",
-                "validation_notice": f"本地 IDL 编译发现 {len(error_lines)} 个问题。",
+                "validation_notice": f"本地 IDL 编译发现 {len(issues)} 个问题。",
+                "validation_issue_count": len(issues),
+                "validation_issues": issues,
             },
         )
 

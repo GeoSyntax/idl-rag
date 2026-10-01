@@ -717,8 +717,10 @@ class AgentService:
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         # 检测代码修复意图
         last_artifact_code = ""
+        last_artifact_validation: dict[str, object] = {}
         if fix_intent:
             last_artifact_code = self._find_last_artifact_code(db, session.id, owner_user_id)
+            last_artifact_validation = self._find_last_artifact_validation(db, session.id, owner_user_id)
 
         # 自适应轮次
         max_rounds = self._determine_max_rounds(
@@ -795,6 +797,23 @@ class AgentService:
                 + self._wrap_untrusted_context("previous_artifact_code", last_artifact_code[:3000])
                 + "\n请分析代码并结合用户的反馈进行修复。"
             )
+            issues = last_artifact_validation.get("validation_issues")
+            if isinstance(issues, list) and issues:
+                issue_lines = []
+                for item in issues[:20]:
+                    if not isinstance(item, dict):
+                        continue
+                    location = ""
+                    if isinstance(item.get("line"), int):
+                        location = f"第 {item['line']} 行"
+                        if isinstance(item.get("column"), int):
+                            location += f"、第 {item['column']} 列"
+                    issue_lines.append(f"- {location + '：' if location else ''}{str(item.get('message') or '')[:320]}")
+                if issue_lines:
+                    fix_context += (
+                        "\n上一轮本地 IDL 验证返回了以下问题。修复时逐条核对，不要只重复原代码：\n"
+                        + self._wrap_untrusted_context("previous_validation_issues", "\n".join(issue_lines))
+                    )
 
         # 如果有附带文件内容，注入到上下文中
         file_context = ""
@@ -2216,6 +2235,27 @@ class AgentService:
                     return file_path.read_text(encoding="utf-8")
         return ""
 
+    def _find_last_artifact_validation(self, db: Session, session_id: int, owner_user_id: int) -> dict[str, object]:
+        """Return bounded validation diagnostics for the latest generated artifact."""
+        messages = (
+            db.query(ChatMessage)
+            .filter(ChatMessage.session_id == session_id, ChatMessage.role == "assistant")
+            .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+            .limit(5)
+            .all()
+        )
+        for message in messages:
+            for artifact in message.artifacts_json or []:
+                if not isinstance(artifact, dict) or artifact.get("kind") != "pro":
+                    continue
+                artifact_metadata = artifact.get("metadata")
+                if not isinstance(artifact_metadata, dict):
+                    continue
+                validation = artifact_metadata.get("validation", {})
+                if isinstance(validation, dict):
+                    return validation
+        return {}
+
     def _extract_code_block(self, text: str) -> str | None:
         """从 LLM 回答中提取 IDL 代码块。
 
@@ -2507,7 +2547,7 @@ class AgentService:
         return messages
 
     @staticmethod
-    def _validate_generated_pro_code(code: str) -> dict[str, str]:
+    def _validate_generated_pro_code(code: str) -> dict[str, object]:
         """Validate generated IDL before presenting the file as an artifact.
 
         The validator may use a local IDL executable, but the product must also
@@ -2521,11 +2561,30 @@ class AgentService:
             mode = str(metadata.get("validation_mode") or "static_analysis")
             status = str(metadata.get("validation_status") or "unverified")
             notice = str(metadata.get("validation_notice") or result.output.splitlines()[0] or "已完成代码检查。")
-            return {
+            validation: dict[str, object] = {
                 "validation_mode": mode,
                 "validation_status": status,
                 "validation_notice": notice[:240],
             }
+            issues = metadata.get("validation_issues")
+            if isinstance(issues, list):
+                safe_issues: list[dict[str, object]] = []
+                for item in issues[:20]:
+                    if not isinstance(item, dict):
+                        continue
+                    message = str(item.get("message") or "").strip()
+                    if not message:
+                        continue
+                    safe_item: dict[str, object] = {"message": message[:320]}
+                    for key in ("line", "column"):
+                        value = item.get(key)
+                        if isinstance(value, int) and value > 0:
+                            safe_item[key] = value
+                    safe_issues.append(safe_item)
+                if safe_issues:
+                    validation["validation_issues"] = safe_issues
+                    validation["validation_issue_count"] = len(safe_issues)
+            return validation
         except Exception:  # noqa: BLE001
             # A validator failure must not discard the generated file.  It is
             # safer to expose the unknown state than to imply compilation.

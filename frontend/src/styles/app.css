@@ -1971,6 +1971,52 @@ body { min-height: 100dvh; }
   background: #fffbeb;
 }
 
+.chat-artifact-validation-issues {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.chat-artifact-validation-issues summary {
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+  color: #991b1b;
+  overflow-wrap: anywhere;
+}
+
+.chat-artifact-validation-issue-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-left: 2px solid #fca5a5;
+  background: #fff7f7;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.chat-artifact-validation-issue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.chat-artifact-validation-issue-location {
+  flex: 0 0 auto;
+  color: #991b1b;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-artifact-validation-issue-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
 .chat-artifact-actions {
   display: flex;
   align-items: center;

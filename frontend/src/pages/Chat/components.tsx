@@ -526,6 +526,22 @@ function getArtifactValidationLabel(artifact: ChatArtifact): { label: string; st
   return { label: '仅静态分析', status: 'unverified' }
 }
 
+function getArtifactValidationIssues(artifact: ChatArtifact): Array<{ line?: number; column?: number; message: string }> {
+  const validation = artifact.metadata?.validation
+  if (!validation || typeof validation !== 'object' || Array.isArray(validation)) return []
+  const issues = (validation as Record<string, unknown>).validation_issues
+  if (!Array.isArray(issues)) return []
+  return issues
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
+    .map((item) => ({
+      line: typeof item.line === 'number' && Number.isFinite(item.line) ? item.line : undefined,
+      column: typeof item.column === 'number' && Number.isFinite(item.column) ? item.column : undefined,
+      message: String(item.message || '').trim(),
+    }))
+    .filter((item) => item.message)
+    .slice(0, 20)
+}
+
 function ArtifactItem({
   artifact,
   onDownloadArtifact,
@@ -547,6 +563,7 @@ function ArtifactItem({
   const canPreview = artifact.previewable || artifact.media_type.startsWith('image/')
   const badgeLabel = getArtifactBadgeLabel(artifact)
   const validationLabel = getArtifactValidationLabel(artifact)
+  const validationIssues = getArtifactValidationIssues(artifact)
 
   if (canPreview) {
     return <ArtifactImagePreview artifact={artifact} onDownloadArtifact={onDownloadArtifact} />
@@ -567,6 +584,21 @@ function ArtifactItem({
         >
           {validationLabel.label}
         </span>
+      ) : null}
+      {validationIssues.length > 0 && validationLabel?.status !== 'passed' ? (
+        <details className="chat-artifact-validation-issues">
+          <summary>查看 {validationIssues.length} 个编译问题</summary>
+          <div className="chat-artifact-validation-issue-list">
+            {validationIssues.map((issue, index) => (
+              <div className="chat-artifact-validation-issue" key={`${issue.line || 'unknown'}-${issue.column || 'unknown'}-${index}`}>
+                <span className="chat-artifact-validation-issue-location">
+                  {issue.line ? `第 ${issue.line} 行${issue.column ? ` · 第 ${issue.column} 列` : ''}` : '位置未确定'}
+                </span>
+                <span className="chat-artifact-validation-issue-message">{issue.message}</span>
+              </div>
+            ))}
+          </div>
+        </details>
       ) : null}
       {isChatInput ? <span className="chat-artifact-input-note">已保存上下文，可用于历史重试</span> : null}
       {canRun ? (
