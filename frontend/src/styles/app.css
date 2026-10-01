@@ -182,6 +182,35 @@ body { min-height: 100dvh; }
   color: var(--primary-strong) !important;
 }
 
+/* Keep the research workspace's interactive states within the same readable
+   teal scale as the shell instead of Ant Design's lighter default blue. */
+.research-page .ant-btn-primary {
+  background: var(--primary-strong) !important;
+  border-color: var(--primary-strong) !important;
+}
+
+.research-page .ant-btn-primary:hover,
+.research-page .ant-btn-primary:focus-visible {
+  background: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+}
+
+.research-page .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--primary-strong) !important;
+}
+
+.research-page .ant-tabs-ink-bar {
+  background: var(--primary-strong) !important;
+}
+
+.research-page .ant-descriptions-item-label {
+  color: var(--text-muted) !important;
+}
+
+.research-tab-label-short {
+  display: none;
+}
+
 .app-menu .ant-menu-item-selected::after {
   border-right-color: var(--primary) !important;
 }
@@ -2681,6 +2710,22 @@ body { min-height: 100dvh; }
   .research-page .section-card .ant-card-extra {
     width: 100%;
     margin-inline-start: 0;
+  }
+
+  /* Keep all research sections directly discoverable on narrow screens. A
+     short label prevents Ant Design from moving the last tabs into an
+     overflow menu nested below its tablist role. */
+  .research-tab-label-full {
+    display: none;
+  }
+
+  .research-tab-label-short {
+    display: inline;
+  }
+
+  .research-tabs .ant-tabs-tab {
+    margin-inline-end: 4px;
+    padding-inline: 8px;
   }
 
   .retrieval-lab-grid,

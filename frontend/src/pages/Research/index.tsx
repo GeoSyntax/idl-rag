@@ -1150,13 +1150,19 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
           form={projectForm}
           layout="vertical"
           initialValues={{ entry_mode: 'open' }}
-          onFinish={(values) => createProject.mutate({ ...values, protocol: {} })}
+          onFinish={(values) => {
+            if (!values.entry_mode) {
+              messageApi.error('请选择入口模式')
+              return
+            }
+            createProject.mutate({ ...values, protocol: {} })
+          }}
         >
           <div className="grid-two">
             <Form.Item label="项目名称" name="name" rules={[{ required: true, message: '请输入项目名称' }]}>
               <Input placeholder="例如：鄱阳湖多源水体制图" />
             </Form.Item>
-            <Form.Item label="入口模式" name="entry_mode" rules={[{ required: true }]}>
+            <Form.Item label="入口模式" name="entry_mode">
               <Select options={[{ value: 'open', label: '开放研究' }, { value: 'template', label: '研究模板' }]} />
             </Form.Item>
           </div>
@@ -1180,6 +1186,10 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
           locale={{ emptyText: <DisplayEmpty compact illustration="map" title="还没有研究项目" description="从开放研究或研究模板开始创建。" /> }}
           rowSelection={{
             type: 'radio',
+            columnTitle: '选择',
+            // Ant Design's CheckboxProps type omits native aria attributes, but
+            // Table forwards this object to the actual input element at runtime.
+            getCheckboxProps: (record) => ({ 'aria-label': `选择项目 ${record.name}` } as never),
             selectedRowKeys: selectedProjectId ? [selectedProjectId] : [],
             onChange: (keys) => setSelectedProjectId(Number(keys[0]) || undefined),
           }}
@@ -1228,7 +1238,12 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
           items={[
             {
               key: 'collaboration',
-              label: `协作成员${projectMembers.length ? ` · ${projectMembers.length}` : ''}`,
+              label: (
+                <span className="research-tab-label">
+                  <span className="research-tab-label-full">协作成员{projectMembers.length ? ` · ${projectMembers.length}` : ''}</span>
+                  <span className="research-tab-label-short">协作{projectMembers.length ? ` · ${projectMembers.length}` : ''}</span>
+                </span>
+              ),
               children: (
                 <Card className="section-card" title="低摩擦项目协作">
                   <Alert
@@ -1285,7 +1300,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
             },
             {
               key: 'rag',
-              label: '项目 RAG',
+              label: <span className="research-tab-label"><span className="research-tab-label-full">项目 RAG</span><span className="research-tab-label-short">RAG</span></span>,
               children: (
                 <div className="research-tab-stack">
                   <Card className="section-card" title="RAG 分层边界">
@@ -1392,7 +1407,11 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
             },
             {
               key: 'protocol',
-              label: '研究协议',
+              label: <span className="research-tab-label"><span className="research-tab-label-full">研究协议</span><span className="research-tab-label-short">协议</span></span>,
+              // The protocol form is populated as soon as a project is selected.
+              // Keep this tab mounted so the form instance is connected before
+              // that effect runs (and avoid a misleading React console warning).
+              forceRender: true,
               children: (
                 <Card className="section-card" title="研究问题与协议">
                   <Alert
@@ -1500,7 +1519,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
             },
             {
               key: 'data',
-              label: '数据与快照',
+              label: <span className="research-tab-label"><span className="research-tab-label-full">数据与快照</span><span className="research-tab-label-short">数据</span></span>,
               children: (
                 <div className="research-tab-stack">
                   <Card className="section-card" title="上传私有研究数据">
@@ -1834,7 +1853,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
             },
             {
               key: 'method',
-              label: '证据与公式',
+              label: <span className="research-tab-label"><span className="research-tab-label-full">证据与公式</span><span className="research-tab-label-short">证据</span></span>,
               children: (
                 <div className="research-tab-stack research-method-grid">
                   <Card className="section-card" title="EvidenceCard">
@@ -2089,7 +2108,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
             },
             {
               key: 'experiments',
-              label: '实验与影像证据',
+              label: <span className="research-tab-label"><span className="research-tab-label-full">实验与影像证据</span><span className="research-tab-label-short">实验</span></span>,
               children: (
                 <div className="research-tab-stack">
                   <Card className="section-card" title="创建实验计划">
