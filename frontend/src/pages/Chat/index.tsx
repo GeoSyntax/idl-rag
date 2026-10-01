@@ -66,6 +66,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [retryQuestion, setRetryQuestion] = useState('')
   const [retryAttachment, setRetryAttachment] = useState<AttachedFile | null>(null)
+  const [retryMessageId, setRetryMessageId] = useState<number | null>(null)
   const [retryingRunId, setRetryingRunId] = useState<number | null>(null)
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
   const [agentLiveStatus, setAgentLiveStatus] = useState('')
@@ -213,7 +214,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         attachment = { name: run.attached_file_name || uploaded.file_name, content }
       }
       const retryMode = run.mode === 'agent-stream' ? 'agent' : 'normal'
-      submitted = handleSubmit(targetMessage.content, attachment, inputArtifacts, retryMode, run.generate_pro_file, run.id)
+      submitted = handleSubmit(
+        targetMessage.content,
+        attachment,
+        inputArtifacts,
+        retryMode,
+        run.generate_pro_file,
+        run.id,
+        targetMessage.id,
+      )
     } catch (err) {
       messageApi.error((err as Error).message || '恢复运行附件失败')
     } finally {
@@ -467,6 +476,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     modeOverride?: 'normal' | 'agent',
     generateProFileOverride?: boolean,
     retryRunId?: number,
+    retryMessageIdOverride?: number,
   ): boolean => {
     const question = (questionOverride ?? inputValue).trim()
     if (!question) return false
@@ -499,9 +509,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => {
-      // A provider error is not a new user intent. Replace the local failed
-      // prompt while retrying so a slow retry never looks like two questions
-      // (and, consequently, two answers) in the same conversation.
+      // A retry is not a new user intent. Replace the original local prompt
+      // while retrying so the in-flight view never shows two questions. The
+      // server receives the persisted message id and reuses that same row.
+      if (retryMessageIdOverride !== undefined) {
+        const hasPersistedTarget = prev.some((message) => message.id === retryMessageIdOverride)
+        if (hasPersistedTarget) {
+          return prev.map((message) => message.id === retryMessageIdOverride ? userMessage : message)
+        }
+      }
       const lastMessage = prev[prev.length - 1]
       if (streamError && lastMessage?.role === 'user' && lastMessage.content === userMessage.content) {
         return [...prev.slice(0, -1), userMessage]
@@ -513,6 +529,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setIsStreaming(true)
     clearStreamingBuffer()
     setStreamError('')
+    setRetryMessageId(retryMessageIdOverride ?? null)
     setActiveStreamId(null)
     setAgentSteps([])
     // Keep the transient status aligned with the selected mode. The shared
@@ -543,9 +560,27 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setAttachedFile(null)
 
     if (activeChatMode === 'agent') {
-      handleAgentStream(actualQuestion, controller.signal, fileContent, requestId, activeInputArtifacts, activeAttachment?.name, activeGenerateProFile)
+      handleAgentStream(
+        actualQuestion,
+        controller.signal,
+        fileContent,
+        requestId,
+        activeInputArtifacts,
+        activeAttachment?.name,
+        activeGenerateProFile,
+        retryMessageIdOverride,
+      )
     } else {
-      handleSimpleStream(actualQuestion, controller.signal, fileContent, requestId, activeInputArtifacts, activeAttachment?.name, activeGenerateProFile)
+      handleSimpleStream(
+        actualQuestion,
+        controller.signal,
+        fileContent,
+        requestId,
+        activeInputArtifacts,
+        activeAttachment?.name,
+        activeGenerateProFile,
+        retryMessageIdOverride,
+      )
     }
     return true
   }
@@ -623,6 +658,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     inputArtifacts = selectedInputArtifacts,
     fileName?: string,
     generateProFileOverride?: boolean,
+    retryMessageIdOverride?: number,
   ) => {
     try {
       await api.askQuestionStream(
@@ -630,6 +666,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           knowledge_base_ids: selectedKBIds.length > 0 ? selectedKBIds : undefined,
           question,
           session_id: sessionId,
+          retry_message_id: retryMessageIdOverride,
           strategy: selectedRetrievalConfig?.strategy,
           top_k: selectedRetrievalConfig?.topK,
           generate_pro_file: generateProFileOverride ?? generateProFile,
@@ -638,10 +675,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           input_artifact_ids: inputArtifacts.map((artifact) => artifact.id),
         },
         {
-          onRunStarted: (newSessionId, streamId) => {
+          onRunStarted: (newSessionId, streamId, messageId) => {
             activeRunSessionIdRef.current = newSessionId
             setSessionId(newSessionId)
             setActiveStreamId(streamId ?? null)
+            if (messageId) setRetryMessageId(messageId)
             void refreshChatRuns(newSessionId)
           },
           onToken: (content: string) => {
@@ -652,6 +690,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             streamTerminalRef.current = true
             setRetryQuestion('')
             setRetryAttachment(null)
+            setRetryMessageId(null)
             // 先移除临时流，再加载已落盘消息，避免同一答案短暂出现两次。
             // Agent 步骤保留在当前页面，方便用户在最终回答后继续查看运行追踪。
             finishStream()
@@ -674,6 +713,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     inputArtifacts = selectedInputArtifacts,
     fileName?: string,
     generateProFileOverride?: boolean,
+    retryMessageIdOverride?: number,
   ) => {
     try {
       await api.agentStream(
@@ -681,6 +721,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           knowledge_base_ids: selectedKBIds.length > 0 ? selectedKBIds : undefined,
           question,
           session_id: sessionId,
+          retry_message_id: retryMessageIdOverride,
           strategy: selectedRetrievalConfig?.strategy,
           top_k: selectedRetrievalConfig?.topK,
           generate_pro_file: generateProFileOverride ?? generateProFile,
@@ -693,10 +734,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           allow_gee_fetch: allowGeeFetch,
         },
         {
-          onRunStarted: (newSessionId, streamId) => {
+          onRunStarted: (newSessionId, streamId, messageId) => {
             activeRunSessionIdRef.current = newSessionId
             setSessionId(newSessionId)
             setActiveStreamId(streamId ?? null)
+            if (messageId) setRetryMessageId(messageId)
             void refreshChatRuns(newSessionId)
           },
           onStep: (event: AgentStreamEvent) => {
@@ -741,6 +783,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             const newSessionId = event.session_id
             setRetryQuestion('')
             setRetryAttachment(null)
+            setRetryMessageId(null)
             // Mark completion before clearing the transient stream. While the
             // persisted assistant message is fetched, suppress the trace-only
             // bubble so a completed answer never looks like a second response.
@@ -1200,7 +1243,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             streamError={streamError}
             streamId={activeStreamId}
             retryQuestion={retryQuestion}
-            onRetry={() => handleSubmit(retryQuestion, retryAttachment)}
+            onRetry={() => handleSubmit(
+              retryQuestion,
+              retryAttachment,
+              undefined,
+              chatMode,
+              generateProFile,
+              undefined,
+              retryMessageId ?? undefined,
+            )}
             canConfigureModel={canConfigureModel}
             onOpenSettings={onOpenSettings}
             messagesEndRef={messagesEndRef}

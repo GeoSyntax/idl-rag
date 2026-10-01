@@ -317,20 +317,10 @@ class AgentService:
     def answer(self, db: Session, payload: ChatRequest, owner_user_id: int) -> ChatResponse:
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts, message_artifacts, _attached_artifact_id = self._prepare_input_artifacts(
-            db, session.id, payload, owner_user_id,
+        input_artifacts, _message_artifacts, _attached_artifact_id, user_message = self._prepare_stream_user_message(
+            db, session, payload, owner_user_id,
         )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
-        user_message = ChatMessage(
-            session_id=session.id,
-            role="user",
-            content=payload.question,
-            citations_json=[],
-            artifacts_json=message_artifacts,
-        )
-        db.add(user_message)
-        db.commit()
-        db.refresh(user_message)
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
@@ -402,20 +392,10 @@ class AgentService:
         # Phase 1: 准备工作（同步，快速）
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
-            db, session.id, payload, owner_user_id,
+        input_artifacts, message_artifacts, attached_artifact_id, user_message = self._prepare_stream_user_message(
+            db, session, payload, owner_user_id,
         )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
-        user_message = ChatMessage(
-            session_id=session.id,
-            role="user",
-            content=payload.question,
-            citations_json=[],
-            artifacts_json=message_artifacts,
-        )
-        db.add(user_message)
-        db.commit()
-        db.refresh(user_message)
 
         # This event is intentionally metadata-only. The route uses it to
         # persist a safe run record when the model fails before ``done``.
@@ -541,20 +521,10 @@ class AgentService:
 
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
-            db, session.id, payload, owner_user_id,
+        input_artifacts, message_artifacts, attached_artifact_id, user_message = self._prepare_stream_user_message(
+            db, session, payload, owner_user_id,
         )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
-        user_message = ChatMessage(
-            session_id=session.id,
-            role="user",
-            content=payload.question,
-            citations_json=[],
-            artifacts_json=message_artifacts,
-        )
-        db.add(user_message)
-        db.commit()
-        db.refresh(user_message)
 
         # Keep ordinary Chat and Agent streams on the same run lifecycle. The
         # event is metadata-only so a failure before ``done`` can still be
@@ -709,20 +679,10 @@ class AgentService:
             }
 
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
-            db, session.id, payload, owner_user_id,
+        input_artifacts, message_artifacts, attached_artifact_id, user_message = self._prepare_stream_user_message(
+            db, session, payload, owner_user_id,
         )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
-        user_message = ChatMessage(
-            session_id=session.id,
-            role="user",
-            content=payload.question,
-            citations_json=[],
-            artifacts_json=message_artifacts,
-        )
-        db.add(user_message)
-        db.commit()
-        db.refresh(user_message)
 
         yield {
             "type": "run_started",
@@ -2329,6 +2289,8 @@ class AgentService:
         session_id: int,
         payload: ChatRequest,
         owner_user_id: int,
+        *,
+        persist_attached_file: bool = True,
     ) -> tuple[list[dict], list[dict], str | None]:
         """Resolve IDL inputs and persist an uploaded text context privately.
 
@@ -2348,7 +2310,7 @@ class AgentService:
             message_artifacts.append(reference)
 
         attached_artifact_id: str | None = None
-        if payload.attached_file_content:
+        if payload.attached_file_content and persist_attached_file:
             attached = self._save_chat_input_artifact(
                 session_id,
                 owner_user_id,
@@ -2358,6 +2320,67 @@ class AgentService:
             message_artifacts.append(attached)
             attached_artifact_id = str(attached["id"])
         return input_artifacts, message_artifacts, attached_artifact_id
+
+    def _prepare_stream_user_message(
+        self,
+        db: Session,
+        session: ChatSession,
+        payload: ChatRequest,
+        owner_user_id: int,
+    ) -> tuple[list[dict], list[dict], str | None, ChatMessage]:
+        """Prepare one user message, reusing it for an explicit retry.
+
+        A cancelled/provider-failed stream has already persisted its user
+        message before the model starts. Retrying that run must not append a
+        second identical prompt or save a second copy of an uploaded context.
+        The retry id is never trusted on its own: ownership, session, role and
+        exact question text are checked before the existing row is reused.
+        """
+        retry_message: ChatMessage | None = None
+        if payload.retry_message_id is not None:
+            retry_message = db.get(ChatMessage, payload.retry_message_id)
+            if (
+                retry_message is None
+                or retry_message.session_id != session.id
+                or retry_message.role != "user"
+                or retry_message.content != payload.question
+            ):
+                raise ValueError("无法重试：原始用户消息不存在或与当前会话不匹配。")
+
+        input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
+            db,
+            session.id,
+            payload,
+            owner_user_id,
+            persist_attached_file=retry_message is None,
+        )
+        if retry_message is not None:
+            # Keep the artifact references attached to the original user
+            # message. This prevents a retry from creating duplicate private
+            # upload artifacts while still allowing the current request to
+            # receive the attachment content in memory.
+            message_artifacts = list(retry_message.artifacts_json or [])
+            attached_artifact_id = next(
+                (
+                    str(item.get("id"))
+                    for item in message_artifacts
+                    if isinstance(item, dict) and item.get("kind") == "chat_input" and item.get("id")
+                ),
+                None,
+            )
+            return input_artifacts, message_artifacts, attached_artifact_id, retry_message
+
+        user_message = ChatMessage(
+            session_id=session.id,
+            role="user",
+            content=payload.question,
+            citations_json=[],
+            artifacts_json=message_artifacts,
+        )
+        db.add(user_message)
+        db.commit()
+        db.refresh(user_message)
+        return input_artifacts, message_artifacts, attached_artifact_id, user_message
 
     def _append_input_artifact_context(self, question: str, input_artifacts: list[dict]) -> str:
         if not input_artifacts:

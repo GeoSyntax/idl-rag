@@ -401,6 +401,7 @@ export type AgentChatRequest = {
   knowledge_base_ids?: number[]
   question: string
   session_id?: number
+  retry_message_id?: number
   strategy?: string
   top_k?: number
   generate_pro_file?: boolean

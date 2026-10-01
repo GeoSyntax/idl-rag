@@ -386,6 +386,7 @@ export const api = {
     knowledge_base_ids?: number[]
     question: string
     session_id?: number | null
+    retry_message_id?: number
     strategy?: string
     top_k?: number
     generate_pro_file?: boolean
@@ -778,6 +779,7 @@ export const api = {
       knowledge_base_ids?: number[]
       question: string
       session_id?: number | null
+      retry_message_id?: number
       generate_pro_file?: boolean
       strategy?: string
       top_k?: number
@@ -786,7 +788,7 @@ export const api = {
       input_artifact_ids?: string[]
     },
     callbacks: {
-      onRunStarted?: (sessionId: number, streamId?: string) => void
+      onRunStarted?: (sessionId: number, streamId?: string, messageId?: number) => void
       onToken: (content: string) => void
       onDone: (sessionId: number, citations: unknown[], artifacts: unknown[]) => void
       onError: (message: string, streamId?: string) => void
@@ -810,7 +812,7 @@ export const api = {
 
     await consumeSse<StreamEvent>(response, (event) => {
       if (event.type === 'run_started') {
-        callbacks.onRunStarted?.(event.session_id, event.stream_id)
+        callbacks.onRunStarted?.(event.session_id, event.stream_id, event.message_id)
       } else if (event.type === 'token') {
         callbacks.onToken(event.content)
       } else if (event.type === 'done') {
@@ -825,6 +827,7 @@ export const api = {
       knowledge_base_ids?: number[]
       question: string
       session_id?: number | null
+      retry_message_id?: number
       generate_pro_file?: boolean
       strategy?: string
       top_k?: number
@@ -837,7 +840,7 @@ export const api = {
       allow_gee_fetch?: boolean
     },
     callbacks: {
-      onRunStarted?: (sessionId: number, streamId?: string) => void
+      onRunStarted?: (sessionId: number, streamId?: string, messageId?: number) => void
       onStep: (step: AgentStreamEvent) => void
       onToken: (content: string) => void
       onDone: (event: Extract<AgentStreamEvent, { type: 'done' }>) => void
@@ -862,7 +865,7 @@ export const api = {
 
     await consumeSse<AgentStreamEvent>(response, (event) => {
       if (event.type === 'run_started') {
-        callbacks.onRunStarted?.(event.session_id, event.stream_id)
+        callbacks.onRunStarted?.(event.session_id, event.stream_id, event.message_id)
       } else if (event.type === 'step') {
         callbacks.onStep(event)
       } else if (event.type === 'token') {

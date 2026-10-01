@@ -169,6 +169,10 @@ class ChatRequest(BaseModel):
     knowledge_base_ids: list[int] | None = None
     question: str = Field(min_length=1)
     session_id: int | None = None
+    # Retries reuse the original user message instead of appending a second
+    # identical prompt to the same session. The service validates ownership,
+    # session membership, role and question text before reusing it.
+    retry_message_id: int | None = Field(default=None, ge=1)
     strategy: str | None = Field(default=None, min_length=1, max_length=100)
     top_k: int | None = Field(default=None, ge=1, le=20)
     generate_pro_file: bool = False

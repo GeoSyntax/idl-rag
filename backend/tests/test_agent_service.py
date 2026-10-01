@@ -22,6 +22,61 @@ def test_agent_model_error_is_not_silently_downgraded(monkeypatch) -> None:
         service.agent_generate(None, [])
 
 
+def test_stream_retry_reuses_original_user_message(monkeypatch, tmp_path: Path) -> None:
+    """Retrying a cancelled/failed stream must not append a duplicate prompt."""
+    monkeypatch.setenv("IDLRAG_BASE_DIR", str(tmp_path))
+
+    from app.api.schemas import ChatRequest
+    from app.core.config import get_app_settings
+    from app.db.database import get_engine, get_session_factory, init_database
+    from app.db.models import ChatMessage, ChatSession, User
+    from app.services.agent_service import AgentService
+
+    get_app_settings.cache_clear()
+    get_engine.cache_clear()
+    get_session_factory.cache_clear()
+    init_database()
+    db = get_session_factory()()
+    try:
+        user = User(username="retry-message-review", password_hash="hash", role="user", is_active=True)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        session = ChatSession(owner_user_id=user.id, title="retry")
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        original = ChatMessage(
+            session_id=session.id,
+            role="user",
+            content="重试这条问题",
+            citations_json=[],
+            artifacts_json=[],
+        )
+        db.add(original)
+        db.commit()
+        db.refresh(original)
+
+        service = AgentService()
+        payload = ChatRequest(
+            question=original.content,
+            session_id=session.id,
+            retry_message_id=original.id,
+        )
+        _inputs, _artifacts, _attached_id, reused = service._prepare_stream_user_message(
+            db, session, payload, user.id,
+        )
+
+        assert reused.id == original.id
+        assert db.query(ChatMessage).filter(ChatMessage.session_id == session.id).count() == 1
+
+        invalid = payload.model_copy(update={"retry_message_id": original.id + 1000})
+        with pytest.raises(ValueError, match="原始用户消息"):
+            service._prepare_stream_user_message(db, session, invalid, user.id)
+    finally:
+        db.close()
+
+
 def test_agent_remote_stream_forwards_plain_final_content(monkeypatch) -> None:
     from app.services.llm_service import LlmService
 
