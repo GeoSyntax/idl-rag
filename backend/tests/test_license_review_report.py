@@ -23,3 +23,28 @@ def test_license_report_keeps_oa_records_pending_without_explicit_clearance(tmp_
     assert report["pending_records"] == 1
     assert report["by_source_host"] == {"publisher.example": 1}
     assert report["records"][0]["review_evidence"]["redistribution_allowed"] is None
+
+
+def test_license_report_preserves_explicit_reviewer_evidence(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.jsonl"
+    manifest.write_text(
+        '{"file_name":"a.pdf","title":"A","source_url":"https://publisher.example/a.pdf",'
+        '"license_status":"cleared_cc_by_4.0",'
+        '"review_evidence":{"license_url":"https://publisher.example/license",'
+        '"license_name":"CC BY 4.0","redistribution_allowed":true,"reviewer":"alice",'
+        '"reviewed_at":"2026-10-02","evidence_sha256":"abc123","notes":"article page"}}\n',
+        encoding="utf-8",
+    )
+
+    report = build_review_report(manifest)
+
+    assert report["cleared_records"] == 1
+    assert report["records"][0]["review_evidence"] == {
+        "license_url": "https://publisher.example/license",
+        "license_name": "CC BY 4.0",
+        "redistribution_allowed": True,
+        "reviewer": "alice",
+        "reviewed_at": "2026-10-02",
+        "evidence_sha256": "abc123",
+        "notes": "article page",
+    }

@@ -19,7 +19,7 @@
 
 本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Ollama `gemma3:4b` 的 OpenAI-compatible Chat 请求也已成功。当前运行时默认使用 Ollama：聊天为 `gemma3:4b`，Embedding 为 `bge-m3`；Gemini2API 仍保留在设置中，可作为需要更强长文本能力时的可选远程 provider。两者职责分离，不能把聊天网关误当成 embedding 服务。
 
-307 篇本地 OA PDF 当前全部进入许可人工复核队列，尚未自动标记为可再分发。可用 `backend/scripts/license_review_report.py` 生成 JSON/Markdown 队列；只有明确填写许可证据并将状态设为 `cleared_*` 后，公开资料包的 `--require-cleared-licenses` 闸门才会通过。内部受控部署可以检索这些资料，但教师/企业跨组织共享前仍需完成这一步。
+307 篇本地 OA PDF 当前全部进入许可人工复核队列，尚未自动标记为可再分发。可用 `backend/scripts/license_review_report.py` 生成 JSON/Markdown 队列；审核人可以在 JSONL 记录中填写 `review_evidence`（许可证 URL、许可证名称、是否允许再分发、审核人、日期、证据 SHA-256 和备注），只有同时明确填写证据并将状态设为 `cleared_*` 后，公开资料包的 `--require-cleared-licenses` 闸门才会通过。报告会保留这些字段，不会把 OpenAlex 的 OA 标记推断成许可。内部受控部署可以检索这些资料，但教师/企业跨组织共享前仍需完成这一步。
 
 注意：43 条混合 golden question 不能直接用于评价每个知识库的整体质量；知识库 5 若混入 IDL 符号题会得到误导性的低命中率。因此评测必须按知识库/资料域分组，报告中同时保留快速检索评测和可选的 Gemini2API 端到端慢评测。
 

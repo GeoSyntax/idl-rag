@@ -35,6 +35,37 @@ def _host(url: str) -> str:
     return (urlparse(url).hostname or "unknown").lower()
 
 
+def _review_evidence(record: dict[str, Any]) -> dict[str, Any]:
+    """Load reviewer evidence without inferring permission from OA metadata.
+
+    Older manifests have no evidence fields.  Newer manifests may store them
+    either under ``review_evidence`` or as top-level fields so a reviewer can
+    edit JSONL with a simple line-oriented workflow.  The report keeps the
+    evidence visible and leaves missing values explicit instead of silently
+    converting an OA flag into a clearance.
+    """
+    nested = record.get("review_evidence")
+    nested_values = nested if isinstance(nested, dict) else {}
+
+    def value(*keys: str, default: Any = "") -> Any:
+        for key in keys:
+            if key in nested_values and nested_values[key] not in (None, ""):
+                return nested_values[key]
+            if key in record and record[key] not in (None, ""):
+                return record[key]
+        return default
+
+    return {
+        "license_url": value("license_url"),
+        "license_name": value("license_name"),
+        "redistribution_allowed": value("redistribution_allowed", default=None),
+        "reviewer": value("reviewer"),
+        "reviewed_at": value("reviewed_at"),
+        "evidence_sha256": value("evidence_sha256"),
+        "notes": value("notes", "license_notes"),
+    }
+
+
 def build_review_report(manifest: Path) -> dict[str, Any]:
     records = _load_jsonl(manifest)
     queue: list[dict[str, Any]] = []
@@ -54,15 +85,7 @@ def build_review_report(manifest: Path) -> dict[str, Any]:
                 "sha256": record.get("sha256") or "",
                 "license_status": license_status,
                 "review_state": "cleared" if cleared else "needs_manual_review",
-                "review_evidence": {
-                    "license_url": "",
-                    "license_name": "",
-                    "redistribution_allowed": None,
-                    "reviewer": "",
-                    "reviewed_at": "",
-                    "evidence_sha256": "",
-                    "notes": "",
-                },
+                "review_evidence": _review_evidence(record),
             }
         )
 
