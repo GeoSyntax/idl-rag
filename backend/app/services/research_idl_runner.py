@@ -187,6 +187,11 @@ class ResearchIdlRunner:
             "entrypoint": entrypoint,
             "script_asset_id": script_asset.id,
             "script_sha256": script_asset.sha256,
+            "script_provenance": {
+                "asset_id": script_asset.id,
+                "file_name": script_asset.name,
+                "sha256": script_asset.sha256,
+            },
             "snapshot_id": snapshot.id,
             "snapshot_hash": snapshot.snapshot_hash,
             "formula_spec_id": formula_spec.id,

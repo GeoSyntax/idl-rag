@@ -258,6 +258,8 @@ def test_project_idl_runner_uploads_private_script_and_collects_outputs(monkeypa
         assert run["manifest"]["runner"] == "idl"
         assert run["manifest"]["entrypoint"] == "water_run"
         assert run["manifest"]["prediction_output_file"] == "water_mask.tif"
+        assert run["manifest"]["script_provenance"]["asset_id"] == script["id"]
+        assert run["manifest"]["script_provenance"]["sha256"] == script["sha256"]
         assert run["manifest"]["validation"]["status"] == "completed"
         assert run["manifest"]["validation"]["metrics"]["overall_accuracy"] == 1.0
         assert any(output["file_name"] == "water_mask.png" for output in run["outputs"])

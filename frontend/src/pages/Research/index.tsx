@@ -309,6 +309,52 @@ function parameterSweepFromRun(run: ResearchRun): Record<string, unknown> | null
   return sweep as Record<string, unknown>
 }
 
+type ResearchRunProvenance = {
+  scriptAssetId: number | null
+  scriptFileName: string | null
+  scriptSha256: string | null
+  snapshotId: number | null
+  snapshotHash: string | null
+}
+
+function researchRunProvenance(run: ResearchRun): ResearchRunProvenance | null {
+  const manifest = run.manifest ?? {}
+  const rawScript = manifest.script_provenance
+  const script = rawScript && typeof rawScript === 'object' && !Array.isArray(rawScript)
+    ? rawScript as Record<string, unknown>
+    : null
+  const scriptAssetId = typeof script?.asset_id === 'number'
+    ? script.asset_id
+    : typeof manifest.script_asset_id === 'number' ? manifest.script_asset_id : null
+  const scriptFileName = typeof script?.file_name === 'string' ? script.file_name : null
+  const scriptSha256 = typeof script?.sha256 === 'string'
+    ? script.sha256
+    : typeof manifest.script_sha256 === 'string' ? manifest.script_sha256 : null
+  const snapshotId = typeof manifest.snapshot_id === 'number' ? manifest.snapshot_id : null
+  const snapshotHash = typeof manifest.snapshot_hash === 'string' ? manifest.snapshot_hash : null
+  if (!scriptSha256 && snapshotHash === null) return null
+  return { scriptAssetId, scriptFileName, scriptSha256, snapshotId, snapshotHash }
+}
+
+function ResearchRunProvenanceCard({ run }: { run: ResearchRun }) {
+  const provenance = researchRunProvenance(run)
+  if (!provenance) return null
+  return (
+    <div className="research-run-provenance" title={provenance.scriptSha256 ? `脚本 SHA-256：${provenance.scriptSha256}` : undefined}>
+      {provenance.scriptSha256 ? (
+        <>
+          <span className="research-run-provenance-label">IDL 脚本资产 #{provenance.scriptAssetId ?? '—'}</span>
+          {provenance.scriptFileName ? <span>{provenance.scriptFileName}</span> : null}
+          <code>sha256:{provenance.scriptSha256.slice(0, 16)}…</code>
+        </>
+      ) : null}
+      {provenance.snapshotHash ? (
+        <span>数据快照 {provenance.snapshotId ? `#${provenance.snapshotId} · ` : ''}{provenance.snapshotHash.slice(0, 12)}…</span>
+      ) : null}
+    </div>
+  )
+}
+
 function RunOutputPreview({ projectId, experimentId, run, executionMode }: { projectId: number; experimentId: number; run: ResearchRun; executionMode?: ResearchExperiment['execution_mode'] }) {
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [imageErrors, setImageErrors] = useState<Record<string, string>>({})
@@ -2521,6 +2567,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                                           {metrics?.f1 !== undefined ? <span>F1 {metrics.f1.toFixed(3)}</span> : null}
                                           {metrics?.iou !== undefined ? <span>IoU {metrics.iou.toFixed(3)}</span> : null}
                                         </div>
+                                        <ResearchRunProvenanceCard run={run} />
                                         {run.error_message ? (
                                           <div className="research-run-timeline-error">{run.error_message}</div>
                                         ) : null}
@@ -2543,6 +2590,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                                 { label: '开始', value: formatDate(visibleRun.started_at) },
                               ]}
                             />
+                            <ResearchRunProvenanceCard run={visibleRun} />
                             {validationMetrics ? (
                               <section className="research-run-detail-section" aria-labelledby="research-validation-metrics-title">
                                 <h3 id="research-validation-metrics-title" className="research-run-detail-title">验证指标</h3>
