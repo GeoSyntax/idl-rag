@@ -90,6 +90,21 @@ def _phase_timing_snapshot() -> dict[str, float]:
     return timing
 
 
+def _phase_timing_for_log(phase_timing: dict[str, float]) -> tuple[dict, dict]:
+    """Translate public Agent phase names to the request-log schema."""
+    return (
+        {
+            key: phase_timing[key]
+            for key in ("retrieve_ms", "rerank_ms")
+            if key in phase_timing
+        },
+        {
+            "first_token_ms": phase_timing.get("llm_first_token_ms"),
+            "total_ms": phase_timing.get("llm_total_ms"),
+        },
+    )
+
+
 def _persist_chat_request_log(
     *,
     owner_user_id: int,
@@ -379,6 +394,8 @@ async def agent_stream(
         terminal_status = "running"
         error_message = None
         agent_step_count = 0
+        agent_phase_timing: dict[str, float] = {}
+        agent_phase_timing_seen = False
         try:
             async for event in service.agent_answer_stream_async(db, payload, current_user.id):
                 if terminal_sent:
@@ -401,9 +418,17 @@ async def agent_stream(
                     result_session_id = event.get("session_id")
                     citation_count = len(event.get("citations", []))
                     artifact_count = len(event.get("artifacts", []))
+                if isinstance(event.get("phase_timing"), dict):
+                    agent_phase_timing = {
+                        str(key): value
+                        for key, value in event["phase_timing"].items()
+                        if isinstance(value, (int, float))
+                    }
+                    agent_phase_timing_seen = True
                 if event.get("type") == "error":
                     terminal_sent = True
-                yield f"data: {json.dumps(_decorate_stream_event(event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
+                event_phase_timing = event.get("phase_timing") if isinstance(event.get("phase_timing"), dict) else _phase_timing_snapshot()
+                yield f"data: {json.dumps(_decorate_stream_event(event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=event_phase_timing), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
             terminal_status = "cancelled"
@@ -436,8 +461,16 @@ async def agent_stream(
                 session_id=result_session_id,
                 mode="agent-stream",
                 payload=payload,
-                retrieve_timing=service.retrieval_service.last_timing,
-                llm_timing=service.llm_service.last_timing,
+                retrieve_timing=(
+                    _phase_timing_for_log(agent_phase_timing)[0]
+                    if agent_phase_timing_seen
+                    else service.retrieval_service.last_timing
+                ),
+                llm_timing=(
+                    _phase_timing_for_log(agent_phase_timing)[1]
+                    if agent_phase_timing_seen
+                    else service.llm_service.last_timing
+                ),
                 total_ms=(time.perf_counter() - started_at) * 1000,
                 citation_count=citation_count,
                 artifact_count=artifact_count,

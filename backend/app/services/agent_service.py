@@ -5,6 +5,7 @@ import json
 import math
 import re
 import threading
+import time
 from collections.abc import AsyncGenerator, Callable, Generator
 from pathlib import Path
 from uuid import uuid4
@@ -627,16 +628,7 @@ class AgentService:
         settings_from_svc = get_runtime_settings(db)
         provider_name = str(getattr(settings_from_svc, "provider_name", "") or "").strip().lower()
         needs_tools_free_final_stream = provider_name in {"gemini2api", "gemin2api", "gemini2api-local"}
-        fix_intent = self._detect_fix_intent(payload.question)
-        agent_tool_names = self._select_agent_tool_names(payload, kb_ids, fix_intent)
-        if self._should_use_direct_stream(payload, fix_intent, kb_ids):
-            yield {
-                "type": "step",
-                "step": "direct_stream",
-                "content": "当前问题不需要工具，正在直接流式回答…",
-            }
-            yield from self.answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
-            return
+
         if not settings_from_svc.api_key and not _is_local_compatible_endpoint(settings_from_svc):
             # Agent 不能把“没有模型”伪装成一次成功的知识库回答：那会
             # 同时显示“无法执行 Agent”和检索来源，让用户误以为工作流
@@ -647,6 +639,42 @@ class AgentService:
                 "message": "当前未连接可用的 Agent 模型，请在设置页配置 Gemini2API 或其他 OpenAI-compatible 服务后重试。",
             }
             return
+
+        fix_intent = self._detect_fix_intent(payload.question)
+        agent_tool_names = self._select_agent_tool_names(payload, kb_ids, fix_intent)
+        if self._should_use_direct_stream(payload, fix_intent, kb_ids):
+            yield {
+                "type": "step",
+                "step": "direct_stream",
+                "content": "当前问题不需要工具，正在直接流式回答…",
+            }
+            yield from self.answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
+            return
+        # Keep timing inside this generator instead of reading the mutable
+        # ``last_timing`` fields of process-wide services. Multiple Agent runs
+        # may execute concurrently, so their metrics must stay request-local.
+        phase_timing: dict[str, float] = {}
+        llm_first_token_ms: float | None = None
+
+        def timed_search(*args, **kwargs):
+            started_at = time.perf_counter()
+            try:
+                return self._search_knowledge_bases(*args, **kwargs)
+            finally:
+                phase_timing["retrieve_ms"] = phase_timing.get("retrieve_ms", 0.0) + (
+                    time.perf_counter() - started_at
+                ) * 1000
+
+        def phase_snapshot() -> dict[str, float]:
+            return {
+                key: round(value, 1)
+                for key, value in (
+                    ("retrieve_ms", phase_timing.get("retrieve_ms")),
+                    ("llm_first_token_ms", llm_first_token_ms),
+                    ("llm_total_ms", phase_timing.get("llm_total_ms")),
+                )
+                if isinstance(value, (int, float))
+            }
 
         session = self._get_or_create_session(db, payload, owner_user_id)
         input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
@@ -794,34 +822,55 @@ class AgentService:
                 and (not kb_ids or bool(all_citations))
             )
             if not can_stream:
-                return self.llm_service.agent_generate(db, llm_messages, tool_names=agent_tool_names)
+                started_at = time.perf_counter()
+                try:
+                    return self.llm_service.agent_generate(db, llm_messages, tool_names=agent_tool_names)
+                finally:
+                    phase_timing["llm_total_ms"] = phase_timing.get("llm_total_ms", 0.0) + (
+                        time.perf_counter() - started_at
+                    ) * 1000
 
             marker_filter = _CitationMarkerStreamFilter(len(all_citations))
             streamed_to_client = False
+            stream_started_at = time.perf_counter()
 
             def emit_content(content: str) -> None:
-                nonlocal streamed_to_client
+                nonlocal streamed_to_client, llm_first_token_ms
                 safe_content = marker_filter.feed(content)
                 if safe_content:
                     streamed_to_client = True
+                    if llm_first_token_ms is None:
+                        llm_first_token_ms = (time.perf_counter() - stream_started_at) * 1000
                     token_callback(safe_content)
 
-            result = self.llm_service.agent_generate(
-                db,
-                llm_messages,
-                on_content=emit_content,
-                tool_names=agent_tool_names,
-            )
+            try:
+                result = self.llm_service.agent_generate(
+                    db,
+                    llm_messages,
+                    on_content=emit_content,
+                    tool_names=agent_tool_names,
+                )
+            finally:
+                phase_timing["llm_total_ms"] = phase_timing.get("llm_total_ms", 0.0) + (
+                    time.perf_counter() - stream_started_at
+                ) * 1000
             if result.get("final_answer") and needs_tools_free_final_stream and not result.get("_streamed"):
                 try:
+                    stream_started_at = time.perf_counter()
                     result["final_answer"] = self.llm_service.agent_final_answer_stream(
                         db,
                         llm_messages,
                         result["final_answer"],
                         emit_content,
                     )
+                    phase_timing["llm_total_ms"] = phase_timing.get("llm_total_ms", 0.0) + (
+                        time.perf_counter() - stream_started_at
+                    ) * 1000
                     result["_streamed"] = True
                 except Exception:
+                    phase_timing["llm_total_ms"] = phase_timing.get("llm_total_ms", 0.0) + (
+                        time.perf_counter() - stream_started_at
+                    ) * 1000
                     # A failed second phase is safe to fall back to the
                     # already-complete draft only if no partial answer escaped.
                     if streamed_to_client:
@@ -875,7 +924,7 @@ class AgentService:
             validated_prefetch = prefetch_args
             try:
                 validated_prefetch = self._validate_tool_args("kb_search", prefetch_args)
-                citations = self._search_knowledge_bases(
+                citations = timed_search(
                     db,
                     kb_ids,
                     validated_prefetch["query"],
@@ -1033,7 +1082,11 @@ class AgentService:
                     streamed_final_answer = streamed_fast_answer
                     yield {"type": "step", "step": "answer", "content": "正在生成最终回答..."}
                 except Exception as exc:  # noqa: BLE001
-                    yield {"type": "error", "message": str(exc) or "Agent 模型调用失败。"}
+                    yield {
+                        "type": "error",
+                        "message": str(exc) or "Agent 模型调用失败。",
+                        "phase_timing": phase_snapshot(),
+                    }
                     return
                 break
 
@@ -1054,6 +1107,7 @@ class AgentService:
                     yield {
                         "type": "error",
                         "message": str(exc) or "Agent 模型调用失败。",
+                        "phase_timing": phase_snapshot(),
                     }
                     return
                 break
@@ -1067,6 +1121,7 @@ class AgentService:
                 yield {
                     "type": "error",
                     "message": str(exc) or "Agent 模型调用失败。",
+                    "phase_timing": phase_snapshot(),
                 }
                 return
 
@@ -1115,7 +1170,7 @@ class AgentService:
                 try:
                     validated_args = self._validate_tool_args(tool_name, args)
                     if tool_name == "kb_search" and kb_ids:
-                        citations = self._search_knowledge_bases(db, kb_ids, validated_args["query"], validated_args["top_k"])
+                        citations = timed_search(db, kb_ids, validated_args["query"], validated_args["top_k"])
                         tool_result = ToolResult(
                             name="kb_search",
                             output="\n\n".join(
@@ -1212,7 +1267,7 @@ class AgentService:
         # 如果没有 citations 也没有 artifact，做一次默认检索兜底
         if not all_citations and not artifacts_json and kb_ids:
             retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
-            all_citations = self._search_knowledge_bases(db, kb_ids, retrieval_query, payload.top_k, payload.strategy)
+            all_citations = timed_search(db, kb_ids, retrieval_query, payload.top_k, payload.strategy)
 
         # 只保留回答实际使用的候选来源，然后清理无法映射到来源的模型标记。
         answer_text = "\n\n".join(full_answer_parts)
@@ -1256,6 +1311,7 @@ class AgentService:
             "session_id": session.id,
             "citations": [c.model_dump() for c in all_citations],
             "artifacts": artifacts_json,
+            "phase_timing": phase_snapshot(),
         }
 
     async def agent_answer_stream_async(

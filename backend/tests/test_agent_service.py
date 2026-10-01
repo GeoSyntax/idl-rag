@@ -112,6 +112,8 @@ def test_gemini2api_agent_uses_tools_free_final_stream(monkeypatch, tmp_path: Pa
         assert streamed == ["真实", "流式"]
         assert [event.get("type") for event in events if event.get("type") == "token"] == []
         assert events[-1]["type"] == "done"
+        assert events[-1]["phase_timing"]["llm_total_ms"] >= 0
+        assert events[-1]["phase_timing"]["llm_first_token_ms"] >= 0
         assert service.list_messages(db, events[-1]["session_id"], user.id)[-1].content == "真实流式"
     finally:
         db.close()
@@ -333,7 +335,9 @@ def test_agent_stream_emits_error_without_empty_assistant_message(monkeypatch, t
             )
         )
 
-        assert events[-1] == {"type": "error", "message": "模型服务不可用"}
+        assert events[-1]["type"] == "error"
+        assert events[-1]["message"] == "模型服务不可用"
+        assert events[-1]["phase_timing"]["llm_total_ms"] >= 0
         assert not any(event.get("type") == "done" for event in events)
         assert db.query(ChatMessage).filter(ChatMessage.role == "assistant").count() == 0
     finally:
