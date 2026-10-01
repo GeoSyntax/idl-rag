@@ -115,6 +115,7 @@ npm run build --prefix frontend
 - fallback embedding 可保证流程可运行，但语义检索质量会下降。
 - 当前本地数据库仍有 fallback embedding 文档，且尚未为每个知识库完成本地检索评测；因此当前状态是“可本地试用/研究探索”，不是生产就绪。资料盘点、生产门槛和补齐顺序见 [`docs/production-readiness.md`](docs/production-readiness.md)。
 - OpenAlex 遥感库当前主要是元数据/摘要级候选资料；论文全文许可、人工核验、传感器参数与独立验证样本仍需按课题组资料逐步补齐。
+- 已在本地“Remote Sensing Algorithms”知识库补充并索引 USGS/NASA 的 4 份产品级资料（Landsat Collection 2、HLS User Guide）；来源、许可和重新获取地址见 [`docs/authoritative-source-collection.md`](docs/authoritative-source-collection.md)。运行时 `data/` 不提交到 GitHub，换机器需要按清单重新获取。
 - 本地 `data/` 中包含数据库、索引、日志、解析文本、生成 artifact 和用户文档，不能上传到 GitHub。
 - 私有 PDF、简历、课程材料和未授权数据源默认不作为公开展示材料。
 - Docker Compose 的配置、Dockerfile 和 health/readiness 契约已实现；本机 Docker Desktop Linux daemon 未启动，因此镜像构建、容器重启持久化和真实多容器启动仍需在 Docker 可用的干净环境现场验收。
