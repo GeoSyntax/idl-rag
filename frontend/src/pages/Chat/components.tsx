@@ -249,6 +249,9 @@ function AgentRunHistory({
             <span className="chat-agent-history-mode">{run.mode === 'agent-stream' ? 'Agent' : '普通'}</span>
             <span>{formatHistoryTime(run.created_at)}</span>
             <span>{formatDuration(String(run.total_ms))}</span>
+            {run.mode === 'agent-stream' && run.retrieve_ms != null ? <span>检索 {formatDuration(String(run.retrieve_ms))}</span> : null}
+            {run.mode === 'agent-stream' && run.llm_total_ms != null ? <span>模型 {formatDuration(String(run.llm_total_ms))}</span> : null}
+            {run.mode === 'agent-stream' && run.llm_first_token_ms != null ? <span>首 token {formatDuration(String(run.llm_first_token_ms))}</span> : null}
             {run.agent_step_count > 0 ? <span>{run.agent_step_count} 步</span> : null}
             {run.error_message ? <span className="chat-agent-history-error">{run.error_message}</span> : null}
             {run.terminal_status === 'failed' || run.terminal_status === 'cancelled' ? (

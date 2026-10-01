@@ -381,7 +381,10 @@ export type ChatRun = {
   stream_id: string | null
   terminal_status: 'completed' | 'failed' | 'cancelled' | 'unknown'
   total_ms: number
+  retrieve_ms: number | null
+  rerank_ms: number | null
   llm_first_token_ms: number | null
+  llm_total_ms: number | null
   citation_count: number
   artifact_count: number
   agent_step_count: number

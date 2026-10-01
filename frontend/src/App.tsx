@@ -32,10 +32,26 @@ const pageTitles: Record<PageKey, string> = {
   users: '用户',
 }
 
+const pagePaths: Record<PageKey, string> = {
+  dashboard: '/',
+  research: '/research',
+  'knowledge-bases': '/knowledge-bases',
+  documents: '/documents',
+  chat: '/chat',
+  'retrieval-lab': '/retrieval-lab',
+  settings: '/settings',
+  users: '/users',
+}
+
+function pageFromPath(pathname: string): PageKey {
+  const entry = (Object.entries(pagePaths) as Array<[PageKey, string]>).find(([, path]) => path === pathname)
+  return entry?.[0] ?? 'dashboard'
+}
+
 export const queryClient = new QueryClient()
 
 export default function App() {
-  const [activePage, setActivePage] = useState<PageKey>('dashboard')
+  const [activePage, setActivePage] = useState<PageKey>(() => pageFromPath(window.location.pathname))
   const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState<number>()
   const [initialResearchProjectId, setInitialResearchProjectId] = useState<number>()
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
@@ -43,6 +59,19 @@ export default function App() {
 
   const isAuthenticated = currentUser !== null
   const isAdmin = currentUser?.role === 'admin'
+
+  useEffect(() => {
+    const handlePopState = () => setActivePage(pageFromPath(window.location.pathname))
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
+    const targetPath = pagePaths[activePage]
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath)
+    }
+  }, [activePage])
 
   useEffect(() => {
     let active = true

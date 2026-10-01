@@ -332,7 +332,10 @@ class ChatRunResponse(BaseModel):
     stream_id: str | None
     terminal_status: Literal["completed", "failed", "cancelled", "unknown"]
     total_ms: float
+    retrieve_ms: float | None
+    rerank_ms: float | None
     llm_first_token_ms: float | None
+    llm_total_ms: float | None
     citation_count: int
     artifact_count: int
     agent_step_count: int

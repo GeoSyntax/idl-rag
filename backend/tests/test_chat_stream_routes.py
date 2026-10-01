@@ -207,7 +207,17 @@ def test_agent_stream_persists_run_status_and_safe_correlation(
                 },
             }
             yield {"type": "step", "step": "tool_call", "tool": "research_project_context"}
-            yield {"type": "done", "session_id": session_id, "citations": [], "artifacts": []}
+            yield {
+                "type": "done",
+                "session_id": session_id,
+                "citations": [],
+                "artifacts": [],
+                "phase_timing": {
+                    "retrieve_ms": 2.5,
+                    "llm_first_token_ms": 8.5,
+                    "llm_total_ms": 13.5,
+                },
+            }
 
         monkeypatch.setattr(chat.service, "agent_answer_stream_async", completed_stream)
         response = client.post(
@@ -237,6 +247,9 @@ def test_agent_stream_persists_run_status_and_safe_correlation(
         assert history.status_code == 200
         assert history.json()[0]["terminal_status"] == "completed"
         assert history.json()[0]["agent_step_count"] == 1
+        assert history.json()[0]["retrieve_ms"] == 2.5
+        assert history.json()[0]["llm_first_token_ms"] == 8.5
+        assert history.json()[0]["llm_total_ms"] == 13.5
         assert history.json()[0]["message_id"] == 123
         assert history.json()[0]["generate_pro_file"] is True
         assert history.json()[0]["input_artifact_ids"] == ["artifact-1"]
