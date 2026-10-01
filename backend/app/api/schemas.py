@@ -449,6 +449,33 @@ class DashboardSummaryResponse(BaseModel):
     avg_total_ms: float | None = None
     citation_coverage: float | None = None
     error_rate: float | None = None
+    production_ready: bool = False
+    production_blockers: list[str] = Field(default_factory=list)
+
+
+class KnowledgeBaseReadinessResponse(BaseModel):
+    knowledge_base_id: int
+    knowledge_base_name: str
+    document_count: int
+    ready_document_count: int
+    stale_document_count: int = 0
+    failed_document_count: int = 0
+    queued_document_count: int = 0
+    processing_document_count: int = 0
+    fallback_document_count: int = 0
+    chunk_count: int = 0
+    evaluation_completed: bool = False
+    production_ready: bool = False
+    blockers: list[str] = Field(default_factory=list)
+
+
+class CorpusReadinessResponse(BaseModel):
+    generated_at: datetime
+    status: Literal["ready", "blocked"]
+    production_ready: bool
+    requirements: list[str] = Field(default_factory=list)
+    blockers: list[str] = Field(default_factory=list)
+    knowledge_bases: list[KnowledgeBaseReadinessResponse] = Field(default_factory=list)
 
 
 class ResearchProjectCreate(BaseModel):

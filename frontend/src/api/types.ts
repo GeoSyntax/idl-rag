@@ -352,6 +352,8 @@ export type DashboardSummary = {
   avg_total_ms: number | null
   citation_coverage: number | null
   error_rate: number | null
+  production_ready: boolean
+  production_blockers: string[]
 }
 
 export type StreamEvent =

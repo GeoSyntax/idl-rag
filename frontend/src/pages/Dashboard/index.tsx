@@ -58,6 +58,21 @@ export function DashboardPage({ summary, loading, accessNotice }: DashboardPageP
           showIcon={false}
         />
       ) : null}
+      <Alert
+        type={summary?.production_ready ? 'success' : 'warning'}
+        message={summary?.production_ready ? '资料已通过生产就绪检查' : '资料尚未达到生产就绪条件'}
+        description={
+          summary?.production_ready
+            ? '当前用户可见知识库均已完成索引、配置语义 embedding 并通过本地检索评测。'
+            : (
+                <div>
+                  <div>平台不会把未完成索引、fallback embedding 或未评测的资料伪装成生产资料。</div>
+                  {(summary?.production_blockers ?? []).slice(0, 5).map((blocker) => <div key={blocker}>• {blocker}</div>)}
+                </div>
+              )
+        }
+        showIcon
+      />
 
       <Card className="section-card" loading={loading} title="资料状态">
         <OverviewTable rows={corpusRows} />

@@ -5,12 +5,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
-from app.api.schemas import DashboardSummaryResponse
+from app.api.schemas import CorpusReadinessResponse, DashboardSummaryResponse
 from app.core.config import get_app_settings
 from app.db.database import get_db
 from app.db.models import ChatRequestLog, ChatSession, Chunk, Document, EvaluationReport, IndexJob, KnowledgeBase, User
 from app.services.embedding_service import get_embedding_status
 from app.services.runtime_metrics import runtime_metrics
+from app.services.corpus_readiness_service import build_corpus_readiness
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -168,6 +169,7 @@ def dashboard_summary(
     else:
         worker_alive = bool(worker and worker.is_alive())
     embedding_status = get_embedding_status()
+    corpus_readiness = build_corpus_readiness(db, current_user.id)
     latest_eval_summary = latest_eval.summary_json if latest_eval is not None else {}
     return DashboardSummaryResponse(
         knowledge_base_count=int(knowledge_base_count),
@@ -205,4 +207,16 @@ def dashboard_summary(
         avg_total_ms=persisted_avg["avg_total_ms"],
         citation_coverage=citation_coverage,
         error_rate=error_rate,
+        production_ready=bool(corpus_readiness["production_ready"]),
+        production_blockers=list(corpus_readiness["blockers"]),
     )
+
+
+@router.get("/corpus-readiness", response_model=CorpusReadinessResponse)
+def corpus_readiness(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CorpusReadinessResponse:
+    """Return the material gate used before a corpus is called production-ready."""
+
+    return CorpusReadinessResponse(**build_corpus_readiness(db, current_user.id))

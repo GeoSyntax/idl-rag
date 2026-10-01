@@ -63,6 +63,7 @@ IDL RAG Panel 当前是一个本地优先、可用于展示和科研试验的遥
 - Chat 展示检索策略、fallback 状态、回答、citation 和 artifact。
 - RetrievalLab 用于检索策略调试。
 - Settings 用于 provider/key/model 配置和评测报告查看。
+- Dashboard 现在提供统一的资料生产就绪门禁：`GET /api/dashboard/corpus-readiness` 会按知识库检查索引状态、fallback embedding 和本地评测；任一项不满足都会明确返回 `blocked`，不会把 Demo 资料标成生产资料。
 
 ### 8. 遥感研究工作流
 
@@ -112,6 +113,8 @@ npm run build --prefix frontend
 - 当前存储是本地 SQLite + LanceDB，适合本地和小团队部署，不是高并发分布式架构。
 - 向量质量依赖 embedding provider、embedding model 和索引是否重建。
 - fallback embedding 可保证流程可运行，但语义检索质量会下降。
+- 当前本地数据库仍有 fallback embedding 文档，且尚未为每个知识库完成本地检索评测；因此当前状态是“可本地试用/研究探索”，不是生产就绪。资料盘点、生产门槛和补齐顺序见 [`docs/production-readiness.md`](docs/production-readiness.md)。
+- OpenAlex 遥感库当前主要是元数据/摘要级候选资料；论文全文许可、人工核验、传感器参数与独立验证样本仍需按课题组资料逐步补齐。
 - 本地 `data/` 中包含数据库、索引、日志、解析文本、生成 artifact 和用户文档，不能上传到 GitHub。
 - 私有 PDF、简历、课程材料和未授权数据源默认不作为公开展示材料。
 - Docker Compose 的配置、Dockerfile 和 health/readiness 契约已实现；本机 Docker Desktop Linux daemon 未启动，因此镜像构建、容器重启持久化和真实多容器启动仍需在 Docker 可用的干净环境现场验收。

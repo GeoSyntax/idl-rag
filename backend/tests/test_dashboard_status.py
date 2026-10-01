@@ -82,3 +82,12 @@ def test_dashboard_summary_includes_index_and_fallback_status(monkeypatch, tmp_p
         assert payload["fallback_document_count"] == 1
         assert payload["embedding_fallback_active"] is True
         assert payload["worker_alive"] is True
+        assert payload["production_ready"] is False
+        assert any("fallback embedding" in blocker for blocker in payload["production_blockers"])
+
+        readiness = client.get("/api/dashboard/corpus-readiness", headers=headers)
+        assert readiness.status_code == 200
+        readiness_payload = readiness.json()
+        assert readiness_payload["status"] == "blocked"
+        assert readiness_payload["production_ready"] is False
+        assert readiness_payload["knowledge_bases"][0]["fallback_document_count"] == 1
