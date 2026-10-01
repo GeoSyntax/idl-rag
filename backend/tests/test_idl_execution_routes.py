@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -61,6 +62,7 @@ def _create_artifact(owner_user_id: int, code: str = "pro demo_run\n  compile_op
                     "storage_path": file_path.as_posix(),
                     "kind": "pro",
                     "previewable": False,
+                    "metadata": {"revision": 3},
                 }
             ],
         )
@@ -118,8 +120,14 @@ def test_run_idl_artifact_collects_previewable_image(monkeypatch, tmp_path: Path
     assert artifact["file_name"] == "result.png"
     assert artifact["kind"] == "idl_output"
     assert artifact["previewable"] is True
+    assert artifact["metadata"]["source_revision"] == 3
+    assert artifact["metadata"]["source_file_name"] == "demo_run.pro"
+    assert artifact["metadata"]["source_sha256"] == hashlib.sha256(
+        "pro demo_run\n  compile_opt idl2\nend\n".encode("utf-8")
+    ).hexdigest()
     assert artifact["download_url"].startswith(f"/chat/sessions/{session_id}/artifacts/")
     assert payload["message"]["artifacts"][0]["id"] == artifact["id"]
+    assert "source_revision: 3" in payload["message"]["content"]
 
 
 def test_run_idl_rejects_invalid_entrypoint_before_subprocess(monkeypatch, tmp_path: Path) -> None:

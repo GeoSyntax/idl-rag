@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import mimetypes
 import re
 import shutil
@@ -47,6 +48,16 @@ class IdlExecutionService:
             raise ValueError("只能运行 .pro 文件。")
 
         code = source_path.read_text(encoding="utf-8", errors="ignore")
+        source_metadata = source_artifact.get("metadata") if isinstance(source_artifact.get("metadata"), dict) else {}
+        raw_revision = source_metadata.get("revision")
+        source_revision = raw_revision if isinstance(raw_revision, int) and raw_revision >= 0 else 0
+        source_sha256 = hashlib.sha256(code.encode("utf-8")).hexdigest()
+        source_provenance: dict[str, object] = {
+            "source_artifact_id": artifact_id,
+            "source_file_name": file_name,
+            "source_revision": source_revision,
+            "source_sha256": source_sha256,
+        }
         resolved_entrypoint = self._resolve_entrypoint(code, entrypoint)
         run_id = uuid4().hex
         run_dir = settings.chat_artifacts_dir / f"user-{owner_user_id}" / f"session-{session_id}" / "runs" / run_id
@@ -97,8 +108,10 @@ class IdlExecutionService:
 
         stdout = self._truncate(self._read_output_file(stdout_path) or stdout, settings.idl_run_max_stdout_chars)
         stderr = self._truncate(self._clean_workbench_log(self._read_output_file(stderr_path) or stderr), settings.idl_run_max_stderr_chars)
-        artifacts_json = self._collect_output_artifacts(outputs_dir, run_id, session_id)
-        content = self._build_message_content(exit_code, timed_out, duration_ms, stdout, stderr, artifacts_json)
+        artifacts_json = self._collect_output_artifacts(outputs_dir, run_id, session_id, source_provenance)
+        content = self._build_message_content(
+            exit_code, timed_out, duration_ms, stdout, stderr, artifacts_json, source_provenance
+        )
         message = ChatMessage(
             session_id=session_id,
             role="assistant",
@@ -195,11 +208,17 @@ class IdlExecutionService:
         normalized = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")
         return normalized[:120] or "input.dat"
 
-    def _collect_output_artifacts(self, run_dir: Path, run_id: str, session_id: int) -> list[dict[str, str | int | bool]]:
+    def _collect_output_artifacts(
+        self,
+        run_dir: Path,
+        run_id: str,
+        session_id: int,
+        source_provenance: dict[str, object],
+    ) -> list[dict[str, object]]:
         settings = get_app_settings()
         allowed_suffixes = {item.strip().lower() for item in settings.idl_run_allowed_output_suffixes.split(",") if item.strip()}
         max_size = settings.idl_run_max_output_file_mb * 1024 * 1024
-        artifacts: list[dict[str, str | int | bool]] = []
+        artifacts: list[dict[str, object]] = []
         for path in sorted(run_dir.iterdir()):
             if len(artifacts) >= settings.idl_run_max_output_files:
                 break
@@ -223,6 +242,7 @@ class IdlExecutionService:
                     "kind": "idl_output",
                     "previewable": media_type.startswith("image/"),
                     "run_id": run_id,
+                    "metadata": dict(source_provenance),
                 }
             )
         return artifacts
@@ -234,7 +254,8 @@ class IdlExecutionService:
         duration_ms: int,
         stdout: str,
         stderr: str,
-        artifacts: list[dict[str, str | int | bool]],
+        artifacts: list[dict[str, object]],
+        source_provenance: dict[str, object],
     ) -> str:
         status = "超时" if timed_out else ("成功" if exit_code == 0 else "失败")
         lines = [
@@ -242,6 +263,8 @@ class IdlExecutionService:
             f"exit_code: {exit_code if exit_code is not None else 'timeout'}",
             f"duration_ms: {duration_ms}",
             f"output_files: {len(artifacts)}",
+            f"source_revision: {source_provenance.get('source_revision', 0)}",
+            f"source_sha256: {source_provenance.get('source_sha256', '')}",
         ]
         if stdout.strip():
             lines.extend(["", "stdout:", "```text", stdout.strip(), "```"])

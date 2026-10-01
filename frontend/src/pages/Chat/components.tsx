@@ -442,6 +442,8 @@ type IdlRunView = {
   exitCode: string
   durationMs: string
   outputFiles: string
+  sourceRevision: string
+  sourceSha256: string
   stdout: string
   stderr: string
 }
@@ -474,6 +476,13 @@ function IdlRunResult({ content, artifactCount }: { content: string; artifactCou
           { label: '输出图片', value: artifactCount || Number(result.outputFiles) || 0 },
         ]}
       />
+      {result.sourceSha256 ? (
+        <div className="idl-run-provenance" title={`SHA-256: ${result.sourceSha256}`}>
+          <span>源码版本 v{result.sourceRevision || '0'}</span>
+          <code>sha256:{result.sourceSha256.slice(0, 16)}…</code>
+          <span className="idl-run-provenance-note">运行结果绑定到本次源码快照</span>
+        </div>
+      ) : null}
       {logItems.length > 0 ? <Collapse className="idl-run-collapse" size="small" items={logItems} /> : null}
     </div>
   )
@@ -488,6 +497,8 @@ function parseIdlRunContent(content: string): IdlRunView | null {
     exitCode: content.match(/^exit_code: (.+)$/m)?.[1] ?? '-',
     durationMs: content.match(/^duration_ms: (.+)$/m)?.[1] ?? '-',
     outputFiles: content.match(/^output_files: (.+)$/m)?.[1] ?? '0',
+    sourceRevision: content.match(/^source_revision: (.+)$/m)?.[1] ?? '',
+    sourceSha256: content.match(/^source_sha256: (.+)$/m)?.[1] ?? '',
     stdout: extractLogBlock(content, 'stdout'),
     stderr: extractLogBlock(content, 'stderr'),
   }

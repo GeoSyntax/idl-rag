@@ -1755,6 +1755,31 @@ body { min-height: 100dvh; }
   font-size: 14px;
 }
 
+.idl-run-provenance {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.idl-run-provenance code {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.idl-run-provenance-note {
+  margin-left: auto;
+}
+
 .idl-run-collapse {
   background: var(--surface) !important;
 }
