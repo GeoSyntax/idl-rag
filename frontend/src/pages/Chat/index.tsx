@@ -515,7 +515,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setStreamError('')
     setActiveStreamId(null)
     setAgentSteps([])
-    setAgentLiveStatus(activeChatMode === 'agent' ? 'Agent 正在处理请求…' : '')
+    // Keep the transient status aligned with the selected mode. The shared
+    // streaming bubble is also used by normal chat, so an empty status would
+    // fall back to the misleading “Agent 正在处理请求…” label.
+    setAgentLiveStatus(activeChatMode === 'agent' ? 'Agent 正在处理请求…' : '正在生成回答…')
     agentStartedAtRef.current = activeChatMode === 'agent' ? Date.now() : null
     setAgentElapsedMs(0)
     setAgentRunComplete(false)

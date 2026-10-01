@@ -257,7 +257,7 @@ function AgentRunHistory({
   isStreaming: boolean
 }) {
   return (
-    <section className="chat-agent-history" aria-label="Agent 运行记录">
+    <section className="chat-agent-history" aria-label="运行记录">
       <div className="chat-agent-history-title">运行记录</div>
       <div className="chat-agent-history-list">
         {runs.slice(0, 8).map((run) => (

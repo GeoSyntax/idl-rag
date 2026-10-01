@@ -1977,7 +1977,7 @@ body { min-height: 100dvh; }
 
 .chat-agent-history-status.is-completed {
   border-color: #bbf7d0;
-  color: var(--success);
+  color: #166534;
 }
 
 .chat-agent-history-status.is-failed,
