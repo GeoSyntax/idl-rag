@@ -11,6 +11,7 @@ def _locked_error() -> OperationalError:
 
 def test_database_lock_retry_waits_then_returns() -> None:
     attempts = 0
+    rollbacks = 0
 
     def operation() -> str:
         nonlocal attempts
@@ -19,8 +20,13 @@ def test_database_lock_retry_waits_then_returns() -> None:
             raise _locked_error()
         return "ok"
 
-    assert _retry_database_lock(operation, timeout_seconds=2) == "ok"
+    def rollback() -> None:
+        nonlocal rollbacks
+        rollbacks += 1
+
+    assert _retry_database_lock(operation, timeout_seconds=2, on_retry=rollback) == "ok"
     assert attempts == 3
+    assert rollbacks == 2
 
 
 def test_non_lock_database_errors_are_not_hidden() -> None:

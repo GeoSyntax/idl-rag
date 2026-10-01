@@ -30,7 +30,12 @@ def _is_database_locked(exc: OperationalError) -> bool:
     return "database is locked" in str(exc).lower()
 
 
-def _retry_database_lock(operation: Callable[[], T], timeout_seconds: float) -> T:
+def _retry_database_lock(
+    operation: Callable[[], T],
+    timeout_seconds: float,
+    *,
+    on_retry: Callable[[], None] | None = None,
+) -> T:
     """Retry transient SQLite contention while the API worker is indexing."""
     deadline = time.monotonic() + timeout_seconds
     delay = 0.2
@@ -40,6 +45,11 @@ def _retry_database_lock(operation: Callable[[], T], timeout_seconds: float) -> 
         except OperationalError as exc:
             if not _is_database_locked(exc) or time.monotonic() >= deadline:
                 raise
+            # SQLAlchemy marks the session as failed after a flush error.  A
+            # retry without rollback raises PendingRollbackError instead of
+            # reaching the database again.
+            if on_retry is not None:
+                on_retry()
             time.sleep(delay)
             delay = min(delay * 2, 2.0)
 
@@ -130,6 +140,7 @@ def import_sources(
                 owner_user_id=user.id,
             ),
             timeout_seconds,
+            on_retry=db.rollback,
         )
         if wait:
             _wait_for_indexing(db, timeout_seconds)
