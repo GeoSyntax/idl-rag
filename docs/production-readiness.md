@@ -15,6 +15,12 @@
 
 这意味着当前资料适合**本地试用、方法探索和资料补齐**，还不应直接作为学校/企业的正式研究资料源。尤其需要注意：部分历史知识库仍然使用 hash fallback embedding；它可以让流程跑通，但不是可接受的语义检索生产配置。
 
+## Embedding 选择
+
+当前服务已经支持 OpenAI-compatible 的 `/v1/embeddings`。最稳妥的本地方案是用 Hugging Face Text Embeddings Inference（TEI）部署 `BAAI/bge-m3`，把 `IDLRAG_EMBEDDING_API_BASE_URL` 指向 TEI 的 `/v1`，把 embedding model 设置为 TEI 接受的模型名，并把维度设为 1024。切换模型后必须重新索引全部文档，不能把 1536 维旧索引和 1024 维新索引混用。
+
+如果只是单机试用，也可以用 Ollama 的 `bge-m3`。Ollama 原生接口是 `/api/embed`，而本项目当前直接调用 `/v1/embeddings`；因此需要一个 OpenAI-compatible 代理或补充 Ollama provider 适配，不能只把 URL 填进去就假设会工作。
+
 ## 生产门槛
 
 每个知识库都必须同时满足：
@@ -58,4 +64,3 @@ GET /api/dashboard/corpus-readiness
 可以用来：检索 IDL/ENVI 方法、整理论文候选、编写待验证的 Python/IDL 方案、执行本地小样本实验并生成带 provenance 的证据包。
 
 不能用来：在没有评测、没有全文许可、使用 fallback embedding 或没有真实运行时验收的情况下，直接把 Agent 输出当作论文结论、工程交付或教学评分依据。
-
