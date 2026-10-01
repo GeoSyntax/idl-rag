@@ -89,6 +89,8 @@ GET /api/chat/sessions/{session_id}/runs?limit=20
 
 返回的是安全元数据，例如 `stream_id`、`terminal_status`、`total_ms`、`llm_first_token_ms`、`citation_count`、`artifact_count` 和 `agent_step_count`。接口不会返回原始问题、完整回答、私有路径或 API Key，并且会重新校验当前登录用户是否拥有该会话。老数据库启动时会自动补充这些列，不需要手工迁移。
 
+会话列表还会根据最近一次运行返回 `last_mode`（`normal` 或 `agent`）。重新打开历史会话时，前端会恢复这个模式；如果会话绑定了研究项目，则项目约束优先，始终恢复为 Agent。这个字段由运行日志推断，不需要为旧数据库增加迁移列。
+
 SSE 中的 `run_started` 是关联信号，不是回答内容；客户端应继续等待唯一的 `done` 或 `error` 终止事件。若浏览器主动停止，运行记录会标记为 `cancelled`，不会把迟到的模型结果写回新会话。
 
 ### 1.3 失败/取消运行的一键重试

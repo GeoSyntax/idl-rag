@@ -313,6 +313,8 @@ class ChatSessionResponse(BaseModel):
     research_project_id: int | None
     title: str | None
     created_at: datetime
+    # Inferred from the latest request log; old databases need no migration.
+    last_mode: Literal["normal", "agent"] | None = None
 
 
 class ChatSessionRenameRequest(BaseModel):

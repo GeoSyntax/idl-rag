@@ -233,6 +233,10 @@ def test_agent_stream_persists_run_status_and_safe_correlation(
         assert history.json()[0]["attached_file_name"] == "scene.pro"
         assert "检查运行记录" not in history.text
 
+        sessions = client.get("/api/chat/sessions", headers=_headers(registered["access_token"]))
+        assert sessions.status_code == 200
+        assert sessions.json()[0]["last_mode"] == "agent"
+
 
 @pytest.mark.asyncio
 async def test_agent_stream_persists_cancelled_request_and_does_not_emit_fallback(

@@ -531,7 +531,28 @@ def list_sessions(
         .order_by(ChatSession.created_at.desc())
         .all()
     )
-    return [ChatSessionResponse.model_validate(s) for s in sessions]
+    session_ids = [session.id for session in sessions]
+    latest_modes: dict[int, str] = {}
+    if session_ids:
+        logs = (
+            db.query(ChatRequestLog)
+            .filter(
+                ChatRequestLog.owner_user_id == current_user.id,
+                ChatRequestLog.session_id.in_(session_ids),
+            )
+            .order_by(ChatRequestLog.created_at.desc(), ChatRequestLog.id.desc())
+            .all()
+        )
+        for log in logs:
+            if log.session_id is None or log.session_id in latest_modes:
+                continue
+            latest_modes[log.session_id] = "agent" if log.mode == "agent-stream" else "normal"
+    return [
+        ChatSessionResponse.model_validate(session).model_copy(
+            update={"last_mode": latest_modes.get(session.id)},
+        )
+        for session in sessions
+    ]
 
 
 @router.get("/sessions/{session_id}/runs", response_model=list[ChatRunResponse])

@@ -306,6 +306,7 @@ export type ChatSession = {
   research_project_id: number | null
   title: string | null
   created_at: string
+  last_mode?: 'normal' | 'agent' | null
 }
 
 export type DashboardSummary = {

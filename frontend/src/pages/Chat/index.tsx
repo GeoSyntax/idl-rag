@@ -369,8 +369,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setInputValue('')
       setSelectedKBIds(session?.knowledge_base_id ? [session.knowledge_base_id] : [])
       setResearchProjectId(session?.research_project_id ?? undefined)
+      setChatMode(session?.research_project_id || session?.last_mode === 'agent' ? 'agent' : 'normal')
       void refreshChatRuns(targetSessionId)
-      if (session?.research_project_id) setChatMode('agent')
     } catch (err) {
       if (streamRequestIdRef.current === requestId) {
         messageApi.error((err as Error).message || '会话加载失败')
