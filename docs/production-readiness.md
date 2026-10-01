@@ -10,10 +10,10 @@
 | --- | --- | --- | --- |
 | ENVI/IDL 官方资料 | 415 份已索引文档 | 查找语法、API、处理流程 | 不能替代具体版本的本地 ENVI/IDL 编译验收 |
 | IDL/ENVI 方法资料 | 18 份方法与代码资料 | 支撑常见读写、指数和处理样例 | 不能覆盖全部传感器、投影、质量控制与异常数据 |
-| 遥感算法知识库 | 2,894 份文档、23,121 个 chunk：1,500 条 OpenAlex 候选记录、307 篇本地 OA PDF、50 条理论资料、34 个官方产品/QA/处理基线源文件、5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测方法和工程验证 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
+| 遥感算法知识库 | 2,900 份文档、23,956 个 chunk：1,500 条 OpenAlex 候选记录、307 篇本地 OA PDF、50 条理论资料、40 个官方产品/QA/处理基线文件（含 LaSRC 资料和 Sentinel-1 辐射定标）、5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测方法和工程验证 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
 | 扫描版 IDL 实验资料 | 1 份文档，已用 `pdf-ocr-v1` 完成 OCR 和索引 | 可按 OCR 文本检索并引用 | OCR 仍需人工抽查公式、表格和代码，不能自动视为无误 |
 
-当前本地工作区已经完成一次生产门禁：owner=1 的 6 个知识库共 3,343 份资料全部为 `ready`，3,343 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 的 10 条遥感产品/工具 golden cases 在新增 QA、Sentinel-1、MOD43 和全文论文后重新评测，命中率 1.0、recall 1.0、MRR 0.883、Precision@6 0.567、答案相关性 1.0。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
+当前本地工作区已经完成一次生产门禁：owner=1 的 6 个知识库共 3,349 份资料全部为 `ready`，3,349 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 的 10 条遥感产品/工具 golden cases 在新增 QA、Sentinel-1、LaSRC、MOD43 和全文论文后重新评测，命中率 1.0、recall 1.0、MRR 0.883、Precision@6 0.567、答案相关性 0.925、faithfulness 1.0。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
 本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Gemini2API `gemini-3.6-flash` 的 `/v1/models` 和最小 Chat 请求均返回成功。两者职责分离：Ollama 负责本地 embedding，Gemini2API 负责聊天/Agent，不把聊天网关误当成 embedding 服务。
 
@@ -37,6 +37,10 @@ IDLRAG_EMBEDDING_DIMENSIONS=1024
 ```
 
 启动 Ollama 后执行 `ollama pull bge-m3`，再在平台设置页进行连接测试和全量重建索引。RTX 4060 笔记本可以运行该模型，但应保留低显存模式和较小并发；生产部署仍建议把索引任务与在线对话分开，避免重建索引抢占显存。
+
+OpenAlex 候选采集器 `backend/scripts/collect_remote_sensing_corpus.py` 具备指数退避和原子 checkpoint：代理 TLS 瞬断、429 限流或 5xx 时不会覆盖已经完成的记录；重启同一命令会从 `data/sources/collected_extended/.openalex_checkpoint.json` 继续。扩展候选池与正式 1,500 条生产候选分开保存，只有经过去重和质量抽查后才允许导入正式知识库。
+
+超过单文档页数上限的权威 PDF 不会被静默截断。`backend/scripts/split_pdf_for_indexing.py` 会保留完整原文，并生成带原始 SHA-256、分片 SHA-256 和页码范围的索引分片；当前 825 页的 USGS LaSRC/校准文档已生成 4 个不超过 250 页的分片并完成索引。
 
 ## 生产门槛
 
@@ -76,7 +80,7 @@ python backend/scripts/backup_runtime.py data `
   --verify data/backups/idl-rag-current.zip
 ```
 
-备份脚本使用 SQLite online backup 快照数据库，并为归档中的每个文件写入 SHA-256；校验命令会读取归档内容重新计算哈希。当前工作区已实际生成并校验一份 22,738 个文件、约 3.57 GB 的备份归档。归档包含私有资料和加密配置，必须放入受控备份存储，不能上传到公开仓库。
+备份脚本使用 SQLite online backup 快照数据库，并为归档中的每个文件写入 SHA-256；校验命令会读取归档内容重新计算哈希。当前工作区已实际生成并校验一份 24,279 个文件、约 3.63 GB 的备份归档。归档包含私有资料和加密配置，必须放入受控备份存储，不能上传到公开仓库。
 
 ## 补齐顺序
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -35,6 +36,31 @@ QUERIES = [
     "cloud detection remote sensing algorithm",
     "drought monitoring remote sensing vegetation index",
     "crop classification remote sensing algorithm",
+    "BRDF bidirectional reflectance distribution function remote sensing model",
+    "radiative transfer model canopy remote sensing reflectance inversion",
+    "surface reflectance retrieval satellite remote sensing algorithm",
+    "Landsat LaSRC atmospheric correction algorithm",
+    "Sentinel-2 atmospheric correction Sen2Cor algorithm validation",
+    "Sentinel-1 SAR radiometric calibration terrain correction speckle filtering",
+    "synthetic aperture radar interferometry InSAR remote sensing algorithm",
+    "polarimetric SAR remote sensing classification decomposition",
+    "hyperspectral spectral unmixing endmember remote sensing algorithm",
+    "hyperspectral radiative transfer vegetation remote sensing retrieval",
+    "leaf area index LAI remote sensing inversion algorithm",
+    "evapotranspiration remote sensing energy balance algorithm",
+    "soil moisture microwave remote sensing retrieval algorithm",
+    "remote sensing uncertainty quantification validation accuracy assessment",
+    "remote sensing change detection time series algorithm trend analysis",
+    "remote sensing image geometric correction orthorectification algorithm",
+    "remote sensing data fusion spatiotemporal resolution enhancement",
+    "remote sensing object detection semantic segmentation deep learning benchmark",
+    "geospatial foundation model remote sensing benchmark",
+    "remote sensing domain adaptation transfer learning algorithm",
+    "remote sensing cloud shadow masking quality assessment algorithm",
+    "remote sensing phenology time series vegetation index algorithm",
+    "urban heat island land surface temperature remote sensing validation",
+    "water quality chlorophyll turbidity remote sensing inversion algorithm",
+    "forest biomass carbon remote sensing lidar multispectral algorithm",
 ]
 
 SOURCE_NOTE = (
@@ -178,11 +204,70 @@ def record_to_markdown(record: dict[str, Any], index: int) -> str:
     return "\n".join(lines)
 
 
-def collect_records(target_count: int, per_page: int, mailto: str, pause: float) -> list[dict[str, Any]]:
+def _write_checkpoint(path: Path, records: list[dict[str, Any]], page_by_query: dict[str, int]) -> None:
+    """Persist collection progress so a transient network failure is resumable."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"version": 1, "records": records, "page_by_query": page_by_query}
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def _load_checkpoint(path: Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    if not path.exists():
+        return [], {query: 1 for query in QUERIES}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    records = payload.get("records") or []
+    page_by_query = payload.get("page_by_query") or {}
+    if not isinstance(records, list) or not isinstance(page_by_query, dict):
+        raise ValueError(f"Invalid OpenAlex checkpoint: {path}")
+    normalized_pages = {query: max(1, int(page_by_query.get(query, 1))) for query in QUERIES}
+    return [record for record in records if isinstance(record, dict)], normalized_pages
+
+
+def _request_openalex_page(
+    client: httpx.Client,
+    *,
+    params: dict[str, Any],
+    retries: int,
+    retry_delay: float,
+) -> dict[str, Any]:
+    """Fetch one page with bounded retries for proxy/rate-limit/server failures."""
+    attempts = max(0, retries) + 1
+    for attempt in range(attempts):
+        try:
+            response = client.get("https://api.openalex.org/works", params=params)
+            transient = response.status_code == 429 or response.status_code >= 500
+            if transient and attempt < attempts - 1:
+                retry_after = response.headers.get("Retry-After", "")
+                try:
+                    delay = max(0.0, float(retry_after))
+                except ValueError:
+                    delay = retry_delay * (2**attempt)
+                time.sleep(min(30.0, delay))
+                continue
+            response.raise_for_status()
+            return response.json()
+        except httpx.RequestError:
+            if attempt >= attempts - 1:
+                raise
+            time.sleep(min(30.0, retry_delay * (2**attempt)))
+    raise RuntimeError("OpenAlex request retry loop exhausted")
+
+
+def collect_records(
+    target_count: int,
+    per_page: int,
+    mailto: str,
+    pause: float,
+    *,
+    retries: int = 4,
+    retry_delay: float = 0.5,
+    checkpoint_path: Path | None = None,
+) -> list[dict[str, Any]]:
     client = httpx.Client(timeout=30.0, follow_redirects=True)
-    records: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    page_by_query = {query: 1 for query in QUERIES}
+    records, page_by_query = _load_checkpoint(checkpoint_path) if checkpoint_path else ([], {query: 1 for query in QUERIES})
+    seen: set[str] = {str(record.get("openalex_id")) for record in records if record.get("openalex_id")}
 
     while len(records) < target_count:
         made_progress = False
@@ -190,8 +275,8 @@ def collect_records(target_count: int, per_page: int, mailto: str, pause: float)
             if len(records) >= target_count:
                 break
             page = page_by_query[query]
-            response = client.get(
-                "https://api.openalex.org/works",
+            payload = _request_openalex_page(
+                client,
                 params={
                     "search": query,
                     "filter": "type:article|book-chapter|book|report|dataset",
@@ -199,9 +284,9 @@ def collect_records(target_count: int, per_page: int, mailto: str, pause: float)
                     "page": page,
                     "mailto": mailto,
                 },
+                retries=retries,
+                retry_delay=retry_delay,
             )
-            response.raise_for_status()
-            payload = response.json()
             page_by_query[query] = page + 1
             results = payload.get("results") or []
             if not results:
@@ -217,11 +302,15 @@ def collect_records(target_count: int, per_page: int, mailto: str, pause: float)
                 records.append(record)
                 if len(records) >= target_count:
                     break
+            if checkpoint_path:
+                _write_checkpoint(checkpoint_path, records, page_by_query)
             if pause:
                 time.sleep(pause)
         if not made_progress:
             break
     client.close()
+    if checkpoint_path and len(records) >= target_count:
+        checkpoint_path.unlink(missing_ok=True)
     return records
 
 
@@ -261,9 +350,20 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=Path("data/sources/collected"))
     parser.add_argument("--manifest-name", default="openalex_remote_sensing_manifest.jsonl")
     parser.add_argument("--pause", type=float, default=0.05)
+    parser.add_argument("--retries", type=int, default=4, help="retries for proxy, rate-limit and server errors")
+    parser.add_argument("--retry-delay", type=float, default=0.5, help="initial exponential retry delay in seconds")
     args = parser.parse_args()
 
-    records = collect_records(args.target_count, args.per_page, args.mailto, args.pause)
+    checkpoint_path = args.output_dir / ".openalex_checkpoint.json"
+    records = collect_records(
+        args.target_count,
+        args.per_page,
+        args.mailto,
+        args.pause,
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        checkpoint_path=checkpoint_path,
+    )
     if len(records) < args.target_count:
         raise RuntimeError(f"Only collected {len(records)} records; target was {args.target_count}.")
     summary = write_outputs(records, args.output_dir, args.manifest_name)
