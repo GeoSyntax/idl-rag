@@ -195,6 +195,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       .map((artifactId) => artifactsById.get(artifactId))
       .filter((artifact): artifact is ChatArtifact => artifact !== undefined && artifact.kind !== 'chat_input')
     let attachment: AttachedFile | null = null
+    let submitted = false
     setRetryingRunId(run.id)
     try {
       if (run.has_attached_file) {
@@ -209,11 +210,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         attachment = { name: run.attached_file_name || uploaded.file_name, content }
       }
       const retryMode = run.mode === 'agent-stream' ? 'agent' : 'normal'
-      handleSubmit(targetMessage.content, attachment, inputArtifacts, retryMode, run.generate_pro_file)
+      submitted = handleSubmit(targetMessage.content, attachment, inputArtifacts, retryMode, run.generate_pro_file, run.id)
     } catch (err) {
       messageApi.error((err as Error).message || '恢复运行附件失败')
     } finally {
-      setRetryingRunId(null)
+      if (!submitted) setRetryingRunId(null)
     }
   }
 
@@ -450,10 +451,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     inputArtifactsOverride?: ChatArtifact[],
     modeOverride?: 'normal' | 'agent',
     generateProFileOverride?: boolean,
-  ) => {
+    retryRunId?: number,
+  ): boolean => {
     const question = (questionOverride ?? inputValue).trim()
-    if (!question) return
-    if (isStreaming || submitLockRef.current) return
+    if (!question) return false
+    if (isStreaming || submitLockRef.current) return false
     const activeChatMode = modeOverride ?? chatMode
     const activeGenerateProFile = generateProFileOverride ?? generateProFile
     const activeAttachment = attachmentOverride === undefined ? attachedFile : attachmentOverride
@@ -462,14 +464,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     // cannot silently look like a grounded answer without evidence.
     if (activeChatMode !== 'agent' && selectedKBIds.length === 0 && !activeAttachment && !researchProjectId) {
       messageApi.warning('请至少选择一个知识库，或上传一个文件')
-      return
+      return false
     }
     if (activeChatMode !== 'agent' && selectedKBIds.length === 0 && researchProjectId) {
       messageApi.warning('研究项目上下文需要使用 Agent 模式；普通聊天请选择知识库')
-      return
+      return false
     }
 
     submitLockRef.current = true
+    if (retryRunId !== undefined) setRetryingRunId(retryRunId)
 
     const activeInputArtifacts = inputArtifactsOverride ?? selectedInputArtifacts
     const userMessage: ChatMessage = {
@@ -516,12 +519,14 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     } else {
       handleSimpleStream(actualQuestion, controller.signal, fileContent, requestId, activeInputArtifacts, activeAttachment?.name, activeGenerateProFile)
     }
+    return true
   }
 
   const finishStream = () => {
     clearStreamingBuffer()
     setIsStreaming(false)
     submitLockRef.current = false
+    setRetryingRunId(null)
     agentStartedAtRef.current = null
     setAgentLiveStatus('')
     // The final answer is loaded from the persisted session immediately after

@@ -179,7 +179,7 @@ export function MessageList({
         />
       ))}
       {agentRunHistory.length > 0 ? (
-        <AgentRunHistory runs={agentRunHistory} onRetryRun={onRetryRun} retryingRunId={retryingRunId} />
+        <AgentRunHistory runs={agentRunHistory} onRetryRun={onRetryRun} retryingRunId={retryingRunId} isStreaming={isStreaming} />
       ) : null}
       {(isStreaming || (agentSteps.length > 0 && !traceAttachedToMessage && !agentRunComplete) || Boolean(streamError)) && (
         <div className="chat-msg chat-msg-assistant">
@@ -226,10 +226,12 @@ function AgentRunHistory({
   runs,
   onRetryRun,
   retryingRunId,
+  isStreaming,
 }: {
   runs: ChatRun[]
   onRetryRun: (run: ChatRun) => void
   retryingRunId: number | null
+  isStreaming: boolean
 }) {
   return (
     <section className="chat-agent-history" aria-label="Agent 运行记录">
@@ -250,7 +252,7 @@ function AgentRunHistory({
                 size="small"
                 type="link"
                 loading={retryingRunId === run.id}
-                disabled={retryingRunId !== null}
+                disabled={retryingRunId !== null || isStreaming}
                 onClick={() => onRetryRun(run)}
               >
                 重试
