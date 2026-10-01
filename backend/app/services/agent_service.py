@@ -638,9 +638,14 @@ class AgentService:
             yield from self.answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
             return
         if not settings_from_svc.api_key and not _is_local_compatible_endpoint(settings_from_svc):
-            # 先降级，再创建消息。旧实现先写入一条 user message，随后
-            # answer_stream 又写入一条，页面会看到重复请求/回答。
-            yield from self.answer_stream(db, payload, owner_user_id, cancel_event=cancel_event)
+            # Agent 不能把“没有模型”伪装成一次成功的知识库回答：那会
+            # 同时显示“无法执行 Agent”和检索来源，让用户误以为工作流
+            # 已经完成。普通 Chat 仍保留离线检索回退；Agent 必须明确失败，
+            # 且不创建带引用的助手消息，方便前端显示可重试的错误状态。
+            yield {
+                "type": "error",
+                "message": "当前未连接可用的 Agent 模型，请在设置页配置 Gemini2API 或其他 OpenAI-compatible 服务后重试。",
+            }
             return
 
         session = self._get_or_create_session(db, payload, owner_user_id)

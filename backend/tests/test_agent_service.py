@@ -131,6 +131,34 @@ def test_agent_fast_path_only_bypasses_tools_for_plain_questions() -> None:
     assert not AgentService._should_use_direct_stream(ChatRequest(question="解释 MNDWI"), False, [1])
 
 
+def test_agent_without_model_fails_without_creating_a_citation_answer(monkeypatch) -> None:
+    """Agent must not turn a missing model into a successful cited fallback."""
+    from app.api.schemas import ChatRequest
+    from app.services.agent_service import AgentService
+
+    monkeypatch.setattr(
+        "app.services.agent_service.get_runtime_settings",
+        lambda _db: type(
+            "Settings",
+            (),
+            {"api_key": "", "api_base_url": "https://model-not-configured.invalid/v1"},
+        )(),
+    )
+
+    events = list(
+        AgentService().agent_answer_stream(
+            None,
+            ChatRequest(question="请生成 Python 代码计算 MNDWI"),
+            owner_user_id=1,
+        )
+    )
+
+    assert events == [
+        {
+            "type": "error",
+            "message": "当前未连接可用的 Agent 模型，请在设置页配置 Gemini2API 或其他 OpenAI-compatible 服务后重试。",
+        }
+    ]
 def test_agent_tool_schema_is_scoped_by_request() -> None:
     from app.api.schemas import ChatRequest
     from app.services.agent_service import AgentService
