@@ -3034,6 +3034,30 @@ body { min-height: 100dvh; }
     display: block;
   }
 
+  /* Ant Space is inline-flex by default. The experiment action row contains
+     several buttons plus a 220px select, so it otherwise keeps its desktop
+     width and makes the entire research page scroll horizontally. */
+  .research-run-actions {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .research-run-actions .ant-space-item {
+    max-width: 100%;
+  }
+
+  .research-run-actions .ant-select {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .research-run-actions .ant-btn {
+    max-width: 100%;
+    white-space: normal;
+  }
+
   .retrieval-lab-grid,
   .idl-run-grid,
   .dashboard-usage-row {
