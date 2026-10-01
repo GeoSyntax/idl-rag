@@ -43,6 +43,7 @@
 - NASA/JPL OPERA DSWx-HLS Algorithm Theoretical Basis Document v1.4（HLS 输入、五组水体诊断测试、FMask/地形阴影/土地覆盖细化、置信度和验证假设）：`https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-docs/web-misc/opera/atbd/DSWx-HLS_ATBD_V1_4_DAAC_Distribution.pdf`
 - USGS Landsat Collection 2 U.S. Analysis Ready Data DFCB v4（ARD tile、Albers 网格、COG、波段缩放/有效范围、QA 与 XML/JSON 元数据）：`https://www.usgs.gov/media/files/landsat-collection-2-us-analysis-ready-data-dfcb`
 - ESA/Copernicus Sentinel-2 Products Specification Document 15.1（MSI 产品级别、波段/粒度、元数据、质量层和 processing baseline 兼容性）：`https://sentinels.copernicus.eu/documents/d/sentinel/sentinel-2-products-specification-document-15_1`
+- USGS Landsat 8–9 Collection 2 Level-2 Provisional Aquatic Reflectance Product Guide v7（2025 产品结构、波段/掩膜、缩放、元数据和 provisional 限制）：`https://www.usgs.gov/landsat-missions/landsat-project-documents`
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 
