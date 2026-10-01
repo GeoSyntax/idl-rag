@@ -124,6 +124,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   // requests. Keep a synchronous guard for that tiny race window.
   const submitLockRef = useRef(false)
   const activeRunSessionIdRef = useRef<number | null>(null)
+  const activeRunMessageIdRef = useRef<number | null>(null)
   const messagesRef = useRef<ChatMessage[]>([])
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -662,6 +663,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     // transient thinking/answer status as a second assistant response.
     setAgentSteps((prev) => prev.filter((step) => ['plan', 'tool_call', 'tool_result', 'error'].includes(step.step)))
     abortRef.current = null
+    activeRunMessageIdRef.current = null
   }
 
   const loadCompletedSession = async (newSessionId: number, requestId: number, attachAgentTrace = false) => {
@@ -699,7 +701,44 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     finishStream()
   }
 
-  const handleStreamException = (err: unknown, fallback: string, requestId: number) => {
+  const reconcileInterruptedStream = async (requestId: number): Promise<boolean> => {
+    const interruptedSessionId = activeRunSessionIdRef.current
+    const interruptedMessageId = activeRunMessageIdRef.current
+    if (!interruptedSessionId || !interruptedMessageId) return false
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (streamRequestIdRef.current !== requestId) return false
+      try {
+        const fullMessages = await api.listMessages(interruptedSessionId)
+        if (streamRequestIdRef.current !== requestId) return false
+        const messageIndex = fullMessages.findIndex((message) => message.id === interruptedMessageId)
+        const hasPersistedAnswer = messageIndex >= 0 && fullMessages
+          .slice(messageIndex + 1)
+          .some((message) => message.role === 'assistant' && message.content.trim().length > 0)
+        if (hasPersistedAnswer) {
+          setSessionId(interruptedSessionId)
+          setMessages(fullMessages)
+          void refreshChatRuns(interruptedSessionId)
+          const persistedTrace = extractPersistedAgentTrace(fullMessages)
+          if (persistedTrace.steps.length > 0) setAgentSteps(persistedTrace.steps)
+          setAgentRunComplete(true)
+          setStreamError('')
+          setRetryQuestion('')
+          setRetryAttachment(null)
+          setRetryMessageId(null)
+          finishStream()
+          return true
+        }
+      } catch {
+        // The stream may have failed before the session was committed. Keep
+        // polling briefly; the final error below remains retryable.
+      }
+      if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 350))
+    }
+    return false
+  }
+
+  const handleStreamException = async (err: unknown, fallback: string, requestId: number) => {
     if (streamRequestIdRef.current !== requestId) return
     if (streamTerminalRef.current && (err as Error).name !== 'AbortError') return
     streamTerminalRef.current = true
@@ -707,6 +746,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setAgentRunMeta(null)
     if ((err as Error).name !== 'AbortError') {
       const message = (err as Error).message || fallback
+      setStreamError('连接中断，正在同步已保存结果…')
+      if (await reconcileInterruptedStream(requestId)) return
       setStreamError(message)
       if (activeRunSessionIdRef.current !== null) {
         void refreshChatRuns(activeRunSessionIdRef.current)
@@ -743,6 +784,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           onRunStarted: (newSessionId, streamId, messageId) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             activeRunSessionIdRef.current = newSessionId
+            activeRunMessageIdRef.current = messageId ?? null
             setSessionId(newSessionId)
             setActiveStreamId(streamId ?? null)
             if (messageId) setRetryMessageId(messageId)
@@ -767,7 +809,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         signal,
       )
     } catch (err) {
-      handleStreamException(err, '请求失败', requestId)
+      await handleStreamException(err, '请求失败', requestId)
     }
   }
 
@@ -803,6 +845,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           onRunStarted: (newSessionId, streamId, messageId) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             activeRunSessionIdRef.current = newSessionId
+            activeRunMessageIdRef.current = messageId ?? null
             setSessionId(newSessionId)
             setActiveStreamId(streamId ?? null)
             if (messageId) setRetryMessageId(messageId)
@@ -870,7 +913,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
         signal,
       )
     } catch (err) {
-      handleStreamException(err, 'Agent 请求失败', requestId)
+      await handleStreamException(err, 'Agent 请求失败', requestId)
     }
   }
 
