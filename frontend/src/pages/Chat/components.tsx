@@ -173,6 +173,7 @@ export function MessageList({
           message={msg}
           agentSteps={msg.id === lastAssistantMessageId ? traceSteps : []}
           agentRunMeta={msg.id === lastAssistantMessageId ? agentRunMeta : null}
+          agentRunComplete={msg.id === lastAssistantMessageId && agentRunComplete}
           onDownloadArtifact={onDownloadArtifact}
           onStartFix={onStartFix}
           onRunArtifact={onRunArtifact}
@@ -284,6 +285,7 @@ function MessageBubble({
   message,
   agentSteps = [],
   agentRunMeta = null,
+  agentRunComplete = false,
   onDownloadArtifact,
   onStartFix,
   onRunArtifact,
@@ -293,6 +295,7 @@ function MessageBubble({
   message: ChatMessage
   agentSteps?: AgentStepItem[]
   agentRunMeta?: AgentRunMeta | null
+  agentRunComplete?: boolean
   onDownloadArtifact: AsyncArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
@@ -336,7 +339,7 @@ function MessageBubble({
         {visibleCitations.length > 0 && <CitationList citations={visibleCitations} />}
         {agentSteps.length > 0 && (
           <div className="chat-agent-trace-attached">
-            <AgentStepList steps={agentSteps} />
+            <AgentStepList steps={agentSteps} completed={agentRunComplete} />
           </div>
         )}
         {agentRunMeta && <AgentRunMetaSummary meta={agentRunMeta} />}
@@ -614,14 +617,14 @@ function ArtifactImagePreview({
   )
 }
 
-function AgentStepList({ steps }: { steps: AgentStepItem[] }) {
+function AgentStepList({ steps, completed = false }: { steps: AgentStepItem[]; completed?: boolean }) {
   const latestResearchSummaryId = [...steps]
     .reverse()
     .find((step) => step.step === 'tool_result' && step.metadata?.research_run)?.id
   const items = steps.map((step) => ({
     key: String(step.id),
     label: getStepLabel(step),
-    children: <StepContent step={step} showResearchSummary={step.id === latestResearchSummaryId} />,
+    children: <StepContent step={step} allSteps={steps} completed={completed} showResearchSummary={step.id === latestResearchSummaryId} />,
   }))
   return <Collapse items={items} size="small" className="chat-agent-collapse" defaultActiveKey={items.length ? [items[items.length - 1].key] : []} />
 }
@@ -656,9 +659,28 @@ function getStepLabel(step: AgentStepItem): string {
   return step.step
 }
 
-function StepContent({ step, showResearchSummary = false }: { step: AgentStepItem; showResearchSummary?: boolean }) {
+type PlanViewItem = {
+  id: string
+  label: string
+  requiresConsent: boolean
+  authorized: boolean
+}
+
+type PlanExecutionState = 'planned' | 'running' | 'completed' | 'blocked'
+
+function StepContent({
+  step,
+  allSteps = [step],
+  completed = false,
+  showResearchSummary = false,
+}: {
+  step: AgentStepItem
+  allSteps?: AgentStepItem[]
+  completed?: boolean
+  showResearchSummary?: boolean
+}) {
   if (step.step === 'plan') {
-    const items = Array.isArray(step.metadata?.items)
+    const items: PlanViewItem[] = Array.isArray(step.metadata?.items)
       ? step.metadata.items.flatMap((item) => {
         if (typeof item === 'string') return [{ id: item, label: item, requiresConsent: false, authorized: true }]
         if (!item || typeof item !== 'object') return []
@@ -680,13 +702,7 @@ function StepContent({ step, showResearchSummary = false }: { step: AgentStepIte
             {items.map((item) => (
               <li key={item.id}>
                 <span>{item.label}</span>
-                {item.requiresConsent ? (
-                  <Tag color={item.authorized ? 'green' : 'orange'}>
-                    {item.authorized ? '已授权' : '需授权'}
-                  </Tag>
-                ) : (
-                  <Tag color="blue">已纳入</Tag>
-                )}
+                <PlanStatusTag item={item} state={getPlanExecutionState(item.id, allSteps, completed)} />
               </li>
             ))}
           </ol>
@@ -730,6 +746,40 @@ function StepContent({ step, showResearchSummary = false }: { step: AgentStepIte
     )
   }
   return null
+}
+
+function PlanStatusTag({ item, state }: { item: PlanViewItem; state: PlanExecutionState }) {
+  if (state === 'completed') return <Tag color="green">已完成</Tag>
+  if (state === 'running') return <Tag color="blue">执行中</Tag>
+  if (state === 'blocked') return <Tag color="red">被拒绝</Tag>
+  if (item.requiresConsent && !item.authorized) return <Tag color="orange">需授权</Tag>
+  if (item.requiresConsent) return <Tag color="green">已授权</Tag>
+  return <Tag color="blue">待执行</Tag>
+}
+
+const PLAN_TOOL_MAP: Record<string, string[]> = {
+  project_context: ['research_project_context'],
+  project_sources: ['research_rag_search', 'research_protocol_readiness', 'research_data_catalog', 'research_run_summary'],
+  knowledge_retrieval: ['kb_search'],
+  input_context: ['read_artifact'],
+  code_review: ['read_artifact', 'kb_search', 'grep_search', 'symbol_search', 'analyze_code', 'fix_code', 'lint_code'],
+  code_analysis: ['kb_search', 'grep_search', 'symbol_search', 'read_context', 'find_callers', 'find_callees', 'analyze_code', 'lint_code'],
+  external_literature: ['public_literature_search', 'research_literature_search'],
+  gee_fetch: ['research_fetch_gee_asset'],
+  python_preview: ['research_create_preview_experiment', 'research_queue_preview'],
+}
+
+function getPlanExecutionState(itemId: string, steps: AgentStepItem[], completed: boolean): PlanExecutionState {
+  if (itemId === 'evidence_answer' && completed) return 'completed'
+  const tools = PLAN_TOOL_MAP[itemId] || []
+  if (tools.length === 0) return 'planned'
+  const calls = steps.filter((step) => step.step === 'tool_call' && step.tool && tools.includes(step.tool))
+  const results = steps.filter((step) => step.step === 'tool_result' && step.tool && tools.includes(step.tool))
+  const latestResult = results[results.length - 1]
+  if (latestResult) {
+    return latestResult.output?.startsWith('工具调用被拒绝') ? 'blocked' : 'completed'
+  }
+  return calls.length > 0 ? 'running' : 'planned'
 }
 
 type ResearchRunOutputCardData = {
