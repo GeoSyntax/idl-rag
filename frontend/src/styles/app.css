@@ -1919,6 +1919,12 @@ body { min-height: 100dvh; }
   line-height: 18px;
 }
 
+.chat-agent-tool-tag.ant-tag-green {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
 .chat-agent-trace-attached {
   margin-top: 10px;
   padding-top: 10px;

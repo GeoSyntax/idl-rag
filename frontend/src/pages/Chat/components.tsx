@@ -758,7 +758,7 @@ function StepContent({
     const isResearchRun = Boolean(step.metadata?.research_run)
     return (
       <div>
-        <Tag color="green" style={{ marginBottom: 4 }}>{step.tool}</Tag>
+        <Tag className="chat-agent-tool-tag" color="green" style={{ marginBottom: 4 }}>{step.tool}</Tag>
         {isResearchRun && showResearchSummary ? <ResearchRunSummary metadata={step.metadata ?? {}} /> : null}
         {isResearchRun && !showResearchSummary ? (
           <div className="chat-agent-step-note">运行摘要已更新，详情显示在最后一次运行查询中。</div>
