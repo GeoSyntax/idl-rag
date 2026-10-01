@@ -113,6 +113,8 @@ export function MessageList({
   isStreaming,
   streamingContent,
   streamError,
+  retryQuestion,
+  onRetry,
   messagesEndRef,
   onDownloadArtifact,
   onStartFix,
@@ -130,6 +132,8 @@ export function MessageList({
   isStreaming: boolean
   streamingContent: string
   streamError: string
+  retryQuestion: string
+  onRetry: () => void
   messagesEndRef: RefObject<HTMLDivElement>
   onDownloadArtifact: ArtifactAction
   onStartFix: ArtifactAction
@@ -184,7 +188,12 @@ export function MessageList({
             {streamError ? (
               <div className="chat-stream-error">
                 <CloseCircleOutlined />
-                <span>{streamError}</span>
+                <span className="chat-stream-error-message">{streamError}</span>
+                {retryQuestion ? (
+                  <Button size="small" type="link" onClick={onRetry} disabled={isStreaming}>
+                    重试
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </div>

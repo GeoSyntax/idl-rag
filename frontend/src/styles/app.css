@@ -1371,6 +1371,18 @@ body { min-height: 100dvh; }
   margin-top: 3px;
 }
 
+.chat-stream-error-message {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.chat-stream-error .ant-btn {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0 4px;
+  height: auto;
+}
+
 .streaming-cursor {
   display: inline-block;
   margin-left: 1px;

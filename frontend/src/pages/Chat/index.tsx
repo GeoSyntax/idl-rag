@@ -59,6 +59,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [streamError, setStreamError] = useState('')
+  const [retryQuestion, setRetryQuestion] = useState('')
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
   const [agentLiveStatus, setAgentLiveStatus] = useState('')
   const [agentElapsedMs, setAgentElapsedMs] = useState(0)
@@ -227,6 +228,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setSessionId(null)
     clearStreamingBuffer()
     setStreamError('')
+    setRetryQuestion('')
     setIsStreaming(false)
     setAgentSteps([])
     setAgentLiveStatus('')
@@ -259,6 +261,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setSessionId(null)
     clearStreamingBuffer()
     setStreamError('')
+    setRetryQuestion('')
     setIsStreaming(false)
     setAgentSteps([])
     setAgentLiveStatus('')
@@ -286,6 +289,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setMessages(fullMessages)
       clearStreamingBuffer()
       setStreamError('')
+      setRetryQuestion('')
       setIsStreaming(false)
       const restoredTrace = extractPersistedAgentTrace(fullMessages)
       setAgentSteps(restoredTrace.steps)
@@ -372,8 +376,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     return false
   }
 
-  const handleSubmit = () => {
-    const question = inputValue.trim()
+  const handleSubmit = (questionOverride?: string) => {
+    const question = (questionOverride ?? inputValue).trim()
     if (!question) return
     if (isStreaming || submitLockRef.current) return
     // Agent supports a lightweight no-context path for general questions.
@@ -424,6 +428,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       actualQuestion = `请修复文件 ${fixTarget.fileName} 中的问题：${question}`
       setFixTarget(null)
     }
+    setRetryQuestion(actualQuestion)
     const fileContent = attachedFile?.content || null
     setAttachedFile(null)
 
@@ -511,6 +516,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           onDone: (newSessionId: number) => {
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             streamTerminalRef.current = true
+            setRetryQuestion('')
             // 先移除临时流，再加载已落盘消息，避免同一答案短暂出现两次。
             // Agent 步骤保留在当前页面，方便用户在最终回答后继续查看运行追踪。
             finishStream()
@@ -583,6 +589,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             streamTerminalRef.current = true
             const newSessionId = event.session_id
+            setRetryQuestion('')
             // Mark completion before clearing the transient stream. While the
             // persisted assistant message is fetched, suppress the trace-only
             // bubble so a completed answer never looks like a second response.
@@ -1024,6 +1031,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             streamError={streamError}
+            retryQuestion={retryQuestion}
+            onRetry={() => handleSubmit(retryQuestion)}
             messagesEndRef={messagesEndRef}
             onDownloadArtifact={downloadArtifact}
             onStartFix={startFixMode}
@@ -1110,7 +1119,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             <Button
               type="primary"
               icon={<SendOutlined />}
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               disabled={!inputValue.trim()}
               className="chat-send-btn"
               aria-label="发送消息"
