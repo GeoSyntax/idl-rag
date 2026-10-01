@@ -291,10 +291,19 @@ async def ask_question_stream(
         terminal_status = "running"
         error_message = None
         agent_step_count = 0
+        request_phase_timing: dict[str, float] = {}
+        request_phase_timing_seen = False
         try:
             async for token in service.answer_stream_async(db, payload, current_user.id):
                 if terminal_sent:
                     continue
+                if isinstance(token.get("phase_timing"), dict):
+                    request_phase_timing = {
+                        str(key): float(value)
+                        for key, value in token["phase_timing"].items()
+                        if isinstance(value, (int, float))
+                    }
+                    request_phase_timing_seen = True
                 if token.get("type") == "run_started":
                     result_session_id = token.get("session_id")
                     result_message_id = token.get("message_id")
@@ -315,7 +324,10 @@ async def ask_question_stream(
                     artifact_count = len(token.get("artifacts", []))
                 if token.get("type") == "error":
                     terminal_sent = True
-                yield f"data: {json.dumps(_decorate_stream_event(token, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
+                event_phase_timing = (
+                    request_phase_timing if request_phase_timing_seen else _phase_timing_snapshot()
+                )
+                yield f"data: {json.dumps(_decorate_stream_event(token, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=event_phase_timing), ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             has_error = True
             terminal_status = "cancelled"
@@ -329,27 +341,34 @@ async def ask_question_stream(
             if not terminal_sent:
                 error_event = {"type": "error", "message": str(exc) or "流式请求失败"}
                 terminal_sent = True
-                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
+                event_phase_timing = (
+                    request_phase_timing if request_phase_timing_seen else _phase_timing_snapshot()
+                )
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=event_phase_timing), ensure_ascii=False)}\n\n"
         else:
             if not terminal_sent:
                 has_error = True
                 terminal_status = "failed"
                 error_message = "流式请求未返回完成事件，请重试。"
                 error_event = {"type": "error", "message": "流式请求未返回完成事件，请重试。"}
-                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=_phase_timing_snapshot()), ensure_ascii=False)}\n\n"
+                event_phase_timing = (
+                    request_phase_timing if request_phase_timing_seen else _phase_timing_snapshot()
+                )
+                yield f"data: {json.dumps(_decorate_stream_event(error_event, stream_id=stream_id, started_at=started_at, first_token_ms=first_token_ms, phase_timing=event_phase_timing), ensure_ascii=False)}\n\n"
         finally:
             runtime_metrics.record_chat_request(
                 current_user.id,
                 latency_ms=(time.perf_counter() - started_at) * 1000,
                 first_token_ms=first_token_ms,
             )
+            request_retrieve_timing, request_llm_timing = _phase_timing_for_log(request_phase_timing)
             _persist_chat_request_log(
                 owner_user_id=current_user.id,
                 session_id=result_session_id,
                 mode="ask-stream",
                 payload=payload,
-                retrieve_timing=service.retrieval_service.last_timing,
-                llm_timing=service.llm_service.last_timing,
+                retrieve_timing=request_retrieve_timing if request_phase_timing_seen else service.retrieval_service.last_timing,
+                llm_timing=request_llm_timing if request_phase_timing_seen else service.llm_service.last_timing,
                 total_ms=(time.perf_counter() - started_at) * 1000,
                 citation_count=citation_count,
                 artifact_count=artifact_count,

@@ -309,7 +309,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [streamingContent, messages, agentSteps])
+  }, [streamingContent, messages, agentSteps, agentRunHistory.length, agentRunComplete, streamError])
 
   useEffect(() => {
     if (!isStreaming) {

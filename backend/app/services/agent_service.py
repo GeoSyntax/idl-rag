@@ -516,6 +516,29 @@ class AgentService:
         owner_user_id: int,
     ) -> AsyncGenerator[dict, None]:
         """真异步流式回答 — 使用 AsyncClient 避免阻塞事件循环。"""
+        phase_timing: dict[str, float] = {}
+        llm_first_token_ms: float | None = None
+
+        def timed_search(*args, **kwargs):
+            started_at = time.perf_counter()
+            try:
+                return self._search_knowledge_bases(*args, **kwargs)
+            finally:
+                phase_timing["retrieve_ms"] = phase_timing.get("retrieve_ms", 0.0) + (
+                    time.perf_counter() - started_at
+                ) * 1000
+
+        async def stream_model(*args, **kwargs):
+            nonlocal llm_first_token_ms
+            started_at = time.perf_counter()
+            async for token in self.llm_service.generate_answer_stream_async(db, *args, **kwargs):
+                if llm_first_token_ms is None:
+                    llm_first_token_ms = (time.perf_counter() - started_at) * 1000
+                yield token
+            phase_timing["llm_total_ms"] = phase_timing.get("llm_total_ms", 0.0) + (
+                time.perf_counter() - started_at
+            ) * 1000
+
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
         input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
@@ -551,13 +574,11 @@ class AgentService:
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
-        citations = self._search_knowledge_bases(db, kb_ids, retrieval_query, payload.top_k, payload.strategy)
+        citations = timed_search(db, kb_ids, retrieval_query, payload.top_k, payload.strategy)
 
         if payload.generate_pro_file:
             full_code: list[str] = []
-            async for token in self.llm_service.generate_answer_stream_async(
-                db, generation_question, citations, recent_messages,
-            ):
+            async for token in stream_model(generation_question, citations, recent_messages):
                 full_code.append(token)
                 yield {"type": "token", "content": token}
             code = "".join(full_code)
@@ -577,8 +598,10 @@ class AgentService:
         else:
             full_answer: list[str] = []
             marker_filter = _CitationMarkerStreamFilter(len(citations))
-            async for token in self.llm_service.generate_answer_stream_async(
-                db, payload.question, citations, recent_messages,
+            async for token in stream_model(
+                payload.question,
+                citations,
+                recent_messages,
                 attached_file_content=payload.attached_file_content,
             ):
                 full_answer.append(token)
@@ -611,6 +634,15 @@ class AgentService:
             "session_id": session.id,
             "citations": [citation.model_dump() for citation in citations],
             "artifacts": artifacts_json,
+            "phase_timing": {
+                key: round(value, 1)
+                for key, value in (
+                    ("retrieve_ms", phase_timing.get("retrieve_ms")),
+                    ("llm_first_token_ms", llm_first_token_ms),
+                    ("llm_total_ms", phase_timing.get("llm_total_ms")),
+                )
+                if isinstance(value, (int, float))
+            },
         }
 
     def agent_answer_stream(

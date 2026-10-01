@@ -174,6 +174,66 @@ def test_agent_stream_terminal_event_contains_safe_timing_provenance(
     assert "private" not in json.dumps(terminal, ensure_ascii=False).lower()
 
 
+def test_chat_stream_uses_request_local_phase_timing(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Ordinary Chat must not expose timing left behind by another request."""
+    _prepare_state(monkeypatch, tmp_path)
+
+    from app.api.routes import chat
+    from app.db.database import get_session_factory
+    from app.db.models import ChatRequestLog
+    from app.main import create_app
+
+    async def completed_stream(db, payload, user_id):
+        yield {"type": "token", "content": "完成"}
+        yield {
+            "type": "done",
+            "session_id": 23,
+            "citations": [],
+            "artifacts": [],
+            "phase_timing": {
+                "retrieve_ms": 2.5,
+                "llm_first_token_ms": 8.5,
+                "llm_total_ms": 13.5,
+            },
+        }
+
+    monkeypatch.setattr(chat.service, "answer_stream_async", completed_stream)
+    chat.service.retrieval_service.last_timing = {"retrieve_ms": 999.0, "rerank_ms": 999.0}
+    chat.service.llm_service.last_timing = {"first_token_ms": 999.0, "total_ms": 999.0}
+
+    with TestClient(create_app()) as client:
+        registered = _register(client, username="chat-timing-reviewer")
+        response = client.post(
+            "/api/chat/ask-stream",
+            json={"question": "测试普通对话计时"},
+            headers=_headers(registered["access_token"]),
+        )
+
+        assert response.status_code == 200
+        payloads = _sse_payloads(response.text)
+        terminal = payloads[-1]
+        assert terminal["type"] == "done"
+        assert terminal["phase_timing"] == {
+            "retrieve_ms": 2.5,
+            "llm_first_token_ms": 8.5,
+            "llm_total_ms": 13.5,
+        }
+
+        with get_session_factory()() as db:
+            log = (
+                db.query(ChatRequestLog)
+                .filter(ChatRequestLog.owner_user_id == registered["user"]["id"])
+                .order_by(ChatRequestLog.id.desc())
+                .first()
+            )
+            assert log is not None
+            assert log.retrieve_ms == 2.5
+            assert log.llm_first_token_ms == 8.5
+            assert log.llm_total_ms == 13.5
+
+
 def test_agent_stream_persists_run_status_and_safe_correlation(
     monkeypatch, tmp_path: Path
 ) -> None:
