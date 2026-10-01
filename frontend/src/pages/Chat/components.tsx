@@ -509,7 +509,12 @@ function StepContent({ step, showResearchSummary = false }: { step: AgentStepIte
     return <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{step.content}</p>
   }
   if (step.step === 'tool_call') {
-    return step.args ? <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>{JSON.stringify(step.args, null, 2)}</pre> : null
+    if (step.args) {
+      return <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>{JSON.stringify(step.args, null, 2)}</pre>
+    }
+    return step.arg_keys?.length ? (
+      <div className="chat-agent-step-note">已记录参数字段：{step.arg_keys.join('、')}</div>
+    ) : null
   }
   if (step.step === 'tool_result') {
     const isResearchRun = Boolean(step.metadata?.research_run)
@@ -523,10 +528,14 @@ function StepContent({ step, showResearchSummary = false }: { step: AgentStepIte
         {isResearchRun ? (
           <details className="chat-agent-tool-details">
             <summary>查看原始工具结果</summary>
-            <pre>{step.output}</pre>
+            <pre>{step.output || '历史轨迹未保存原始工具输出；请在本次运行中展开查看。'}</pre>
           </details>
         ) : (
-          <pre className="chat-agent-tool-output">{step.output}</pre>
+          <pre className="chat-agent-tool-output">{step.output || (
+            typeof step.output_length === 'number'
+              ? `历史轨迹仅保存结果摘要（${step.output_length} 字符），未保存原始内容。`
+              : '历史轨迹未保存原始工具输出。'
+          )}</pre>
         )}
       </div>
     )

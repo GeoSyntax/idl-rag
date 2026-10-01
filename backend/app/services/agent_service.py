@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -54,6 +55,9 @@ _MAX_TOOL_CONTEXT_CHARS = 6000
 _MAX_ARTIFACT_ID_CHARS = 64
 _AGENT_HEARTBEAT_INTERVAL_SECONDS = 8.0
 _AGENT_TOKEN_POLL_INTERVAL_SECONDS = 0.1
+_AGENT_TRACE_MAX_STEPS = 32
+_AGENT_TRACE_TEXT_CHARS = 360
+_TRACE_PRIVATE_KEY_PARTS = ("path", "uri", "storage", "credential", "password", "secret", "token")
 
 
 class _CitationMarkerStreamFilter:
@@ -173,6 +177,55 @@ class AgentService:
     def __init__(self) -> None:
         self.retrieval_service = RetrievalService()
         self.llm_service = LlmService()
+
+    @classmethod
+    def _trace_text(cls, value: object) -> str:
+        """Return a short trace preview with local paths and URI-like values redacted."""
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        text = re.sub(r"(?i)(?:[A-Za-z]:[\\/]|/)(?:[^\s,;\]}]+)", "[private-path]", text)
+        text = re.sub(r"(?i)(https?://|gs://|s3://)[^\s,\]}]+", "[private-uri]", text)
+        return text[:_AGENT_TRACE_TEXT_CHARS]
+
+    @classmethod
+    def _trace_value(cls, value: object, *, depth: int = 0) -> object:
+        """Recursively keep a bounded, non-sensitive subset of tool metadata."""
+        if depth > 4:
+            return "[truncated]"
+        if isinstance(value, dict):
+            result: dict[str, object] = {}
+            for raw_key, raw_value in list(value.items())[:40]:
+                key = str(raw_key)
+                if any(part in key.lower() for part in _TRACE_PRIVATE_KEY_PARTS):
+                    continue
+                result[key[:80]] = cls._trace_value(raw_value, depth=depth + 1)
+            return result
+        if isinstance(value, (list, tuple)):
+            return [cls._trace_value(item, depth=depth + 1) for item in list(value)[:20]]
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return cls._trace_text(value) if isinstance(value, str) else value
+        return cls._trace_text(value)
+
+    @classmethod
+    def _compact_agent_trace_step(cls, event: dict, step_id: int) -> dict[str, object]:
+        compact: dict[str, object] = {
+            "id": step_id,
+            "step": str(event.get("step") or "unknown"),
+        }
+        if event.get("tool"):
+            compact["tool"] = str(event["tool"])[:80]
+        if isinstance(event.get("args"), dict):
+            compact["arg_keys"] = sorted(str(key)[:80] for key in event["args"].keys())[:32]
+        if event.get("output"):
+            output_text = str(event["output"])
+            compact["output_length"] = len(output_text)
+            compact["output_digest"] = hashlib.sha256(output_text.encode("utf-8")).hexdigest()[:16]
+        if isinstance(event.get("metadata"), dict):
+            compact["metadata"] = cls._trace_value(event["metadata"])
+        if event.get("content"):
+            compact["content"] = cls._trace_text(event["content"])
+        return compact
 
     @staticmethod
     def _citations_used_by_answer(answer: str, citations: list) -> list:
@@ -627,6 +680,14 @@ class AgentService:
         full_answer_parts: list[str] = []
         queued_preview_experiment_ids: set[int] = set()
         streamed_final_answer = False
+        trace_steps: list[dict[str, object]] = []
+
+        def record_trace(event: dict) -> None:
+            if len(trace_steps) >= _AGENT_TRACE_MAX_STEPS:
+                return
+            if event.get("step") not in {"tool_call", "tool_result", "error"}:
+                return
+            trace_steps.append(self._compact_agent_trace_step(event, len(trace_steps) + 1))
 
         def generate_decision() -> dict:
             """Generate one decision and optionally forward plain final text.
@@ -751,12 +812,14 @@ class AgentService:
                 tool_name = result["tool"]
                 args = result.get("args", {})
 
-                yield {
+                tool_call_event = {
                     "type": "step",
                     "step": "tool_call",
                     "tool": tool_name,
                     "args": args,
                 }
+                record_trace(tool_call_event)
+                yield tool_call_event
 
                 try:
                     validated_args = self._validate_tool_args(tool_name, args)
@@ -821,6 +884,7 @@ class AgentService:
                 }
                 if tool_result.metadata:
                     tool_event["metadata"] = tool_result.metadata
+                record_trace(tool_event)
                 yield tool_event
 
                 all_citations.extend(tool_result.citations)
@@ -880,6 +944,16 @@ class AgentService:
             content=answer_text,
             citations_json=[c.model_dump() for c in all_citations],
             artifacts_json=artifacts_json,
+            agent_trace_json=(
+                {
+                    "version": 1,
+                    "status": "completed",
+                    "tool_count": len({step.get("tool") for step in trace_steps if step.get("tool")}),
+                    "steps": trace_steps,
+                }
+                if trace_steps
+                else {}
+            ),
         )
         db.add(assistant_message)
         if not session.title:
@@ -1796,6 +1870,44 @@ class AgentService:
             normalized = f"generated_{normalized}"
         return normalized[:48]
 
+    @classmethod
+    def _public_agent_trace(cls, value: object) -> dict[str, object]:
+        """Expose only the bounded inspection fields from a persisted trace.
+
+        Older local databases may contain a pre-redaction ``output`` field.
+        Strip it at the API boundary as well, while retaining its length and a
+        short digest so history cannot leak a previous tool response.
+        """
+        if not isinstance(value, dict):
+            return {}
+        public: dict[str, object] = {}
+        for key in ("version", "status", "tool_count"):
+            if key in value:
+                public[key] = value[key]
+        raw_steps = value.get("steps")
+        if not isinstance(raw_steps, list):
+            return public
+        steps: list[dict[str, object]] = []
+        for raw_step in raw_steps[:_AGENT_TRACE_MAX_STEPS]:
+            if not isinstance(raw_step, dict):
+                continue
+            step = {key: raw_step[key] for key in ("id", "step", "tool", "arg_keys") if key in raw_step}
+            raw_output = raw_step.get("output")
+            if raw_output and "output_length" not in raw_step:
+                output_text = str(raw_output)
+                step["output_length"] = len(output_text)
+                step["output_digest"] = hashlib.sha256(output_text.encode("utf-8")).hexdigest()[:16]
+            for key in ("output_length", "output_digest"):
+                if key in raw_step:
+                    step[key] = raw_step[key]
+            if raw_step.get("content"):
+                step["content"] = cls._trace_text(raw_step["content"])
+            if isinstance(raw_step.get("metadata"), dict):
+                step["metadata"] = cls._trace_value(raw_step["metadata"])
+            steps.append(step)
+        public["steps"] = steps
+        return public
+
     def _to_message_response(self, message: ChatMessage) -> ChatMessageResponse:
         artifacts = [
             artifact_response
@@ -1810,6 +1922,7 @@ class AgentService:
             content=message.content,
             citations=message.citations_json,
             artifacts=artifacts,
+            agent_trace=self._public_agent_trace(message.agent_trace_json),
             created_at=message.created_at,
         )
 

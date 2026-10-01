@@ -6,7 +6,10 @@ export type AgentStepItem = {
   content?: string
   tool?: string
   args?: Record<string, unknown>
+  arg_keys?: string[]
   output?: string
+  output_length?: number
+  output_digest?: string
   metadata?: Record<string, unknown>
 }
 

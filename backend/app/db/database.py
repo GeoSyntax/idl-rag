@@ -30,6 +30,7 @@ _CHAT_SESSION_ALTER_STATEMENTS = {
 }
 _CHAT_MESSAGE_ALTER_STATEMENTS = {
     "artifacts_json": "ALTER TABLE chat_messages ADD COLUMN artifacts_json JSON NOT NULL DEFAULT '[]'",
+    "agent_trace_json": "ALTER TABLE chat_messages ADD COLUMN agent_trace_json JSON NOT NULL DEFAULT '{}'",
 }
 _RESEARCH_EXPERIMENT_ALTER_STATEMENTS = {
     "project_protocol_revision_id": "ALTER TABLE research_experiments ADD COLUMN project_protocol_revision_id INTEGER",

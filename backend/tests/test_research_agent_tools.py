@@ -204,6 +204,11 @@ def test_research_agent_stream_uses_bound_project_and_rejects_stranger(tmp_path:
         assert tool_events and tool_events[0]["tool"] == "research_project_context"
         assert tool_events[0]["metadata"]["project_id"] == project.id
         assert any(event.get("type") == "done" for event in events)
+        persisted_trace = service.list_messages(db, events[-1]["session_id"], owner.id)[-1].agent_trace
+        assert persisted_trace["status"] == "completed"
+        assert persisted_trace["steps"][0]["tool"] == "research_project_context"
+        assert "project_id" in persisted_trace["steps"][0]["arg_keys"]
+        assert "private-path" not in json.dumps(persisted_trace, ensure_ascii=False)
 
         with pytest.raises(ValueError, match="不存在或当前用户无访问权限"):
             list(

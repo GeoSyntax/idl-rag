@@ -198,6 +198,10 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     citations_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     artifacts_json: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    # Bounded, redacted Agent trace attached to the final assistant message.
+    # It is intentionally separate from answer text so history can restore
+    # the inspection trail without replaying a model request.
+    agent_trace_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=func.now())
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")

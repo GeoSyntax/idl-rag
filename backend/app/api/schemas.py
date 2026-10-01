@@ -247,6 +247,7 @@ class ChatMessageResponse(BaseModel):
     content: str
     citations: list[Citation] = Field(default_factory=list)
     artifacts: list[ChatArtifact] = Field(default_factory=list)
+    agent_trace: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
 

@@ -280,10 +280,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       clearStreamingBuffer()
       setStreamError('')
       setIsStreaming(false)
-      setAgentSteps([])
+      const restoredTrace = extractPersistedAgentTrace(fullMessages)
+      setAgentSteps(restoredTrace.steps)
       setAgentLiveStatus('')
       setAgentElapsedMs(0)
-      setAgentRunComplete(false)
+      setAgentRunComplete(restoredTrace.steps.length > 0)
       setAgentRunMeta(null)
       setFixTarget(null)
       setGenerateProFile(false)
@@ -443,7 +444,9 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       const fullMessages = await api.listMessages(newSessionId)
       if (streamRequestIdRef.current !== requestId) return
       setMessages(fullMessages)
-      setAgentRunComplete(attachAgentTrace)
+      const persistedTrace = extractPersistedAgentTrace(fullMessages)
+      if (persistedTrace.steps.length > 0) setAgentSteps(persistedTrace.steps)
+      setAgentRunComplete(attachAgentTrace || persistedTrace.steps.length > 0)
       void refreshSessions()
     } catch (err) {
       if (streamRequestIdRef.current === requestId) {
@@ -1107,6 +1110,28 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       </div>
     </div>
   )
+}
+
+function extractPersistedAgentTrace(messages: ChatMessage[]): { steps: AgentStepItem[] } {
+  const message = [...messages].reverse().find((item) => item.role === 'assistant' && item.agent_trace?.steps?.length)
+  const rawSteps = message?.agent_trace?.steps
+  if (!rawSteps?.length) return { steps: [] }
+  return {
+    steps: rawSteps
+      .filter((step) => step && typeof step === 'object')
+      .map((step, index) => ({
+        id: typeof step.id === 'number' ? step.id : index + 1,
+        step: String(step.step || 'unknown'),
+        tool: typeof step.tool === 'string' ? step.tool : undefined,
+        arg_keys: Array.isArray(step.arg_keys) ? step.arg_keys.map(String) : undefined,
+        output_length: typeof step.output_length === 'number' ? step.output_length : undefined,
+        output_digest: typeof step.output_digest === 'string' ? step.output_digest : undefined,
+        content: typeof step.content === 'string' ? step.content : undefined,
+        metadata: step.metadata && typeof step.metadata === 'object'
+          ? step.metadata as Record<string, unknown>
+          : undefined,
+      })),
+  }
 }
 
 function sessionLabel(session: ChatSession): string {

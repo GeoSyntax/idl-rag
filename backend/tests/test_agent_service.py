@@ -710,6 +710,34 @@ def test_citation_normalization_removes_orphan_markers() -> None:
     assert kept == []
 
 
+def test_agent_trace_redacts_private_values_and_bounds_text() -> None:
+    from app.services.agent_service import AgentService
+
+    compact = AgentService._compact_agent_trace_step(
+        {
+            "step": "tool_result",
+            "tool": "read_artifact",
+            "args": {"path": r"C:\private\scene.tif", "query": "inspect"},
+            "output": r"loaded C:\private\scene.tif and /workspace/raw/scene.tif",
+            "metadata": {"storage_path": r"C:\private\scene.tif", "safe": "ok"},
+        },
+        1,
+    )
+
+    serialized = str(compact)
+    assert compact["arg_keys"] == ["path", "query"]
+    assert "C:\\private" not in serialized
+    assert "storage_path" not in serialized
+    assert compact["metadata"] == {"safe": "ok"}
+    assert compact["output_length"] == len(r"loaded C:\private\scene.tif and /workspace/raw/scene.tif")
+    assert len(compact["output_digest"]) == 16
+    assert "output" not in compact
+
+    public = AgentService._public_agent_trace({"version": 1, "steps": [compact | {"output": "private"}]})
+    assert "output" not in public["steps"][0]
+    assert public["steps"][0]["output_length"] == compact["output_length"]
+
+
 def test_empty_remote_stream_uses_non_empty_local_fallback(monkeypatch) -> None:
     from app.services.llm_service import LlmService
 

@@ -224,7 +224,27 @@ export type ChatMessage = {
   content: string
   citations: Citation[]
   artifacts: ChatArtifact[]
+  agent_trace?: AgentTrace | null
   created_at: string
+}
+
+export type AgentTraceStep = {
+  id: number
+  step: string
+  tool?: string
+  arg_keys?: string[]
+  output?: string
+  output_length?: number
+  output_digest?: string
+  content?: string
+  metadata?: Record<string, unknown>
+}
+
+export type AgentTrace = {
+  version?: number
+  status?: string
+  tool_count?: number
+  steps?: AgentTraceStep[]
 }
 
 export type ChatResponse = {
