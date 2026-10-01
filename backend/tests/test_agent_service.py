@@ -131,6 +131,70 @@ def test_agent_fast_path_only_bypasses_tools_for_plain_questions() -> None:
     assert not AgentService._should_use_direct_stream(ChatRequest(question="解释 MNDWI"), False, [1])
 
 
+def test_agent_tool_schema_is_scoped_by_request() -> None:
+    from app.api.schemas import ChatRequest
+    from app.services.agent_service import AgentService
+    from app.services.agent_tools import get_openai_tools
+
+    research = AgentService._select_agent_tool_names(
+        ChatRequest(question="查看项目状态", research_project_id=3),
+        [],
+        False,
+    )
+    assert research is not None
+    assert "research_project_context" in research
+    assert "research_create_preview_experiment" not in research
+    assert "research_fetch_gee_asset" not in research
+    assert "public_literature_search" not in research
+    assert all(
+        item["function"]["name"].startswith("research_")
+        for item in get_openai_tools(research)
+    )
+
+    consented = AgentService._select_agent_tool_names(
+        ChatRequest(
+            question="查询项目论文",
+            research_project_id=3,
+            allow_external_research=True,
+            allow_research_execution=True,
+            allow_gee_fetch=True,
+        ),
+        [],
+        False,
+    )
+    assert consented is not None
+    assert {
+        "research_literature_search",
+        "public_literature_search",
+        "research_create_preview_experiment",
+        "research_queue_preview",
+        "research_fetch_gee_asset",
+    }.issubset(consented)
+
+    knowledge = AgentService._select_agent_tool_names(ChatRequest(question="检索 IDL 函数"), [7], False)
+    assert knowledge is not None
+    assert "kb_search" in knowledge
+    assert "research_project_context" not in knowledge
+
+
+def test_research_status_fast_path_is_narrow_and_read_only() -> None:
+    from app.api.schemas import ChatRequest
+    from app.services.agent_service import AgentService
+
+    assert AgentService._should_use_research_status_fast_path(
+        ChatRequest(question="请查看当前研究项目状态，并说明下一步。", research_project_id=2)
+    )
+    assert not AgentService._should_use_research_status_fast_path(
+        ChatRequest(question="搜索 MNDWI 论文并比较阈值。", research_project_id=2)
+    )
+    assert not AgentService._should_use_research_status_fast_path(
+        ChatRequest(question="请运行当前 preview 实验。", research_project_id=2)
+    )
+    assert not AgentService._should_use_research_status_fast_path(
+        ChatRequest(question="请查看项目状态。")
+    )
+
+
 def test_agent_fast_path_delegates_to_one_normal_stream(monkeypatch) -> None:
     from app.api.schemas import ChatRequest
     from app.services.agent_service import AgentService

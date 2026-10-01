@@ -587,6 +587,7 @@ class LlmService:
         db: Session,
         messages: list[dict[str, str]],
         on_content: Callable[[str], None] | None = None,
+        tool_names: set[str] | None = None,
     ) -> dict:
         """Agent Loop 专用：发送多轮消息给 LLM，返回解析后的 JSON 响应。
 
@@ -597,7 +598,12 @@ class LlmService:
         settings = get_runtime_settings(db)
         if settings.api_key or _is_local_compatible_endpoint(settings):
             try:
-                return self._agent_generate_remote(settings, messages, on_content=on_content)
+                return self._agent_generate_remote(
+                    settings,
+                    messages,
+                    on_content=on_content,
+                    tool_names=tool_names,
+                )
             except httpx.HTTPStatusError as exc:
                 status_code = exc.response.status_code
                 if status_code == 401:
@@ -620,6 +626,7 @@ class LlmService:
         messages: list[dict[str, str]],
         *,
         on_content: Callable[[str], None] | None = None,
+        tool_names: set[str] | None = None,
     ) -> dict:
         from app.services.agent_tools import get_openai_tools
 
@@ -627,7 +634,7 @@ class LlmService:
             "model": settings.chat_model,
             "temperature": 0.2,
             "messages": messages,
-            "tools": get_openai_tools(),
+            "tools": get_openai_tools(tool_names),
             "tool_choice": "auto",
         }
         provider_name = str(getattr(settings, "provider_name", "") or "").strip().lower()
@@ -653,7 +660,7 @@ class LlmService:
                 # never retry after partial output.
                 if streamed_content or exc.response.status_code not in {400, 404, 405, 422, 500, 502, 503, 504}:
                     raise
-                return self._agent_generate_remote(settings, messages)
+                return self._agent_generate_remote(settings, messages, tool_names=tool_names)
         response = _http_post_with_retry(
             f"{settings.api_base_url.rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {settings.api_key}"} if settings.api_key else {},
@@ -955,7 +962,6 @@ class LlmService:
         }
         t0 = time.perf_counter()
         first_token_ms: float | None = None
-        emitted_content = False
         async with httpx.AsyncClient(timeout=120.0) as client:
             async with client.stream(
                 "POST",
@@ -975,7 +981,6 @@ class LlmService:
                         delta = chunk["choices"][0].get("delta", {})
                         content = delta.get("content", "")
                         if content:
-                            emitted_content = True
                             if first_token_ms is None:
                                 first_token_ms = (time.perf_counter() - t0) * 1000
                             yield content

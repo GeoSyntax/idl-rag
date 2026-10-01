@@ -1808,9 +1808,18 @@ OPENAI_TOOLS = [
 ]
 
 
-def get_openai_tools() -> list[dict]:
-    """返回 OpenAI function calling 格式的工具定义。"""
-    return OPENAI_TOOLS
+def get_openai_tools(tool_names: set[str] | None = None) -> list[dict]:
+    """返回 OpenAI function calling 格式的工具定义。
+
+    ``None`` 保持向后兼容并返回完整工具集；Agent 运行时可以传入裁剪
+    后的名称集合，避免把与当前任务无关的 schema 发送给模型。
+    """
+    if tool_names is None:
+        return OPENAI_TOOLS
+    return [
+        tool for tool in OPENAI_TOOLS
+        if tool.get("function", {}).get("name") in tool_names
+    ]
 
 
 def get_tool_descriptions() -> str:

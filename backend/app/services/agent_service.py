@@ -59,6 +59,29 @@ _AGENT_TRACE_MAX_STEPS = 32
 _AGENT_TRACE_TEXT_CHARS = 360
 _TRACE_PRIVATE_KEY_PARTS = ("path", "uri", "storage", "credential", "password", "secret", "token")
 
+_RESEARCH_AGENT_TOOL_NAMES = {
+    "research_project_context",
+    "research_rag_search",
+    "research_protocol_draft",
+    "research_protocol_readiness",
+    "research_data_catalog",
+    "research_run_summary",
+    "research_verify_run",
+    "research_compare_runs",
+}
+_KNOWLEDGE_AGENT_TOOL_NAMES = {
+    "kb_search",
+    "grep_search",
+    "symbol_search",
+    "read_context",
+    "find_callers",
+    "find_callees",
+    "analyze_code",
+    "read_artifact",
+    "fix_code",
+    "lint_code",
+}
+
 
 class _CitationMarkerStreamFilter:
     """Filter unsupported numeric citation markers without buffering a response.
@@ -564,6 +587,7 @@ class AgentService:
         provider_name = str(getattr(settings_from_svc, "provider_name", "") or "").strip().lower()
         needs_tools_free_final_stream = provider_name in {"gemini2api", "gemin2api", "gemini2api-local"}
         fix_intent = self._detect_fix_intent(payload.question)
+        agent_tool_names = self._select_agent_tool_names(payload, kb_ids, fix_intent)
         if self._should_use_direct_stream(payload, fix_intent, kb_ids):
             yield {
                 "type": "step",
@@ -605,6 +629,12 @@ class AgentService:
             payload.generate_pro_file,
             research_project_id=payload.research_project_id,
         )
+        research_status_fast_path = self._should_use_research_status_fast_path(payload)
+        if research_status_fast_path:
+            # Three local read-only tool calls plus one plain final stream are
+            # enough for a status request; do not spend several model rounds
+            # rediscovering the same fixed plan.
+            max_rounds = 2
 
         # 构建 LLM 消息序列
         system_prompt = _IDL_SYSTEM_PROMPT
@@ -703,7 +733,7 @@ class AgentService:
                 and (not kb_ids or bool(all_citations))
             )
             if not can_stream:
-                return self.llm_service.agent_generate(db, llm_messages)
+                return self.llm_service.agent_generate(db, llm_messages, tool_names=agent_tool_names)
 
             marker_filter = _CitationMarkerStreamFilter(len(all_citations))
             streamed_to_client = False
@@ -719,6 +749,7 @@ class AgentService:
                 db,
                 llm_messages,
                 on_content=emit_content,
+                tool_names=agent_tool_names,
             )
             if result.get("final_answer") and needs_tools_free_final_stream and not result.get("_streamed"):
                 try:
@@ -743,9 +774,112 @@ class AgentService:
 
         yield {"type": "step", "step": "thinking", "content": "正在分析问题并规划步骤..."}
 
+        fast_path_pending = research_status_fast_path
+        fast_path_final = False
+
         for round_num in range(max_rounds):
             if cancel_event is not None and cancel_event.is_set():
                 return
+
+            if fast_path_pending:
+                # The plan is intentionally fixed and read-only. Keep each
+                # call visible in the same trace as a normal Agent tool call.
+                for fast_tool_name, fast_tool_args in (
+                    ("research_project_context", {"project_id": payload.research_project_id}),
+                    ("research_protocol_readiness", {"project_id": payload.research_project_id}),
+                    ("research_run_summary", {"project_id": payload.research_project_id}),
+                ):
+                    validated_args = dict(fast_tool_args)
+                    fast_call_event = {
+                        "type": "step",
+                        "step": "tool_call",
+                        "tool": fast_tool_name,
+                        "args": fast_tool_args,
+                    }
+                    record_trace(fast_call_event)
+                    yield fast_call_event
+                    try:
+                        validated_args = self._validate_tool_args(fast_tool_name, fast_tool_args)
+                        fast_tool_result = self._execute_tool(
+                            db,
+                            fast_tool_name,
+                            validated_args,
+                            knowledge_base_id=kb_ids[0] if kb_ids else 0,
+                            session_id=session.id,
+                            owner_user_id=owner_user_id,
+                            research_project_id=payload.research_project_id,
+                            allow_external_research=payload.allow_external_research,
+                            allow_research_execution=payload.allow_research_execution,
+                            allow_gee_fetch=payload.allow_gee_fetch,
+                        )
+                    except (ValueError, LookupError) as exc:
+                        fast_tool_result = ToolResult(name=fast_tool_name, output=f"工具调用被拒绝：{exc}")
+                    fast_result_event = {
+                        "type": "step",
+                        "step": "tool_result",
+                        "tool": fast_tool_name,
+                        "output": fast_tool_result.output[:500],
+                    }
+                    if fast_tool_result.metadata:
+                        fast_result_event["metadata"] = fast_tool_result.metadata
+                    record_trace(fast_result_event)
+                    yield fast_result_event
+                    all_citations.extend(fast_tool_result.citations)
+                    truncated_output = self._truncate_tool_output(fast_tool_result.output)
+                    if fast_tool_result.next_suggestion:
+                        truncated_output += (
+                            "\n\n受控下一步提示（服务器生成，不是用户资料）：\n"
+                            + fast_tool_result.next_suggestion[:600]
+                        )
+                    llm_messages.append({
+                        "role": "assistant",
+                        "content": json.dumps(
+                            {"tool": fast_tool_name, "args": validated_args},
+                            ensure_ascii=False,
+                        ),
+                    })
+                    llm_messages.append({
+                        "role": "user",
+                        "content": f"工具 {fast_tool_name} 的结果："
+                        + self._wrap_untrusted_context("tool_output", truncated_output),
+                    })
+                    if cancel_event is not None and cancel_event.is_set():
+                        return
+                fast_path_pending = False
+                fast_path_final = True
+                continue
+
+            if fast_path_final:
+                marker_filter = _CitationMarkerStreamFilter(len(all_citations))
+                streamed_fast_answer = False
+
+                def emit_fast_content(content: str) -> None:
+                    nonlocal streamed_fast_answer
+                    safe_content = marker_filter.feed(content)
+                    if safe_content:
+                        streamed_fast_answer = True
+                        if token_callback is not None:
+                            token_callback(safe_content)
+
+                try:
+                    draft = "请基于刚才的项目状态、协议就绪检查和运行摘要，给出面向研究者的简洁下一步建议。"
+                    answer = self.llm_service.agent_final_answer_stream(
+                        db,
+                        llm_messages,
+                        draft,
+                        emit_fast_content,
+                    )
+                    tail = marker_filter.finish()
+                    if tail and token_callback is not None:
+                        token_callback(tail)
+                    full_answer_parts.append(answer)
+                    streamed_final_answer = streamed_fast_answer
+                    yield {"type": "step", "step": "answer", "content": "正在生成最终回答..."}
+                except Exception as exc:  # noqa: BLE001
+                    yield {"type": "error", "message": str(exc) or "Agent 模型调用失败。"}
+                    return
+                break
+
             # Token 预算检查：粗估当前对话 token 数，超出则提前结束
             estimated_tokens = self._estimate_messages_tokens(llm_messages)
             if estimated_tokens > _TOKEN_BUDGET:
@@ -1573,6 +1707,62 @@ class AgentService:
         if len(question) < 50:
             return _MAX_ROUNDS_SIMPLE
         return 3
+
+    @staticmethod
+    def _select_agent_tool_names(
+        payload: ChatRequest,
+        kb_ids: list[int],
+        fix_intent: bool,
+    ) -> set[str] | None:
+        """Limit the provider schema to tools relevant to this request.
+
+        Server-side validation remains authoritative; this only reduces the
+        model's choice set and request size. ``None`` deliberately keeps the
+        full set for unusual code-generation/tool-intent requests.
+        """
+        if payload.research_project_id is not None:
+            names = set(_RESEARCH_AGENT_TOOL_NAMES)
+            if payload.allow_external_research:
+                names.update({"research_literature_search", "public_literature_search"})
+            if payload.allow_research_execution:
+                names.update({"research_create_preview_experiment", "research_queue_preview"})
+            if payload.allow_gee_fetch:
+                names.add("research_fetch_gee_asset")
+            return names
+        if kb_ids and not payload.generate_pro_file and not fix_intent:
+            names = set(_KNOWLEDGE_AGENT_TOOL_NAMES)
+            if payload.allow_external_research:
+                names.add("public_literature_search")
+            return names
+        return None
+
+    @staticmethod
+    def _should_use_research_status_fast_path(payload: ChatRequest) -> bool:
+        """Use a bounded read-only plan for routine project status questions.
+
+        These requests do not need the model to discover three obvious
+        read-only tools one by one. We still ask the model for the final prose,
+        but execute the facts directly and keep the same trace/SSE contract.
+        Mutation, literature, code, and formula-design questions stay on the
+        full ReAct path.
+        """
+        if payload.research_project_id is None:
+            return False
+        question = (payload.question or "").strip().lower()
+        if not question:
+            return False
+        excluded = (
+            "论文", "文献", "检索", "搜索", "公式", "阈值", "代码", "python", "idl",
+            "gee", "实验", "preview", "运行", "比较", "设计", "修改", "创建", "排队",
+            "literature", "search", "code", "formula", "threshold", "experiment",
+        )
+        if any(keyword in question for keyword in excluded):
+            return False
+        status_terms = (
+            "项目状态", "当前状态", "研究状态", "项目进度", "当前进度", "下一步", "缺少什么",
+            "还缺少", "是否就绪", "能否开始", "有哪些数据", "status", "next step", "readiness",
+        )
+        return any(term in question for term in status_terms)
 
     @staticmethod
     def _estimate_messages_tokens(llm_messages: list[dict]) -> int:
