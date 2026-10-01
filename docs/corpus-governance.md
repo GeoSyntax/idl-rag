@@ -59,6 +59,16 @@ python backend/scripts/release_readiness.py `
 
 只有 `release_ready=true` 才允许把当前资料目录交给 Docker 或教师/企业用户；任何新资料导入、模型切换、评测过期、来源哈希变化或备份损坏都会使命令返回非零状态。
 
+发布前还可以检查外部运行时，不会把 API Key 打到日志里：
+
+```powershell
+python backend/scripts/runtime_diagnostics.py `
+  --owner-id 1 `
+  --output data/logs/runtime_diagnostics.json
+```
+
+它会实际探测聊天模型 `/models`、Ollama embedding 维度、数据库 readiness，并报告 GEE 是否启用、IDL 可执行文件是否存在。GEE 或 IDL 是可选能力时保留 `warn`；如果某个部署把它们列为必需依赖，可以加 `--require-gee` 或 `--require-idl`，缺失时直接返回非零状态。
+
 ## 生产发布条件
 
 资料集只有同时满足以下条件才能标记为 `production_ready`：
