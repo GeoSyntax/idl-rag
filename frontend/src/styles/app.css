@@ -1591,7 +1591,16 @@ body { min-height: 100dvh; }
 .chat-artifact-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.chat-artifact-download-error {
+  flex: 1 1 100%;
+  min-width: 0;
+  color: var(--error);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .chat-artifact-image-card {

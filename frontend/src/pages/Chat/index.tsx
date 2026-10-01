@@ -760,11 +760,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   }
 
   const downloadArtifact = async (artifact: ChatArtifact) => {
-    try {
-      await api.downloadChatArtifact(artifact.download_url, artifact.file_name)
-    } catch (err) {
-      messageApi.error((err as Error).message || '下载失败')
-    }
+    await api.downloadChatArtifact(artifact.download_url, artifact.file_name)
   }
 
   const startFixMode = (artifact: ChatArtifact) => {

@@ -149,7 +149,7 @@ export function MessageList({
   retryQuestion: string
   onRetry: () => void
   messagesEndRef: RefObject<HTMLDivElement>
-  onDownloadArtifact: ArtifactAction
+  onDownloadArtifact: AsyncArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
   onUseArtifactAsInput: ArtifactAction
@@ -293,7 +293,7 @@ function MessageBubble({
   message: ChatMessage
   agentSteps?: AgentStepItem[]
   agentRunMeta?: AgentRunMeta | null
-  onDownloadArtifact: ArtifactAction
+  onDownloadArtifact: AsyncArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
   onUseArtifactAsInput: ArtifactAction
@@ -471,7 +471,7 @@ function ArtifactItem({
   running,
 }: {
   artifact: ChatArtifact
-  onDownloadArtifact: ArtifactAction
+  onDownloadArtifact: AsyncArtifactAction
   onStartFix: ArtifactAction
   onRunArtifact: AsyncArtifactAction
   onUseArtifactAsInput: ArtifactAction
@@ -505,9 +505,7 @@ function ArtifactItem({
         </Button>
       ) : null}
       {!isChatInput ? (
-        <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
-          下载
-        </Button>
+        <ArtifactDownloadButton artifact={artifact} onDownloadArtifact={onDownloadArtifact} />
       ) : null}
       {canRun ? (
         <Button size="small" type="link" onClick={() => onStartFix(artifact)}>
@@ -518,12 +516,44 @@ function ArtifactItem({
   )
 }
 
+function ArtifactDownloadButton({
+  artifact,
+  onDownloadArtifact,
+}: {
+  artifact: ChatArtifact
+  onDownloadArtifact: AsyncArtifactAction
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleDownload = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      await onDownloadArtifact(artifact)
+    } catch (err) {
+      setError((err as Error).message || '下载失败，请重试。')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <Button size="small" type="link" loading={loading} onClick={() => void handleDownload()}>
+        下载
+      </Button>
+      {error ? <span className="chat-artifact-download-error" role="alert">{error}</span> : null}
+    </>
+  )
+}
+
 function ArtifactImagePreview({
   artifact,
   onDownloadArtifact,
 }: {
   artifact: ChatArtifact
-  onDownloadArtifact: ArtifactAction
+  onDownloadArtifact: AsyncArtifactAction
 }) {
   const [objectUrl, setObjectUrl] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -566,9 +596,7 @@ function ArtifactImagePreview({
         <Button size="small" type="link" disabled={!objectUrl} onClick={() => setPreviewOpen(true)}>
           预览
         </Button>
-        <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
-          下载
-        </Button>
+        <ArtifactDownloadButton artifact={artifact} onDownloadArtifact={onDownloadArtifact} />
       </div>
       <Drawer title={artifact.file_name} open={previewOpen} onClose={() => setPreviewOpen(false)} width="min(100vw, 720px)">
         {objectUrl ? <img className="chat-artifact-image-full" src={objectUrl} alt={artifact.file_name} /> : null}
