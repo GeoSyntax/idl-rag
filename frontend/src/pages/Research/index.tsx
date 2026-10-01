@@ -474,45 +474,51 @@ function RunOutputPreview({ projectId, experimentId, run, executionMode }: { pro
         />
       ) : null}
       {imageOutputs.length ? (
-        <div className="research-output-grid">
-          {imageOutputs.map((output) => (
-            <figure key={output.file_name} className="research-output-figure">
-              {urls[output.file_name] ? (
-                <img src={urls[output.file_name]} alt={`${output.kind} · ${output.file_name}`} />
-              ) : imageErrors[output.file_name] ? (
-                <div className="research-output-image-error" role="alert">
-                  <span>{imageErrors[output.file_name]}</span>
-                  <Button type="link" size="small" onClick={() => setImageRetryKey((value) => value + 1)}>
-                    重试加载
+        <section className="research-output-section" aria-labelledby="research-image-evidence-title">
+          <h3 id="research-image-evidence-title" className="research-output-section-title">阶段影像证据</h3>
+          <div className="research-output-grid">
+            {imageOutputs.map((output) => (
+              <figure key={output.file_name} className="research-output-figure">
+                {urls[output.file_name] ? (
+                  <img src={urls[output.file_name]} alt={`${output.kind} · ${output.file_name}`} />
+                ) : imageErrors[output.file_name] ? (
+                  <div className="research-output-image-error" role="alert">
+                    <span>{imageErrors[output.file_name]}</span>
+                    <Button type="link" size="small" onClick={() => setImageRetryKey((value) => value + 1)}>
+                      重试加载
+                    </Button>
+                  </div>
+                ) : <Spin size="small" />}
+                <figcaption>
+                  <strong>{output.kind}</strong>
+                  <span>{output.file_name}</span>
+                  <Button type="link" size="small" loading={downloadingFileName === output.file_name} onClick={() => void downloadOutput(output.file_name)}>
+                    下载图件
                   </Button>
-                </div>
-              ) : <Spin size="small" />}
-              <figcaption>
-                <strong>{output.kind}</strong>
-                <span>{output.file_name}</span>
-                <Button type="link" size="small" loading={downloadingFileName === output.file_name} onClick={() => void downloadOutput(output.file_name)}>
-                  下载图件
-                </Button>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
       ) : <DisplayEmpty compact illustration="image" title="本次运行没有可预览图像" />}
       {downloadableOutputs.length ? (
-        <Alert
-          type="info"
-          showIcon
-          message="可下载的数值与文本产物"
-          description={
-            <Space wrap>
-              {downloadableOutputs.map((output) => (
-                <Button key={output.file_name} size="small" loading={downloadingFileName === output.file_name} onClick={() => void downloadOutput(output.file_name)}>
-                  下载 {output.kind}
-                </Button>
-              ))}
-            </Space>
-          }
-        />
+        <section className="research-output-section" aria-labelledby="research-downloadable-output-title">
+          <h3 id="research-downloadable-output-title" className="research-output-section-title">数值与文本产物</h3>
+          <Alert
+            type="info"
+            showIcon
+            message="可下载的数值与文本产物"
+            description={
+              <Space wrap>
+                {downloadableOutputs.map((output) => (
+                  <Button key={output.file_name} size="small" loading={downloadingFileName === output.file_name} onClick={() => void downloadOutput(output.file_name)}>
+                    下载 {output.kind}
+                  </Button>
+                ))}
+              </Space>
+            }
+          />
+        </section>
       ) : null}
     </div>
   )
@@ -2528,6 +2534,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                         {visibleRun ? (
                           <div className="research-run-detail">
                             {visibleRun.error_message ? <Alert type="error" showIcon message={visibleRun.error_message} /> : null}
+                            <h3 className="research-run-detail-title">运行摘要</h3>
                             <MetricSummary
                               items={[
                                 { label: '运行器', value: visibleRun.runner_type },
@@ -2537,15 +2544,18 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                               ]}
                             />
                             {validationMetrics ? (
-                              <MetricSummary
-                                items={[
-                                  { label: 'OA', value: validationMetrics.overall_accuracy?.toFixed(3) ?? '-' },
-                                  { label: 'Precision', value: validationMetrics.precision?.toFixed(3) ?? '-' },
-                                  { label: 'Recall', value: validationMetrics.recall?.toFixed(3) ?? '-' },
-                                  { label: 'F1', value: validationMetrics.f1?.toFixed(3) ?? '-', tone: 'success' },
-                                  { label: 'IoU', value: validationMetrics.iou?.toFixed(3) ?? '-', tone: 'success' },
-                                ]}
-                              />
+                              <section className="research-run-detail-section" aria-labelledby="research-validation-metrics-title">
+                                <h3 id="research-validation-metrics-title" className="research-run-detail-title">验证指标</h3>
+                                <MetricSummary
+                                  items={[
+                                    { label: 'OA', value: validationMetrics.overall_accuracy?.toFixed(3) ?? '-' },
+                                    { label: 'Precision', value: validationMetrics.precision?.toFixed(3) ?? '-' },
+                                    { label: 'Recall', value: validationMetrics.recall?.toFixed(3) ?? '-' },
+                                    { label: 'F1', value: validationMetrics.f1?.toFixed(3) ?? '-', tone: 'success' },
+                                    { label: 'IoU', value: validationMetrics.iou?.toFixed(3) ?? '-', tone: 'success' },
+                                  ]}
+                                />
+                              </section>
                             ) : null}
                             {validationWeighting ? (
                               <Alert
