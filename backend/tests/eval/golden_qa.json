@@ -333,6 +333,106 @@
       "expected_answer_contains": "OBJ_DESTROY",
       "difficulty": "medium",
       "tags": ["code_fix", "memory"]
+    },
+    {
+      "id": "remote_product_01",
+      "category": "remote_product",
+      "question": "GEE 的 Sentinel-2 SR Harmonized 影像为什么要使用缩放因子 0.0001？",
+      "expected_keywords": ["S2_SR_HARMONIZED", "10000", "0.0001", "surface reflectance"],
+      "expected_answer_contains": "0.0001",
+      "expected_files": ["gee_sentinel2_harmonized.md"],
+      "difficulty": "easy",
+      "tags": ["gee", "sentinel2", "scale_factor"]
+    },
+    {
+      "id": "remote_product_02",
+      "category": "remote_product",
+      "question": "Sentinel-1 GRD 在 GEE 中是 dB 还是线性功率？做平均时有什么注意事项？",
+      "expected_keywords": ["S1_GRD", "dB", "linear", "power"],
+      "expected_answer_contains": "dB",
+      "expected_files": ["gee_sentinel1_grd.md"],
+      "difficulty": "medium",
+      "tags": ["gee", "sentinel1", "sar"]
+    },
+    {
+      "id": "remote_product_03",
+      "category": "remote_product",
+      "question": "MOD11A1 的 LST_Day_1km 如何从存储值转换为开尔文？",
+      "expected_keywords": ["MOD11A1", "LST_Day_1km", "0.02", "Kelvin"],
+      "expected_answer_contains": "0.02",
+      "expected_files": ["gee_mod11a1_lst_v061.md"],
+      "difficulty": "easy",
+      "tags": ["modis", "lst", "scale_factor"]
+    },
+    {
+      "id": "remote_product_04",
+      "category": "remote_product",
+      "question": "ESA WorldCover v100 和 v200 的土地覆盖变化为什么不能直接当作真实变化？",
+      "expected_keywords": ["v100", "v200", "algorithm", "real land-cover change"],
+      "expected_answer_contains": "algorithm",
+      "expected_files": ["gee_worldcover_v200.md"],
+      "difficulty": "medium",
+      "tags": ["worldcover", "validation", "change_detection"]
+    },
+    {
+      "id": "remote_product_05",
+      "category": "remote_product",
+      "question": "Dynamic World 的 label 是否可以直接作为地面真值？",
+      "expected_keywords": ["Dynamic World", "label", "probability", "ground truth"],
+      "expected_answer_contains": "ground truth",
+      "expected_files": ["gee_dynamic_world_v1.md"],
+      "difficulty": "medium",
+      "tags": ["dynamic_world", "classification", "uncertainty"]
+    },
+    {
+      "id": "remote_product_06",
+      "category": "remote_product",
+      "question": "MODIS NDVI/EVI 产品的合成和质量控制需要注意什么？",
+      "expected_keywords": ["NDVI", "EVI", "composit", "quality", "QA"],
+      "expected_answer_contains": "NDVI",
+      "expected_files": ["MODIS_VI_User_Guide.pdf"],
+      "difficulty": "medium",
+      "tags": ["modis", "ndvi", "evi", "qa"]
+    },
+    {
+      "id": "tooling_01",
+      "category": "tooling",
+      "question": "什么是 COG，为什么不能随意更新已有的 COG 文件？",
+      "expected_keywords": ["COG", "overviews", "tiled", "layout"],
+      "expected_answer_contains": "COG",
+      "expected_files": ["gdal_cog.md"],
+      "difficulty": "easy",
+      "tags": ["gdal", "cog", "production"]
+    },
+    {
+      "id": "tooling_02",
+      "category": "tooling",
+      "question": "Rasterio 的 windowed reading 为什么仍然受 GeoTIFF block size 影响？",
+      "expected_keywords": ["Window", "block", "RAM", "windowed"],
+      "expected_answer_contains": "block",
+      "expected_files": ["rasterio_windowed_reproject.md"],
+      "difficulty": "medium",
+      "tags": ["rasterio", "windowed_io", "performance"]
+    },
+    {
+      "id": "tooling_03",
+      "category": "tooling",
+      "question": "研究运行中应该在 STAC Item 里记录哪些资产信息？",
+      "expected_keywords": ["STAC", "Item", "asset", "checksum", "license"],
+      "expected_answer_contains": "checksum",
+      "expected_files": ["stac_core.md"],
+      "difficulty": "medium",
+      "tags": ["stac", "provenance", "data_lineage"]
+    },
+    {
+      "id": "tooling_04",
+      "category": "tooling",
+      "question": "遥感输出 GeoTIFF 在交给老师检查前至少要验证哪些元数据？",
+      "expected_keywords": ["CRS", "transform", "nodata", "dtype", "mask"],
+      "expected_answer_contains": "nodata",
+      "expected_files": ["geotiff_validation_checklist.md"],
+      "difficulty": "easy",
+      "tags": ["validation", "geotiff", "provenance"]
     }
   ]
 }

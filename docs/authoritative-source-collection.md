@@ -12,10 +12,13 @@
 - Sen2Cor 2.12 Quick Guide（ESA/STEP，1.0 MB）
 - Sen2Cor L2A Algorithm Theoretical Baseline Document v2.10（ESA/STEP，4.7 MB）
 - MODIS MOD11 User Guide V6 与 MOD11 Algorithm Theoretical Basis Document（NASA LP DAAC，用户指南 33 页、ATBD 77 页）
+- MODIS Collection 6 Vegetation Index User Guide（NASA MODIS，NDVI/EVI 理论基础、合成和 QA）
+- USGS LEDAPS Algorithm Description（Landsat 4–7 大气校正和地表反射率处理）
 - ESA WorldCover 2020 v100 Product User Manual、2021 v200 Product User Manual 与 v200 Product Validation Report（共 81 页）
 - Google Earth Engine Dynamic World、WorldCover、MOD11A1 与 Landsat Collection 2 官方 catalog note
+- GDAL COG、Rasterio windowed I/O/reprojection、STAC 核心规范、GEE Python 认证导出和 GeoTIFF 验证清单
 
-此外，本地 `data/sources/open_access_papers/` 已加入第一批 28 篇开放获取候选论文（约 175 MB），覆盖：
+此外，本地 `data/sources/open_access_papers/` 已加入 56 篇开放获取候选论文（约 378 MB），覆盖：
 
 - 地表反射率、大气校正与跨传感器校准
 - Landsat/Sentinel/MODIS 的 LST、植被指数和水体指数
@@ -38,6 +41,7 @@
 - MODIS LST 的缩放因子、QC 位掩码、产品级别和广义分裂窗/昼夜算法入口
 - WorldCover 的 v100/v200 算法差异、11 类编码、独立验证精度和产品限制
 - 开放获取论文中的公式、实验条件、验证指标和跨传感器比较结果
+- COG、窗口化处理、重投影、STAC 资产元数据和 GEE 导出的工程化约束
 
 本地文件位于：
 
