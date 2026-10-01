@@ -211,7 +211,7 @@ export type ChatArtifact = {
   media_type: string
   size: number
   download_url: string
-  kind?: 'pro' | 'idl_output' | 'idl_log' | 'gee_data' | 'gee_preview' | null
+  kind?: 'pro' | 'idl_output' | 'idl_log' | 'gee_data' | 'gee_preview' | 'chat_input' | null
   previewable?: boolean
   run_id?: string | null
   input_artifact_ids?: string[]
@@ -347,7 +347,7 @@ export type DashboardSummary = {
 }
 
 export type StreamEvent =
-  | { type: 'run_started'; session_id: number; stream_id?: string }
+  | { type: 'run_started'; session_id: number; message_id?: number; retry_context?: Record<string, unknown>; stream_id?: string }
   | { type: 'token'; content: string; stream_id?: string }
   | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
   | { type: 'error'; message: string; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
@@ -360,7 +360,7 @@ export type AgentStep =
   | { step: 'error'; content: string }
 
 export type AgentStreamEvent =
-  | { type: 'run_started'; session_id: number; stream_id?: string }
+  | { type: 'run_started'; session_id: number; message_id?: number; retry_context?: Record<string, unknown>; stream_id?: string }
   | { type: 'step'; step: string; content?: string; tool?: string; args?: Record<string, unknown>; output?: string; metadata?: Record<string, unknown>; stream_id?: string }
   | { type: 'token'; content: string; stream_id?: string }
   | { type: 'done'; session_id: number; citations: Citation[]; artifacts: ChatArtifact[]; stream_id?: string; server_elapsed_ms?: number; first_token_ms?: number }
@@ -378,6 +378,11 @@ export type ChatRun = {
   artifact_count: number
   agent_step_count: number
   error_message: string | null
+  message_id: number | null
+  generate_pro_file: boolean
+  input_artifact_ids: string[]
+  has_attached_file: boolean
+  attached_file_name: string | null
   created_at: string
 }
 
@@ -389,6 +394,7 @@ export type AgentChatRequest = {
   top_k?: number
   generate_pro_file?: boolean
   attached_file_content?: string
+  attached_file_name?: string
   input_artifact_ids?: string[]
   research_project_id?: number
   allow_external_research?: boolean

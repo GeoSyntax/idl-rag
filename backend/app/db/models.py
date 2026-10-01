@@ -232,6 +232,10 @@ class ChatRequestLog(Base):
     terminal_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     agent_step_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # Safe replay metadata only: message/artifact IDs and mode flags. Never
+    # store the prompt or uploaded text here; the private artifact is linked
+    # from the persisted user message when an upload was supplied.
+    retry_context_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=func.now())
 
     owner: Mapped[User] = relationship()

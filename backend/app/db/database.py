@@ -37,6 +37,7 @@ _CHAT_REQUEST_LOG_ALTER_STATEMENTS = {
     "terminal_status": "ALTER TABLE chat_request_logs ADD COLUMN terminal_status VARCHAR(20)",
     "error_message": "ALTER TABLE chat_request_logs ADD COLUMN error_message VARCHAR(500)",
     "agent_step_count": "ALTER TABLE chat_request_logs ADD COLUMN agent_step_count INTEGER NOT NULL DEFAULT 0",
+    "retry_context_json": "ALTER TABLE chat_request_logs ADD COLUMN retry_context_json JSON NOT NULL DEFAULT '{}'",
 }
 _RESEARCH_EXPERIMENT_ALTER_STATEMENTS = {
     "project_protocol_revision_id": "ALTER TABLE research_experiments ADD COLUMN project_protocol_revision_id INTEGER",

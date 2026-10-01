@@ -574,7 +574,12 @@ def test_answer_stream_filters_citation_markers_split_across_chunks(monkeypatch,
             return [
                 event async for event in service.answer_stream_async(
                     db,
-                    ChatRequest(knowledge_base_ids=[knowledge_base.id], question="查看状态"),
+                    ChatRequest(
+                        knowledge_base_ids=[knowledge_base.id],
+                        question="查看状态",
+                        attached_file_content="threshold = 0.15",
+                        attached_file_name="method.md",
+                    ),
                     owner_user_id=user.id,
                 )
             ]
@@ -588,6 +593,11 @@ def test_answer_stream_filters_citation_markers_split_across_chunks(monkeypatch,
         assert events[-1]["citations"] == []
         assistant_messages = db.query(ChatMessage).filter(ChatMessage.role == "assistant").all()
         assert assistant_messages[-1].content == "没有来源，继续输出"
+        user_messages = db.query(ChatMessage).filter(ChatMessage.role == "user").all()
+        attached = user_messages[-1].artifacts_json[0]
+        assert attached["kind"] == "chat_input"
+        assert attached["file_name"] == "method.md"
+        assert Path(attached["storage_path"]).read_text(encoding="utf-8") == "threshold = 0.15"
     finally:
         db.close()
 

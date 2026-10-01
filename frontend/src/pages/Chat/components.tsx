@@ -108,6 +108,8 @@ export function MessageList({
   agentRunComplete,
   agentRunMeta,
   agentRunHistory,
+  onRetryRun,
+  retryingRunId,
   agentLiveStatus,
   agentElapsedMs,
   researchProjectId,
@@ -128,6 +130,8 @@ export function MessageList({
   agentRunComplete: boolean
   agentRunMeta: AgentRunMeta | null
   agentRunHistory: ChatRun[]
+  onRetryRun: (run: ChatRun) => void
+  retryingRunId: number | null
   agentLiveStatus: string
   agentElapsedMs: number
   researchProjectId?: number
@@ -169,7 +173,7 @@ export function MessageList({
         />
       ))}
       {agentRunHistory.length > 0 ? (
-        <AgentRunHistory runs={agentRunHistory} />
+        <AgentRunHistory runs={agentRunHistory} onRetryRun={onRetryRun} retryingRunId={retryingRunId} />
       ) : null}
       {(isStreaming || (agentSteps.length > 0 && !traceAttachedToMessage && !agentRunComplete) || Boolean(streamError)) && (
         <div className="chat-msg chat-msg-assistant">
@@ -212,7 +216,15 @@ export function MessageList({
   )
 }
 
-function AgentRunHistory({ runs }: { runs: ChatRun[] }) {
+function AgentRunHistory({
+  runs,
+  onRetryRun,
+  retryingRunId,
+}: {
+  runs: ChatRun[]
+  onRetryRun: (run: ChatRun) => void
+  retryingRunId: number | null
+}) {
   return (
     <section className="chat-agent-history" aria-label="Agent 运行记录">
       <div className="chat-agent-history-title">运行记录</div>
@@ -227,6 +239,17 @@ function AgentRunHistory({ runs }: { runs: ChatRun[] }) {
             <span>{formatDuration(String(run.total_ms))}</span>
             {run.agent_step_count > 0 ? <span>{run.agent_step_count} 步</span> : null}
             {run.error_message ? <span className="chat-agent-history-error">{run.error_message}</span> : null}
+            {run.terminal_status === 'failed' || run.terminal_status === 'cancelled' ? (
+              <Button
+                size="small"
+                type="link"
+                loading={retryingRunId === run.id}
+                disabled={retryingRunId !== null}
+                onClick={() => onRetryRun(run)}
+              >
+                重试
+              </Button>
+            ) : null}
           </div>
         ))}
       </div>
@@ -391,6 +414,7 @@ function formatDuration(value: string): string {
 
 function getArtifactBadgeLabel(artifact: ChatArtifact): string {
   const fileName = artifact.file_name.toLowerCase()
+  if (artifact.kind === 'chat_input') return 'ATT'
   if (artifact.kind === 'gee_data') return 'GEE'
   if (artifact.kind === 'gee_preview' || artifact.media_type.startsWith('image/')) return 'IMG'
   if (artifact.kind === 'idl_output') return 'OUT'
@@ -417,6 +441,7 @@ function ArtifactItem({
 }) {
   const canRun = artifact.kind === 'pro' || artifact.file_name.toLowerCase().endsWith('.pro')
   const canUseAsInput = artifact.kind === 'gee_data'
+  const isChatInput = artifact.kind === 'chat_input'
   const canPreview = artifact.previewable || artifact.media_type.startsWith('image/')
   const badgeLabel = getArtifactBadgeLabel(artifact)
 
@@ -430,6 +455,7 @@ function ArtifactItem({
       <FileTextOutlined />
       <span className="chat-artifact-name">{artifact.file_name}</span>
       <span className="chat-artifact-size">{formatBytes(artifact.size)}</span>
+      {isChatInput ? <span className="chat-artifact-input-note">已保存上下文，可用于历史重试</span> : null}
       {canRun ? (
         <Button size="small" type="link" icon={<PlayCircleOutlined />} loading={running} onClick={() => onRunArtifact(artifact)}>
           运行 IDL
@@ -440,9 +466,11 @@ function ArtifactItem({
           作为 IDL 输入
         </Button>
       ) : null}
-      <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
-        下载
-      </Button>
+      {!isChatInput ? (
+        <Button size="small" type="link" onClick={() => onDownloadArtifact(artifact)}>
+          下载
+        </Button>
+      ) : null}
       {canRun ? (
         <Button size="small" type="link" onClick={() => onStartFix(artifact)}>
           修复

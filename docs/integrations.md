@@ -89,6 +89,12 @@ GET /api/chat/sessions/{session_id}/runs?limit=20
 
 SSE 中的 `run_started` 是关联信号，不是回答内容；客户端应继续等待唯一的 `done` 或 `error` 终止事件。若浏览器主动停止，运行记录会标记为 `cancelled`，不会把迟到的模型结果写回新会话。
 
+### 1.3 失败/取消运行的一键重试
+
+运行记录为 `failed` 或 `cancelled` 时，对话页会在该条记录旁显示“重试”。重试会复用原会话，并恢复当次请求的安全上下文：普通/Agent 模式、`.pro` 生成开关、已选输入 artifact，以及上传文件提取出的文本内容。它不会把原始问题、完整回答、服务器路径或 API Key 写入重试元数据。
+
+上传附件会以当前用户私有的 `chat_input` artifact 保存“用于本次模型调用的文本提取结果”，而不是把原始二进制文件永久复制到历史记录。历史重试时如果该上下文已被清理，页面会明确提示并要求重新上传；如果仍然存在，重试可直接恢复，不需要手工重新选择资料。`GET /api/chat/sessions/{session_id}/runs` 会返回 `message_id`、`input_artifact_ids`、`has_attached_file` 和 `attached_file_name`，供前端或验收脚本关联这次重试。
+
 ## 2. 接入 Google Earth Engine
 
 ### 2.1 准备 Google Cloud 项目

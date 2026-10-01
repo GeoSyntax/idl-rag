@@ -184,7 +184,17 @@ def test_agent_stream_persists_run_status_and_safe_correlation(
             session_id = session.id
 
         async def completed_stream(db, payload, user_id):
-            yield {"type": "run_started", "session_id": session_id}
+            yield {
+                "type": "run_started",
+                "session_id": session_id,
+                "message_id": 123,
+                "retry_context": {
+                    "generate_pro_file": True,
+                    "input_artifact_ids": ["artifact-1"],
+                    "has_attached_file": True,
+                    "attached_file_name": "scene.pro",
+                },
+            }
             yield {"type": "step", "step": "tool_call", "tool": "research_project_context"}
             yield {"type": "done", "session_id": session_id, "citations": [], "artifacts": []}
 
@@ -216,6 +226,11 @@ def test_agent_stream_persists_run_status_and_safe_correlation(
         assert history.status_code == 200
         assert history.json()[0]["terminal_status"] == "completed"
         assert history.json()[0]["agent_step_count"] == 1
+        assert history.json()[0]["message_id"] == 123
+        assert history.json()[0]["generate_pro_file"] is True
+        assert history.json()[0]["input_artifact_ids"] == ["artifact-1"]
+        assert history.json()[0]["has_attached_file"] is True
+        assert history.json()[0]["attached_file_name"] == "scene.pro"
         assert "检查运行记录" not in history.text
 
 

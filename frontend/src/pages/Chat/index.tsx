@@ -62,6 +62,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [streamError, setStreamError] = useState('')
   const [retryQuestion, setRetryQuestion] = useState('')
   const [retryAttachment, setRetryAttachment] = useState<AttachedFile | null>(null)
+  const [retryingRunId, setRetryingRunId] = useState<number | null>(null)
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
   const [agentLiveStatus, setAgentLiveStatus] = useState('')
   const [agentElapsedMs, setAgentElapsedMs] = useState(0)
@@ -169,6 +170,48 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       // Run history is an audit enhancement; a deployment with an older API
       // must not make the actual chat transcript unavailable.
       setAgentRunHistory([])
+    }
+  }
+
+  const handleRetryHistoricalRun = async (run: ChatRun) => {
+    if (isStreaming || retryingRunId !== null) return
+    if (!sessionId || run.session_id !== sessionId) {
+      messageApi.warning('请先打开这条运行所属的会话。')
+      return
+    }
+    const targetMessage = run.message_id
+      ? messages.find((message) => message.id === run.message_id)
+      : [...messages].reverse().find((message) => message.role === 'user')
+    if (!targetMessage || targetMessage.role !== 'user') {
+      messageApi.warning('找不到这次运行对应的问题，无法安全重试。')
+      return
+    }
+
+    const artifacts = messages.flatMap((message) => message.artifacts)
+    const artifactsById = new Map(artifacts.map((artifact) => [artifact.id, artifact]))
+    const inputArtifacts = run.input_artifact_ids
+      .map((artifactId) => artifactsById.get(artifactId))
+      .filter((artifact): artifact is ChatArtifact => artifact !== undefined && artifact.kind !== 'chat_input')
+    let attachment: AttachedFile | null = null
+    setRetryingRunId(run.id)
+    try {
+      if (run.has_attached_file) {
+        const uploaded = run.input_artifact_ids
+          .map((artifactId) => artifactsById.get(artifactId))
+          .find((artifact): artifact is ChatArtifact => artifact !== undefined && artifact.kind === 'chat_input')
+        if (!uploaded) {
+          messageApi.warning('原始上传附件已被清理，请重新上传后再重试。')
+          return
+        }
+        const content = await api.readChatArtifactText(uploaded.download_url)
+        attachment = { name: run.attached_file_name || uploaded.file_name, content }
+      }
+      const retryMode = run.mode === 'agent-stream' ? 'agent' : 'normal'
+      handleSubmit(targetMessage.content, attachment, inputArtifacts, retryMode, run.generate_pro_file)
+    } catch (err) {
+      messageApi.error((err as Error).message || '恢复运行附件失败')
+    } finally {
+      setRetryingRunId(null)
     }
   }
 
@@ -399,25 +442,34 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     return false
   }
 
-  const handleSubmit = (questionOverride?: string, attachmentOverride?: AttachedFile | null) => {
+  const handleSubmit = (
+    questionOverride?: string,
+    attachmentOverride?: AttachedFile | null,
+    inputArtifactsOverride?: ChatArtifact[],
+    modeOverride?: 'normal' | 'agent',
+    generateProFileOverride?: boolean,
+  ) => {
     const question = (questionOverride ?? inputValue).trim()
     if (!question) return
     if (isStreaming || submitLockRef.current) return
+    const activeChatMode = modeOverride ?? chatMode
+    const activeGenerateProFile = generateProFileOverride ?? generateProFile
+    const activeAttachment = attachmentOverride === undefined ? attachedFile : attachmentOverride
     // Agent supports a lightweight no-context path for general questions.
     // Normal chat still requires a knowledge base or an uploaded file so it
     // cannot silently look like a grounded answer without evidence.
-    if (chatMode !== 'agent' && selectedKBIds.length === 0 && !attachedFile && !researchProjectId) {
+    if (activeChatMode !== 'agent' && selectedKBIds.length === 0 && !activeAttachment && !researchProjectId) {
       messageApi.warning('请至少选择一个知识库，或上传一个文件')
       return
     }
-    if (chatMode !== 'agent' && selectedKBIds.length === 0 && researchProjectId) {
+    if (activeChatMode !== 'agent' && selectedKBIds.length === 0 && researchProjectId) {
       messageApi.warning('研究项目上下文需要使用 Agent 模式；普通聊天请选择知识库')
       return
     }
 
     submitLockRef.current = true
 
-    const activeAttachment = attachmentOverride === undefined ? attachedFile : attachmentOverride
+    const activeInputArtifacts = inputArtifactsOverride ?? selectedInputArtifacts
     const userMessage: ChatMessage = {
       id: Date.now(),
       role: 'user',
@@ -433,8 +485,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     clearStreamingBuffer()
     setStreamError('')
     setAgentSteps([])
-    setAgentLiveStatus(chatMode === 'agent' ? 'Agent 正在处理请求…' : '')
-    agentStartedAtRef.current = chatMode === 'agent' ? Date.now() : null
+    setAgentLiveStatus(activeChatMode === 'agent' ? 'Agent 正在处理请求…' : '')
+    agentStartedAtRef.current = activeChatMode === 'agent' ? Date.now() : null
     setAgentElapsedMs(0)
     setAgentRunComplete(false)
     setAgentRunMeta(null)
@@ -457,10 +509,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     const fileContent = activeAttachment?.content || null
     setAttachedFile(null)
 
-    if (chatMode === 'agent') {
-      handleAgentStream(actualQuestion, controller.signal, fileContent, requestId)
+    if (activeChatMode === 'agent') {
+      handleAgentStream(actualQuestion, controller.signal, fileContent, requestId, activeInputArtifacts, activeAttachment?.name, activeGenerateProFile)
     } else {
-      handleSimpleStream(actualQuestion, controller.signal, fileContent, requestId)
+      handleSimpleStream(actualQuestion, controller.signal, fileContent, requestId, activeInputArtifacts, activeAttachment?.name, activeGenerateProFile)
     }
   }
 
@@ -529,7 +581,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     finishStream()
   }
 
-  const handleSimpleStream = async (question: string, signal: AbortSignal, fileContent: string | null, requestId: number) => {
+  const handleSimpleStream = async (
+    question: string,
+    signal: AbortSignal,
+    fileContent: string | null,
+    requestId: number,
+    inputArtifacts = selectedInputArtifacts,
+    fileName?: string,
+    generateProFileOverride?: boolean,
+  ) => {
     try {
       await api.askQuestionStream(
         {
@@ -538,9 +598,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           session_id: sessionId,
           strategy: selectedRetrievalConfig?.strategy,
           top_k: selectedRetrievalConfig?.topK,
-          generate_pro_file: generateProFile,
+          generate_pro_file: generateProFileOverride ?? generateProFile,
           attached_file_content: fileContent || undefined,
-          input_artifact_ids: selectedInputArtifacts.map((artifact) => artifact.id),
+          attached_file_name: fileContent ? fileName : undefined,
+          input_artifact_ids: inputArtifacts.map((artifact) => artifact.id),
         },
         {
           onRunStarted: (newSessionId) => {
@@ -570,7 +631,15 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     }
   }
 
-  const handleAgentStream = async (question: string, signal: AbortSignal, fileContent: string | null, requestId: number) => {
+  const handleAgentStream = async (
+    question: string,
+    signal: AbortSignal,
+    fileContent: string | null,
+    requestId: number,
+    inputArtifacts = selectedInputArtifacts,
+    fileName?: string,
+    generateProFileOverride?: boolean,
+  ) => {
     try {
       await api.agentStream(
         {
@@ -579,9 +648,10 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
           session_id: sessionId,
           strategy: selectedRetrievalConfig?.strategy,
           top_k: selectedRetrievalConfig?.topK,
-          generate_pro_file: generateProFile,
+          generate_pro_file: generateProFileOverride ?? generateProFile,
           attached_file_content: fileContent || undefined,
-          input_artifact_ids: selectedInputArtifacts.map((artifact) => artifact.id),
+          attached_file_name: fileContent ? fileName : undefined,
+          input_artifact_ids: inputArtifacts.map((artifact) => artifact.id),
           research_project_id: researchProjectId,
           allow_external_research: allowExternalResearch,
           allow_research_execution: allowResearchExecution,
@@ -1071,6 +1141,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             agentRunComplete={agentRunComplete}
             agentRunMeta={agentRunMeta}
             agentRunHistory={agentRunHistory}
+            onRetryRun={handleRetryHistoricalRun}
+            retryingRunId={retryingRunId}
             agentLiveStatus={agentLiveStatus}
             agentElapsedMs={agentElapsedMs}
             researchProjectId={researchProjectId}

@@ -186,4 +186,9 @@
 - [x] 概览页将 Embedding 降级与 Chat/Agent 模型状态分开表达，不再把网关 404、URL 和 httpx 原始错误直接展示给用户；有运行记录的历史会话即使只有一次成功请求也会显示可核对的运行条目。
 - [x] 回归证据：后端全量 `163 passed, 1 skipped`；Ruff、Python 编译检查和前端生产构建均通过；本地 Gemini2API 实时 Agent 回放收到 `run_started → step × 8 → token → done`，并在 session 87 的运行接口中读取到 `completed`、`agent_step_count=8`、`error_message=null`。
 
-下一步仍需把这份运行记录与“从历史失败记录一键重试”以及浏览器自动化验收串起来；当前已经可以用于人工核对一次请求是否真的开始、如何结束和是否写入安全审计元数据。
+## 当前轮次进度（历史失败运行重试）
+
+- [x] 运行记录保存安全重试上下文：原消息 ID、Agent/普通模式、`.pro` 开关、输入 artifact ID 和附件文件名；不保存 prompt、完整回答、服务器路径或密钥。
+- [x] 上传附件以私有 `chat_input` artifact 保存文本提取结果，历史消息可显示“已保存上下文”；原始二进制不被伪装成可下载的历史文件。
+- [x] 对 `failed` / `cancelled` 运行提供同一会话内的一键“重试”，自动恢复可用的知识库/项目上下文、输入资料和附件文本；附件已清理时给出明确提示，不静默发送缺上下文的请求。
+- [x] 回归证据：真实 Gemini2API Agent 请求 `session_id=89` 返回唯一 `done`，`run_id=49` 记录 `message_id=198`、附件 artifact `aac47da23ba249abad856ebc0210ea47`，历史消息中用户输入与 `chat_input` artifact 一一对应；前端 `npm run build` 通过。

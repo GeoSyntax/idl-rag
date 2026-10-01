@@ -173,6 +173,7 @@ class ChatRequest(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=20)
     generate_pro_file: bool = False
     attached_file_content: str | None = None
+    attached_file_name: str | None = Field(default=None, max_length=255)
     input_artifact_ids: list[str] = Field(default_factory=list, max_length=8)
     # Optional project context for the research-aware Agent. The project is
     # always revalidated server-side against the authenticated user's
@@ -232,7 +233,7 @@ class ChatArtifact(BaseModel):
     media_type: str
     size: int
     download_url: str
-    kind: Literal["pro", "idl_output", "idl_log", "gee_data", "gee_preview"] | None = None
+    kind: Literal["pro", "idl_output", "idl_log", "gee_data", "gee_preview", "chat_input"] | None = None
     previewable: bool = False
     run_id: str | None = None
     input_artifact_ids: list[str] = Field(default_factory=list)
@@ -334,6 +335,11 @@ class ChatRunResponse(BaseModel):
     artifact_count: int
     agent_step_count: int
     error_message: str | None
+    message_id: int | None = None
+    generate_pro_file: bool = False
+    input_artifact_ids: list[str] = Field(default_factory=list)
+    has_attached_file: bool = False
+    attached_file_name: str | None = None
     created_at: datetime
 
 

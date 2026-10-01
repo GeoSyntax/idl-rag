@@ -312,14 +312,16 @@ class AgentService:
     def answer(self, db: Session, payload: ChatRequest, owner_user_id: int) -> ChatResponse:
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        input_artifacts, message_artifacts, _attached_artifact_id = self._prepare_input_artifacts(
+            db, session.id, payload, owner_user_id,
+        )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
             content=payload.question,
             citations_json=[],
-            artifacts_json=[],
+            artifacts_json=message_artifacts,
         )
         db.add(user_message)
         db.commit()
@@ -395,14 +397,16 @@ class AgentService:
         # Phase 1: 准备工作（同步，快速）
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
+            db, session.id, payload, owner_user_id,
+        )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
             content=payload.question,
             citations_json=[],
-            artifacts_json=[],
+            artifacts_json=message_artifacts,
         )
         db.add(user_message)
         db.commit()
@@ -410,7 +414,18 @@ class AgentService:
 
         # This event is intentionally metadata-only. The route uses it to
         # persist a safe run record when the model fails before ``done``.
-        yield {"type": "run_started", "session_id": session.id}
+        yield {
+            "type": "run_started",
+            "session_id": session.id,
+            "message_id": user_message.id,
+            "retry_context": {
+                "generate_pro_file": bool(payload.generate_pro_file),
+                "input_artifact_ids": [item["id"] for item in input_artifacts]
+                + ([attached_artifact_id] if attached_artifact_id else []),
+                "has_attached_file": bool(attached_artifact_id),
+                "attached_file_name": payload.attached_file_name,
+            },
+        }
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
@@ -498,14 +513,16 @@ class AgentService:
         """真异步流式回答 — 使用 AsyncClient 避免阻塞事件循环。"""
         kb_ids = self._resolve_knowledge_base_ids(db, payload, owner_user_id)
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
+            db, session.id, payload, owner_user_id,
+        )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
             content=payload.question,
             citations_json=[],
-            artifacts_json=[],
+            artifacts_json=message_artifacts,
         )
         db.add(user_message)
         db.commit()
@@ -514,7 +531,18 @@ class AgentService:
         # Keep ordinary Chat and Agent streams on the same run lifecycle. The
         # event is metadata-only so a failure before ``done`` can still be
         # associated with the newly created session without exposing content.
-        yield {"type": "run_started", "session_id": session.id}
+        yield {
+            "type": "run_started",
+            "session_id": session.id,
+            "message_id": user_message.id,
+            "retry_context": {
+                "generate_pro_file": bool(payload.generate_pro_file),
+                "input_artifact_ids": [item["id"] for item in input_artifacts]
+                + ([attached_artifact_id] if attached_artifact_id else []),
+                "has_attached_file": bool(attached_artifact_id),
+                "attached_file_name": payload.attached_file_name,
+            },
+        }
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         retrieval_query = self.llm_service.build_retrieval_query(db, payload.question, recent_messages)
@@ -612,20 +640,33 @@ class AgentService:
             return
 
         session = self._get_or_create_session(db, payload, owner_user_id)
-        input_artifacts = self._resolve_input_artifacts(db, session.id, payload.input_artifact_ids, owner_user_id)
+        input_artifacts, message_artifacts, attached_artifact_id = self._prepare_input_artifacts(
+            db, session.id, payload, owner_user_id,
+        )
         generation_question = self._append_input_artifact_context(payload.question, input_artifacts)
         user_message = ChatMessage(
             session_id=session.id,
             role="user",
             content=payload.question,
             citations_json=[],
-            artifacts_json=[],
+            artifacts_json=message_artifacts,
         )
         db.add(user_message)
         db.commit()
         db.refresh(user_message)
 
-        yield {"type": "run_started", "session_id": session.id}
+        yield {
+            "type": "run_started",
+            "session_id": session.id,
+            "message_id": user_message.id,
+            "retry_context": {
+                "generate_pro_file": bool(payload.generate_pro_file),
+                "input_artifact_ids": [item["id"] for item in input_artifacts]
+                + ([attached_artifact_id] if attached_artifact_id else []),
+                "has_attached_file": bool(attached_artifact_id),
+                "attached_file_name": payload.attached_file_name,
+            },
+        }
 
         recent_messages = self._get_recent_messages(db, session.id, user_message.id)
         # 检测代码修复意图
@@ -1991,6 +2032,42 @@ class AgentService:
             seen.add(value)
         return resolved
 
+    def _prepare_input_artifacts(
+        self,
+        db: Session,
+        session_id: int,
+        payload: ChatRequest,
+        owner_user_id: int,
+    ) -> tuple[list[dict], list[dict], str | None]:
+        """Resolve IDL inputs and persist an uploaded text context privately.
+
+        The model still receives ``attached_file_content`` directly for the
+        current request, but a bounded private artifact is also kept in the
+        session. That makes a later retry able to restore the same attachment
+        without putting its contents into request logs or the retry metadata.
+        """
+        input_artifacts = self._resolve_input_artifacts(
+            db, session_id, payload.input_artifact_ids, owner_user_id,
+        )
+        message_artifacts: list[dict] = []
+        for item in input_artifacts:
+            source = self.get_artifact_metadata(db, session_id, str(item["id"]), owner_user_id)
+            reference = dict(source)
+            reference["metadata"] = {**dict(source.get("metadata") or {}), "input_only": True}
+            message_artifacts.append(reference)
+
+        attached_artifact_id: str | None = None
+        if payload.attached_file_content:
+            attached = self._save_chat_input_artifact(
+                session_id,
+                owner_user_id,
+                payload.attached_file_name,
+                payload.attached_file_content,
+            )
+            message_artifacts.append(attached)
+            attached_artifact_id = str(attached["id"])
+        return input_artifacts, message_artifacts, attached_artifact_id
+
     def _append_input_artifact_context(self, question: str, input_artifacts: list[dict]) -> str:
         if not input_artifacts:
             return question
@@ -2053,6 +2130,32 @@ class AgentService:
             "previewable": False,
             "input_artifact_ids": dependency_ids,
             "metadata": {"uses_gee_data": bool(dependency_ids)},
+        }
+
+    def _save_chat_input_artifact(
+        self,
+        session_id: int,
+        owner_user_id: int,
+        file_name: str | None,
+        content: str,
+    ) -> dict:
+        """Persist extracted upload text for private, exact historical retry."""
+        artifact_id = uuid4().hex
+        original_name = Path(file_name or "attached_context.txt").name or "attached_context.txt"
+        artifact_dir = get_app_settings().chat_artifacts_dir / f"user-{owner_user_id}" / f"session-{session_id}"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        file_path = artifact_dir / f"{artifact_id}_context.txt"
+        file_path.write_text(content[:50000], encoding="utf-8", newline="\n")
+        return {
+            "id": artifact_id,
+            "file_name": original_name,
+            "media_type": "text/plain",
+            "size": file_path.stat().st_size,
+            "storage_path": file_path.as_posix(),
+            "kind": "chat_input",
+            "previewable": False,
+            "input_artifact_ids": [],
+            "metadata": {"input_only": True, "original_file_name": original_name},
         }
 
     def _detect_program_name(self, question: str, code: str) -> str:

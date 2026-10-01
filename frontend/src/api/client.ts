@@ -323,6 +323,7 @@ export const api = {
     top_k?: number
     generate_pro_file?: boolean
     attached_file_content?: string
+    attached_file_name?: string
     input_artifact_ids?: string[]
   }) =>
     request<ChatResponse>('/chat/ask', {
@@ -359,6 +360,10 @@ export const api = {
       throw new Error(message)
     }
     return response.blob()
+  },
+  readChatArtifactText: async (downloadPath: string) => {
+    const blob = await api.fetchChatArtifactBlob(downloadPath)
+    return blob.text()
   },
   downloadChatArtifact: async (downloadPath: string, fileName: string) => {
     const blob = await api.fetchChatArtifactBlob(downloadPath)
@@ -719,6 +724,7 @@ export const api = {
       strategy?: string
       top_k?: number
       attached_file_content?: string
+      attached_file_name?: string
       input_artifact_ids?: string[]
     },
     callbacks: {
@@ -770,6 +776,7 @@ export const api = {
       strategy?: string
       top_k?: number
       attached_file_content?: string
+      attached_file_name?: string
       input_artifact_ids?: string[]
       research_project_id?: number
       allow_external_research?: boolean

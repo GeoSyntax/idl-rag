@@ -84,11 +84,19 @@ def _persist_chat_request_log(
     terminal_status: str | None = None,
     error_message: str | None = None,
     agent_step_count: int = 0,
+    message_id: int | None = None,
+    retry_context: dict | None = None,
 ) -> None:
     """在独立 session 中写入请求日志，不阻塞响应流。"""
     try:
         SessionLocal = get_session_factory()
         with SessionLocal() as log_db:
+            safe_context = dict(retry_context or {})
+            safe_context.setdefault("message_id", message_id)
+            safe_context.setdefault("generate_pro_file", bool(payload.generate_pro_file))
+            safe_context.setdefault("input_artifact_ids", [str(item) for item in payload.input_artifact_ids[:8]])
+            safe_context.setdefault("has_attached_file", bool(payload.attached_file_content))
+            safe_context.setdefault("attached_file_name", (payload.attached_file_name or "")[:255] or None)
             log_db.add(ChatRequestLog(
                 owner_user_id=owner_user_id,
                 session_id=session_id,
@@ -107,6 +115,7 @@ def _persist_chat_request_log(
                 terminal_status=terminal_status,
                 error_message=(error_message or "")[:500] or None,
                 agent_step_count=max(0, int(agent_step_count)),
+                retry_context_json=safe_context,
             ))
             log_db.commit()
     except Exception:  # noqa: BLE001
@@ -240,6 +249,8 @@ async def ask_question_stream(
         citation_count = 0
         artifact_count = 0
         result_session_id = None
+        result_message_id = None
+        retry_context: dict = {}
         terminal_status = "running"
         error_message = None
         agent_step_count = 0
@@ -249,6 +260,8 @@ async def ask_question_stream(
                     continue
                 if token.get("type") == "run_started":
                     result_session_id = token.get("session_id")
+                    result_message_id = token.get("message_id")
+                    retry_context = token.get("retry_context") or {}
                 if token.get("type") == "step":
                     agent_step_count += 1
                 if token.get("type") == "token" and first_token_ms is None:
@@ -308,6 +321,8 @@ async def ask_question_stream(
                 terminal_status=terminal_status,
                 error_message=error_message,
                 agent_step_count=agent_step_count,
+                message_id=result_message_id,
+                retry_context=retry_context,
             )
 
     return StreamingResponse(
@@ -337,6 +352,8 @@ async def agent_stream(
         citation_count = 0
         artifact_count = 0
         result_session_id = None
+        result_message_id = None
+        retry_context: dict = {}
         terminal_status = "running"
         error_message = None
         agent_step_count = 0
@@ -346,6 +363,8 @@ async def agent_stream(
                     continue
                 if event.get("type") == "run_started":
                     result_session_id = event.get("session_id")
+                    result_message_id = event.get("message_id")
+                    retry_context = event.get("retry_context") or {}
                 if event.get("type") == "step":
                     agent_step_count += 1
                 if event.get("type") == "token" and first_token_ms is None:
@@ -405,6 +424,8 @@ async def agent_stream(
                 terminal_status=terminal_status,
                 error_message=error_message,
                 agent_step_count=agent_step_count,
+                message_id=result_message_id,
+                retry_context=retry_context,
             )
 
     return StreamingResponse(
@@ -544,6 +565,10 @@ def list_chat_runs(
         status = log.terminal_status or ("failed" if log.has_error else "completed")
         if status not in {"completed", "failed", "cancelled"}:
             status = "unknown"
+        context = log.retry_context_json if isinstance(log.retry_context_json, dict) else {}
+        input_ids = context.get("input_artifact_ids")
+        if not isinstance(input_ids, list):
+            input_ids = []
         runs.append(ChatRunResponse(
             id=log.id,
             session_id=log.session_id,
@@ -556,6 +581,12 @@ def list_chat_runs(
             artifact_count=log.artifact_count,
             agent_step_count=log.agent_step_count,
             error_message=log.error_message,
+            message_id=context.get("message_id") if isinstance(context.get("message_id"), int) else None,
+            generate_pro_file=bool(context.get("generate_pro_file")),
+            input_artifact_ids=[str(item) for item in input_ids[:8]],
+            has_attached_file=bool(context.get("has_attached_file")),
+            attached_file_name=(str(context.get("attached_file_name"))[:255] or None)
+            if context.get("attached_file_name") else None,
             created_at=log.created_at,
         ))
     return runs
