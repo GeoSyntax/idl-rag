@@ -47,6 +47,18 @@ python backend/scripts/audit_corpus.py data/sources `
 
 审计会校验每个来源目录的 SHA-256 manifest、清单中的文件是否存在、文件是否被遗漏、开放获取论文是否具备 DOI/原始 URL/许可证状态，以及论文 manifest 中的 SHA-256 是否仍与本地 PDF 一致。`--strict` 发现错误时返回非零退出码，适合接入 CI 或 Docker 发布前检查。审计结果只写入本地日志，不会把论文全文或私有资料上传到 GitHub。
 
+发布前可以再运行统一闸门，它会把来源审计、数据库 readiness、评测新鲜度、embedding 签名和备份校验合并成一个退出码：
+
+```powershell
+python backend/scripts/release_readiness.py `
+  --source-root data/sources `
+  --backup data/backups/idl-rag-current.zip `
+  --owner-id 1 `
+  --output data/logs/release_readiness.json
+```
+
+只有 `release_ready=true` 才允许把当前资料目录交给 Docker 或教师/企业用户；任何新资料导入、模型切换、评测过期、来源哈希变化或备份损坏都会使命令返回非零状态。
+
 ## 生产发布条件
 
 资料集只有同时满足以下条件才能标记为 `production_ready`：
