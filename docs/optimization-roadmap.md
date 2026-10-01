@@ -172,6 +172,7 @@
 - [x] 设置页保存模型配置后通过跨标签页事件通知原 Chat 页面：无需刷新或重新输入问题，原错误卡片会变成“模型配置已更新，请点击重试”，保留原问题与附件重试上下文。
 - [x] 对 Chat 页面完成桌面与窄屏 Lighthouse 回放：桌面/移动 Accessibility、Best Practices、SEO 和 Agentic Browsing 均为 100；修复侧栏选中项在暖灰背景上的对比度不足，500px 页面无横向溢出。
 - [x] 对 Research 工作台完成桌面与 500px 窄屏 Lighthouse 回放：Accessibility、Best Practices 和 Agentic Browsing 均为 100；修复项目选择列无标签、入口下拉框的非法 aria 属性、Ant Design 默认蓝/灰文字对比度不足、协议表单未挂载警告，以及窄屏研究标签溢出菜单导致的 ARIA 树错误；500px 页面无横向溢出。
+- [x] 清理 Research 数据与快照流程的第二层可用性问题：GEE/STAC/验证样本/数据资产表单的必填 Select 改为不污染 ARIA 树的自定义校验；文件选择器和多波段对齐控件补齐可读名称；InputNumber 去除 addonAfter 弃用警告。数据 Tab 在 500px 下 Lighthouse Accessibility、Best Practices、SEO 和 Agentic Browsing 均通过。
 
 ## 当前轮次进度（Agent 最终文本流与网关兼容）
 
