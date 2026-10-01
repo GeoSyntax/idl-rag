@@ -1,4 +1,4 @@
-import { Button, Collapse, Drawer, Input, Tag } from 'antd'
+import { Button, Collapse, Drawer, Input, Popconfirm, Tag } from 'antd'
 import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, FileTextOutlined, PictureOutlined, PlayCircleOutlined, RobotOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
@@ -549,14 +549,31 @@ function getArtifactValidationIssues(artifact: ChatArtifact): Array<{ line?: num
 }
 
 type ArtifactValidationIssue = { line?: number; column?: number; message: string }
+type ArtifactSourceVersion = { revision: number; file_name: string; size: number }
+
+function getArtifactSourceVersions(artifact: ChatArtifact): ArtifactSourceVersion[] {
+  const versions = artifact.metadata?.source_versions
+  if (!Array.isArray(versions)) return []
+  return versions
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item)))
+    .map((item) => ({
+      revision: typeof item.revision === 'number' ? item.revision : -1,
+      file_name: String(item.file_name || artifact.file_name),
+      size: typeof item.size === 'number' ? item.size : 0,
+    }))
+    .filter((item) => item.revision >= 0)
+    .slice(0, 20)
+}
 
 function ArtifactCodePreview({
   artifact,
   issues,
+  versions,
   onArtifactUpdated,
 }: {
   artifact: ChatArtifact
   issues: ArtifactValidationIssue[]
+  versions: ArtifactSourceVersion[]
   onArtifactUpdated: (message: ChatMessage) => void
 }) {
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -565,12 +582,13 @@ function ArtifactCodePreview({
   const [draftCode, setDraftCode] = useState('')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [restoring, setRestoring] = useState(false)
   const [error, setError] = useState('')
   const [activeLine, setActiveLine] = useState<number | null>(null)
   const lineRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
-  const loadCode = async () => {
-    if (code) return
+  const loadCode = async (force = false) => {
+    if (code && !force) return
     setLoading(true)
     setError('')
     try {
@@ -626,6 +644,29 @@ function ArtifactCodePreview({
     }
   }
 
+  const restoreVersion = async (revision: number) => {
+    setRestoring(true)
+    setError('')
+    try {
+      const sessionMatch = artifact.download_url.match(/\/sessions\/(\d+)\/artifacts\//)
+      const artifactSessionId = sessionMatch ? Number(sessionMatch[1]) : NaN
+      if (!Number.isInteger(artifactSessionId) || artifactSessionId <= 0) {
+        throw new Error('无法识别附件所属会话，请刷新后重试。')
+      }
+      const updatedMessage = await api.restoreChatArtifactSource(artifactSessionId, artifact.id, revision)
+      onArtifactUpdated(updatedMessage)
+      setEditing(false)
+      setActiveLine(null)
+      setCode('')
+      setDraftCode('')
+      await loadCode(true)
+    } catch (err) {
+      setError((err as Error).message || '恢复版本失败，请重试。')
+    } finally {
+      setRestoring(false)
+    }
+  }
+
   useEffect(() => {
     if (!previewOpen || !activeLine || !lineRefs.current[activeLine]) return
     lineRefs.current[activeLine]?.scrollIntoView({ block: 'center' })
@@ -676,6 +717,25 @@ function ArtifactCodePreview({
           )}
           {editing ? <span>保存后会重新执行本地 IDL 验证。</span> : null}
         </div>
+        {!editing && versions.length > 0 ? (
+          <div className="chat-artifact-version-list">
+            <span className="chat-artifact-version-label">历史版本</span>
+            {versions.map((version) => (
+              <Popconfirm
+                key={version.revision}
+                title={`恢复 v${version.revision}？`}
+                description="当前源码会保留为新的历史版本，并重新执行验证。"
+                okText="恢复"
+                cancelText="取消"
+                onConfirm={() => void restoreVersion(version.revision)}
+              >
+                <Button size="small" type="link" loading={restoring}>
+                  v{version.revision}
+                </Button>
+              </Popconfirm>
+            ))}
+          </div>
+        ) : null}
         {loading ? <div className="chat-artifact-code-state">正在读取源码…</div> : null}
         {error ? (
           <div className="chat-artifact-code-state is-error" role="alert">
@@ -739,6 +799,7 @@ function ArtifactItem({
   const badgeLabel = getArtifactBadgeLabel(artifact)
   const validationLabel = getArtifactValidationLabel(artifact)
   const validationIssues = getArtifactValidationIssues(artifact)
+  const sourceVersions = getArtifactSourceVersions(artifact)
 
   if (canPreview) {
     return <ArtifactImagePreview artifact={artifact} onDownloadArtifact={onDownloadArtifact} />
@@ -760,7 +821,14 @@ function ArtifactItem({
           {validationLabel.label}
         </span>
       ) : null}
-      {canRun ? <ArtifactCodePreview artifact={artifact} issues={validationIssues} onArtifactUpdated={onArtifactUpdated} /> : null}
+      {canRun ? (
+        <ArtifactCodePreview
+          artifact={artifact}
+          issues={validationIssues}
+          versions={sourceVersions}
+          onArtifactUpdated={onArtifactUpdated}
+        />
+      ) : null}
       {isChatInput ? <span className="chat-artifact-input-note">已保存上下文，可用于历史重试</span> : null}
       {canRun ? (
         <Button size="small" type="link" icon={<PlayCircleOutlined />} loading={running} onClick={() => onRunArtifact(artifact)}>

@@ -135,6 +135,15 @@ def test_editing_pro_artifact_keeps_one_message_and_refreshes_validation(monkeyp
             f"/api/chat/sessions/{session_id}/messages",
             headers=_headers(registered["access_token"]),
         )
+        restore_response = client.post(
+            f"/api/chat/sessions/{session_id}/artifacts/{artifact_id}/source/restore",
+            json={"revision": 0},
+            headers=_headers(registered["access_token"]),
+        )
+        restored_messages = client.get(
+            f"/api/chat/sessions/{session_id}/messages",
+            headers=_headers(registered["access_token"]),
+        )
 
     assert response.status_code == 200
     assert response.json()["artifacts"][0]["metadata"]["validation"]["validation_status"] == "pending"
@@ -146,8 +155,17 @@ def test_editing_pro_artifact_keeps_one_message_and_refreshes_validation(monkeyp
     assert edited["metadata"]["revision"] == 1
     assert edited["metadata"]["validation"]["validation_status"] == "unverified"
     assert edited["metadata"]["validation"]["validation_issues"] == [{"line": 2, "message": "示例诊断"}]
+    assert edited["metadata"]["source_versions"] == [{"revision": 0, "file_name": "demo.pro", "size": len("pro demo\nend\n".encode("utf-8"))}]
     assert edited["size"] == len("pro demo\nprint, 'edited'\nend\n".encode("utf-8"))
     assert old_path.exists()
+    assert restore_response.status_code == 200
+    assert restore_response.json()["artifacts"][0]["metadata"]["validation"]["validation_status"] == "pending"
+    assert restored_messages.status_code == 200
+    restored = restored_messages.json()[-1]["artifacts"][0]
+    assert restored["metadata"]["revision"] == 2
+    assert restored["metadata"]["restored_from_revision"] == 0
+    assert restored["metadata"]["validation"]["validation_status"] == "unverified"
+    assert len(restored_messages.json()) == 1
 
 
 def test_agent_stream_converts_backend_failure_to_one_sse_error(

@@ -2400,8 +2400,27 @@ class AgentService:
                 metadata = dict(artifact.get("metadata") or {})
                 previous_revision = metadata.get("revision")
                 revision = int(previous_revision) + 1 if isinstance(previous_revision, int) else 1
+                version_history = [
+                    item for item in list(artifact.get("version_history") or [])
+                    if isinstance(item, dict)
+                ]
+                version_history.insert(0, {
+                    "revision": revision - 1,
+                    "storage_path": old_path.as_posix(),
+                    "file_name": file_name,
+                    "size": int(artifact.get("size") or old_path.stat().st_size),
+                })
+                version_history = version_history[:20]
                 metadata["revision"] = revision
                 metadata["edited"] = True
+                metadata["source_versions"] = [
+                    {
+                        "revision": item.get("revision"),
+                        "file_name": item.get("file_name") or file_name,
+                        "size": item.get("size") or 0,
+                    }
+                    for item in version_history
+                ]
                 metadata["validation"] = {
                     "validation_mode": "pending",
                     "validation_status": "pending",
@@ -2409,6 +2428,90 @@ class AgentService:
                 }
                 artifact["storage_path"] = new_path.as_posix()
                 artifact["size"] = new_path.stat().st_size
+                artifact["version_history"] = version_history
+                artifact["metadata"] = metadata
+                message_content = str(message.content or "")
+                if "代码验证：" in message_content:
+                    message.content = message_content.split("代码验证：", 1)[0].rstrip() + (
+                        "\n代码验证：验证任务已排队，正在检查。"
+                    )
+                else:
+                    message.content = message_content.rstrip() + "\n代码验证：验证任务已排队，正在检查。"
+                message.artifacts_json = artifacts
+                flag_modified(message, "artifacts_json")
+                db.commit()
+                db.refresh(message)
+                return self._to_message_response(message)
+        raise ValueError("附件不存在。")
+
+    def restore_pro_artifact_version(
+        self,
+        db: Session,
+        session_id: int,
+        artifact_id: str,
+        owner_user_id: int,
+        revision: int,
+    ) -> ChatMessageResponse:
+        """Restore a private historical .pro version as a new current revision."""
+        self._get_owned_session(db, session_id, owner_user_id)
+        messages = (
+            db.query(ChatMessage)
+            .filter(ChatMessage.session_id == session_id, ChatMessage.role == "assistant")
+            .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+            .all()
+        )
+        sandbox = get_app_settings().chat_artifacts_dir.resolve()
+        for message in messages:
+            artifacts = list(message.artifacts_json or [])
+            for artifact in artifacts:
+                if not isinstance(artifact, dict) or str(artifact.get("id")) != str(artifact_id):
+                    continue
+                file_name = Path(str(artifact.get("file_name") or "generated.pro")).name or "generated.pro"
+                if artifact.get("kind") != "pro" and not file_name.lower().endswith(".pro"):
+                    raise ValueError("只能恢复生成的 .pro 文件。")
+                current_path = Path(str(artifact.get("storage_path") or "")).resolve()
+                if not current_path.is_relative_to(sandbox) or not current_path.is_file():
+                    raise ValueError("附件不存在。")
+                history = [item for item in list(artifact.get("version_history") or []) if isinstance(item, dict)]
+                target = next((item for item in history if item.get("revision") == revision), None)
+                if target is None:
+                    raise ValueError("指定的源码版本不存在。")
+                target_path = Path(str(target.get("storage_path") or "")).resolve()
+                if not target_path.is_relative_to(sandbox) or not target_path.is_file():
+                    raise ValueError("指定的源码版本已不可用。")
+                user_dir = sandbox / f"user-{owner_user_id}" / f"session-{session_id}"
+                user_dir.mkdir(parents=True, exist_ok=True)
+                new_path = user_dir / f"{uuid4().hex}_{file_name}"
+                new_path.write_text(target_path.read_text(encoding="utf-8", errors="ignore"), encoding="utf-8", newline="\n")
+                metadata = dict(artifact.get("metadata") or {})
+                previous_revision = metadata.get("revision")
+                next_revision = int(previous_revision) + 1 if isinstance(previous_revision, int) else revision + 1
+                history.insert(0, {
+                    "revision": next_revision - 1,
+                    "storage_path": current_path.as_posix(),
+                    "file_name": file_name,
+                    "size": int(artifact.get("size") or current_path.stat().st_size),
+                })
+                history = history[:20]
+                metadata["revision"] = next_revision
+                metadata["edited"] = True
+                metadata["restored_from_revision"] = revision
+                metadata["source_versions"] = [
+                    {
+                        "revision": item.get("revision"),
+                        "file_name": item.get("file_name") or file_name,
+                        "size": item.get("size") or 0,
+                    }
+                    for item in history
+                ]
+                metadata["validation"] = {
+                    "validation_mode": "pending",
+                    "validation_status": "pending",
+                    "validation_notice": "验证任务已排队，正在检查。",
+                }
+                artifact["storage_path"] = new_path.as_posix()
+                artifact["size"] = new_path.stat().st_size
+                artifact["version_history"] = history
                 artifact["metadata"] = metadata
                 message_content = str(message.content or "")
                 if "代码验证：" in message_content:

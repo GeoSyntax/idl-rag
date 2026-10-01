@@ -289,6 +289,10 @@ class ChatArtifactSourceUpdateRequest(BaseModel):
     content: str = Field(min_length=1, max_length=500_000)
 
 
+class ChatArtifactVersionRestoreRequest(BaseModel):
+    revision: int = Field(ge=0, le=1000)
+
+
 class IdlRunResponse(BaseModel):
     run_id: str
     session_id: int

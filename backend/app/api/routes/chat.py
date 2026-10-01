@@ -14,6 +14,7 @@ from app.api.dependencies import get_current_user
 from app.api.schemas import (
     ChatMessageResponse,
     ChatArtifactSourceUpdateRequest,
+    ChatArtifactVersionRestoreRequest,
     ChatModelStatusResponse,
     ChatRequest,
     ChatResponse,
@@ -633,6 +634,34 @@ def update_artifact_source(
     except ValueError as exc:
         message = str(exc)
         status_code = 404 if "不存在" in message else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.post("/sessions/{session_id}/artifacts/{artifact_id}/source/restore", response_model=ChatMessageResponse)
+def restore_artifact_source(
+    session_id: int,
+    artifact_id: str,
+    payload: ChatArtifactVersionRestoreRequest,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ChatMessageResponse:
+    """Restore a historical .pro version and validate the restored source."""
+    try:
+        response = service.restore_pro_artifact_version(
+            db,
+            session_id,
+            artifact_id,
+            current_user.id,
+            payload.revision,
+        )
+        if background_tasks is None:
+            background_tasks = BackgroundTasks()
+        background_tasks.add_task(service.validate_pending_artifacts, session_id, current_user.id, [artifact_id])
+        return response
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "不存在" in message or "不可用" in message else 400
         raise HTTPException(status_code=status_code, detail=message) from exc
 
 
