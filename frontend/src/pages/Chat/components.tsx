@@ -35,19 +35,29 @@ export function KnowledgeStatusBar({
         <span>当前知识库还没有文档，请先导入资料再提问。</span>
       ) : (
         <>
-          <span>ready {status.ready}</span>
+          <span>已就绪 {status.ready}</span>
           {status.active > 0 ? <span>索引中 {status.active}</span> : null}
-          {status.stale > 0 ? <span>stale {status.stale}</span> : null}
+          {status.stale > 0 ? <span>待更新 {status.stale}</span> : null}
           {status.failed > 0 ? <span>失败 {status.failed}</span> : null}
-          {status.fallback > 0 ? <span>fallback embedding {status.fallback} · 仅影响语义检索，默认 hybrid 使用 FTS；Chat / Agent 仍可用</span> : null}
+          {status.fallback > 0 ? <span>备用向量 {status.fallback} · 仅影响语义检索，当前仍可使用关键词与规则检索</span> : null}
           {retrievalConfig ? (
-            <span>{retrievalConfig.strategy} · top_k {retrievalConfig.topK} · {retrievalConfig.rerank ? 'rerank on' : 'rerank off'}{retrievalConfig.note ? ` · ${retrievalConfig.note}` : ''}</span>
+            <span>{retrievalStrategyLabel(retrievalConfig.strategy)} · 候选 {retrievalConfig.topK} · {retrievalConfig.rerank ? '已启用重排' : '未启用重排'}{retrievalConfig.note ? ` · ${retrievalConfig.note}` : ''}</span>
           ) : null}
-          {status.ready === 0 ? <span>暂无 ready 文档，回答质量会受影响。</span> : null}
+          {status.ready === 0 ? <span>暂无已就绪文档，回答质量会受影响。</span> : null}
         </>
       )}
     </div>
   )
+}
+
+function retrievalStrategyLabel(strategy: string): string {
+  const labels: Record<string, string> = {
+    hybrid_rrf: '混合检索',
+    hybrid_rrf_no_rerank: '混合检索（不重排）',
+    fts: '关键词检索',
+    vector_only: '语义检索',
+  }
+  return labels[strategy] || strategy.replace(/_/g, ' ')
 }
 
 export function ResearchContextBar({
