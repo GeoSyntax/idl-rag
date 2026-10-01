@@ -19,7 +19,18 @@
 
 当前服务已经支持 OpenAI-compatible 的 `/v1/embeddings`。最稳妥的本地方案是用 Hugging Face Text Embeddings Inference（TEI）部署 `BAAI/bge-m3`，把 `IDLRAG_EMBEDDING_API_BASE_URL` 指向 TEI 的 `/v1`，把 embedding model 设置为 TEI 接受的模型名，并把维度设为 1024。切换模型后必须重新索引全部文档，不能把 1536 维旧索引和 1024 维新索引混用。
 
-如果只是单机试用，也可以用 Ollama 的 `bge-m3`。Ollama 原生接口是 `/api/embed`，而本项目当前直接调用 `/v1/embeddings`；因此需要一个 OpenAI-compatible 代理或补充 Ollama provider 适配，不能只把 URL 填进去就假设会工作。
+如果只是单机试用，也可以用 Ollama 的 `bge-m3`。当前 Ollama 版本同时提供原生 `/api/embed` 和 OpenAI-compatible `/v1/embeddings`；本项目直接使用后者，因此不需要额外代理。Ollama 只需要一个非空占位 API key（例如 `ollama-local`），不会向本地服务校验该 key。切换模型后仍然必须重新索引全部文档。
+
+### 本地 Ollama 配置示例
+
+```dotenv
+IDLRAG_EMBEDDING_API_BASE_URL=http://127.0.0.1:11434/v1
+IDLRAG_EMBEDDING_API_KEY=ollama-local
+IDLRAG_DEFAULT_EMBEDDING_MODEL=bge-m3
+IDLRAG_EMBEDDING_DIMENSIONS=1024
+```
+
+启动 Ollama 后执行 `ollama pull bge-m3`，再在平台设置页进行连接测试和全量重建索引。RTX 4060 笔记本可以运行该模型，但应保留低显存模式和较小并发；生产部署仍建议把索引任务与在线对话分开，避免重建索引抢占显存。
 
 ## 生产门槛
 

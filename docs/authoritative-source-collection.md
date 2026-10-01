@@ -6,6 +6,9 @@
 - Landsat 4–7 Collection 2 Level-2 Science Product Guide v4（44 页）
 - USGS Fact Sheet 2021–3055：Landsat Collection 2 Level-2 Science Products（2 页）
 - NASA/USGS HLS User Guide V2（Harmonized Landsat and Sentinel-2，30 页）
+- Google Earth Engine Sentinel-2 Harmonized / Cloud Score+ catalog note（官方数据集页面摘要，含缩放因子、波段分辨率、QA60/SCL 和云掩膜注意事项）
+- Google Earth Engine Sentinel-1 GRD catalog note（SAR 极化、轨道、线性功率/dB 和 GRD/SLC 边界）
+- GDAL Raster Data Model note（仿射变换、CRS、nodata/mask 和栅格验证清单）
 
 这些资料覆盖了当前算法库里比较缺的一块：产品级输入约定，而不仅是指数公式。重点包括：
 
@@ -14,6 +17,8 @@
 - `QA_PIXEL`、`QA_RADSAT`、`SR_QA_AEROSOL` 等质量波段
 - LaSRC/LEDAPS 的处理边界
 - 产品版本、数据格式和引用方式
+- Sentinel-2 Harmonized 的 2022 年处理基线偏移、SR 缩放因子、跨分辨率重采样和 Cloud Score+ 阈值记录要求
+- Sentinel-1 GRD 的极化/轨道筛选、线性功率与 dB 换算边界，以及 GDAL 栅格元数据、仿射变换和 nodata 校验
 
 本地文件位于：
 
@@ -21,7 +26,7 @@
 data/sources/remote_sensing_official/
 ```
 
-它们没有提交到 GitHub，因为 `data/` 包含运行时资料和索引。重新部署或换机器时，应按该目录的 `README.md` 中的官方 URL 重新获取，并在导入后检查 SHA-256。
+它们没有提交到 GitHub，因为 `data/` 包含运行时资料和索引。重新部署或换机器时，应按该目录的 `README.md` 以及 `gee_sentinel2_harmonized.md` 中的官方 URL 重新获取，并在导入后检查 SHA-256。GitHub 中只维护来源清单、导入规则和可复现说明，不把第三方 PDF 或运行时向量库直接提交进仓库。
 
 ## 下一批建议收集
 
