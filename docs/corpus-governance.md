@@ -59,7 +59,7 @@ python backend/scripts/release_readiness.py `
   --output data/logs/release_readiness.json
 ```
 
-只有 `release_ready=true` 才允许把当前资料目录交给 Docker 或教师/企业用户；任何新资料导入、模型切换、评测过期、来源哈希变化或备份损坏都会使命令返回非零状态。
+只有 `release_ready=true` 才允许把当前资料目录交给 Docker 或教师/企业用户；任何新资料导入、模型切换、评测过期、来源哈希变化或备份损坏都会使命令返回非零状态。默认闸门针对受控内网使用，论文清单仍可保留“待核验许可”标记；要生成可公开分发的资料包，还必须增加 `--require-cleared-licenses`，在所有全文许可完成核验前主动失败。
 
 发布前还可以检查外部运行时，不会把 API Key 打到日志里：
 

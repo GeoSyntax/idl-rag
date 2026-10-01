@@ -27,11 +27,24 @@ from app.services.corpus_readiness_service import build_corpus_readiness  # noqa
 from audit_corpus import audit  # noqa: E402
 
 
+def _uncleared_license_count(source_result: dict[str, Any]) -> int:
+    """Count OA PDFs that still carry the local-only license review marker."""
+    total = 0
+    for value in (source_result.get("source_classes") or {}).values():
+        if not isinstance(value, dict):
+            continue
+        open_access = value.get("open_access")
+        if isinstance(open_access, dict):
+            total += int(open_access.get("license_review_records") or 0)
+    return total
+
+
 def run_release_readiness(
     *,
     source_root: Path,
     backup: Path,
     owner_user_id: int,
+    require_cleared_licenses: bool = False,
 ) -> dict[str, Any]:
     source_result = audit(source_root, verify_hashes=True)
     backup_result = verify_backup(backup) if backup.exists() else {
@@ -45,6 +58,11 @@ def run_release_readiness(
     finally:
         db.close()
     errors = list(source_result.get("errors", []))
+    uncleared_licenses = _uncleared_license_count(source_result)
+    if require_cleared_licenses and uncleared_licenses:
+        errors.append(
+            f"{uncleared_licenses} open-access PDFs still require redistribution-license review"
+        )
     errors.extend(str(item) for item in backup_result.get("errors", []))
     errors.extend(str(item) for item in corpus_result.get("blockers", []))
     return {
@@ -53,6 +71,7 @@ def run_release_readiness(
         "source_audit": source_result,
         "corpus_readiness": corpus_result,
         "backup_verification": backup_result,
+        "uncleared_license_count": uncleared_licenses,
     }
 
 
@@ -61,12 +80,18 @@ def main() -> None:
     parser.add_argument("--source-root", type=Path, default=Path("data/sources"))
     parser.add_argument("--backup", type=Path, required=True)
     parser.add_argument("--owner-id", type=int, default=1)
+    parser.add_argument(
+        "--require-cleared-licenses",
+        action="store_true",
+        help="fail when any OA PDF still has a redistribution-license review marker",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     result = run_release_readiness(
         source_root=args.source_root,
         backup=args.backup,
         owner_user_id=args.owner_id,
+        require_cleared_licenses=args.require_cleared_licenses,
     )
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
