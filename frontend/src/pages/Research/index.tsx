@@ -2286,28 +2286,59 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                     </Form>
                   </Card>
                   <Card className="section-card" title="实验计划">
-                    <Table<ResearchExperiment>
-                      rowKey="id"
-                      size="small"
-                      dataSource={experiments}
-                      pagination={false}
-                      scroll={{ x: 760 }}
-                      rowSelection={{
-                        type: 'radio',
-                        columnTitle: '选择',
-                        getCheckboxProps: (record) => ({ 'aria-label': `选择实验 ${record.name}` } as never),
-                        selectedRowKeys: selectedExperimentId ? [selectedExperimentId] : [],
-                        onChange: (keys) => setSelectedExperimentId(Number(keys[0]) || undefined),
-                      }}
-                      columns={[
-                        { title: '名称', dataIndex: 'name' },
-                        { title: '执行器', dataIndex: 'runner_type', width: 110 },
-                        { title: '模式', dataIndex: 'execution_mode', width: 100 },
-                        { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
-                        { title: '协议指纹', dataIndex: 'project_protocol_hash', width: 130, render: (value: string) => <span title={value}>{value ? `${value.slice(0, 12)}…` : '-'}</span> },
-                        { title: '创建时间', dataIndex: 'created_at', width: 180, render: formatDate },
-                      ]}
-                    />
+                    <div className="research-experiment-table">
+                      <Table<ResearchExperiment>
+                        rowKey="id"
+                        size="small"
+                        dataSource={experiments}
+                        pagination={false}
+                        scroll={{ x: 760 }}
+                        rowSelection={{
+                          type: 'radio',
+                          columnTitle: '选择',
+                          getCheckboxProps: (record) => ({ 'aria-label': `选择实验 ${record.name}` } as never),
+                          selectedRowKeys: selectedExperimentId ? [selectedExperimentId] : [],
+                          onChange: (keys) => setSelectedExperimentId(Number(keys[0]) || undefined),
+                        }}
+                        columns={[
+                          { title: '名称', dataIndex: 'name' },
+                          { title: '执行器', dataIndex: 'runner_type', width: 110 },
+                          { title: '模式', dataIndex: 'execution_mode', width: 100 },
+                          { title: '状态', dataIndex: 'status', width: 120, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
+                          { title: '协议指纹', dataIndex: 'project_protocol_hash', width: 130, render: (value: string) => <span title={value}>{value ? `${value.slice(0, 12)}…` : '-'}</span> },
+                          { title: '创建时间', dataIndex: 'created_at', width: 180, render: formatDate },
+                        ]}
+                      />
+                    </div>
+                    <div className="research-experiment-list" role="radiogroup" aria-label="选择实验">
+                      {experiments.length > 0 ? experiments.map((experiment) => (
+                        <label
+                          className={`research-experiment-list-item${selectedExperimentId === experiment.id ? ' is-selected' : ''}`}
+                          key={experiment.id}
+                        >
+                          <input
+                            type="radio"
+                            name="research-experiment"
+                            checked={selectedExperimentId === experiment.id}
+                            onChange={() => setSelectedExperimentId(experiment.id)}
+                            aria-label={`选择实验 ${experiment.name}`}
+                          />
+                          <span className="research-experiment-list-content">
+                            <strong className="research-experiment-list-name">{experiment.name}</strong>
+                            <span className="research-experiment-list-meta">
+                              <span>{experiment.runner_type}</span>
+                              <span>{experiment.execution_mode === 'formal' ? '正式' : '预览'}</span>
+                              <Tag color={statusColor(experiment.status)}>{statusLabel(experiment.status)}</Tag>
+                            </span>
+                            <span className="research-experiment-list-detail">
+                              协议 {experiment.project_protocol_hash ? `${experiment.project_protocol_hash.slice(0, 12)}…` : '-'} · {formatDate(experiment.created_at)}
+                            </span>
+                          </span>
+                        </label>
+                      )) : (
+                        <DisplayEmpty compact illustration="report" title="还没有实验计划" description="还没有实验计划" />
+                      )}
+                    </div>
                     <Space className="research-run-actions">
                       <Button type="primary" disabled={!selectedExperimentId} loading={startRun.isPending} onClick={() => startRun.mutate('sync')}>
                         立即运行
@@ -2429,19 +2460,37 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                     ) : null}
                     {selectedExperimentId ? (
                       <>
-                        <Table<ResearchRun>
-                          rowKey="id"
-                          size="small"
-                          loading={runsQuery.isLoading}
-                          dataSource={runs}
-                          pagination={false}
-                          columns={[
-                            { title: '运行', dataIndex: 'run_token', render: (value) => value.slice(0, 12) },
-                            { title: '状态', dataIndex: 'status', width: 130, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
-                            { title: '产物数', dataIndex: 'outputs', width: 100, render: (value: ResearchRun['outputs']) => value.length },
-                            { title: '结束时间', dataIndex: 'finished_at', width: 180, render: formatDate },
-                          ]}
-                        />
+                        <div className="research-run-table">
+                          <Table<ResearchRun>
+                            rowKey="id"
+                            size="small"
+                            loading={runsQuery.isLoading}
+                            dataSource={runs}
+                            pagination={false}
+                            columns={[
+                              { title: '运行', dataIndex: 'run_token', render: (value) => value.slice(0, 12) },
+                              { title: '状态', dataIndex: 'status', width: 130, render: (value) => <Tag color={statusColor(value)}>{statusLabel(value)}</Tag> },
+                              { title: '产物数', dataIndex: 'outputs', width: 100, render: (value: ResearchRun['outputs']) => value.length },
+                              { title: '结束时间', dataIndex: 'finished_at', width: 180, render: formatDate },
+                            ]}
+                          />
+                        </div>
+                        <div className="research-run-list" aria-label="运行记录">
+                          {runsQuery.isLoading ? (
+                            <div className="research-project-list-state"><Spin size="small" />正在加载运行记录…</div>
+                          ) : runs.length > 0 ? runs.map((run) => (
+                            <div className="research-run-list-item" key={run.id}>
+                              <strong className="research-run-list-name">Run #{run.id} · {run.run_token.slice(0, 12)}</strong>
+                              <span className="research-run-list-meta">
+                                <Tag color={statusColor(run.status)}>{statusLabel(run.status)}</Tag>
+                                <span>{run.outputs.length} 个产物</span>
+                              </span>
+                              <span className="research-run-list-detail">结束 {formatDate(run.finished_at)}</span>
+                            </div>
+                          )) : (
+                            <DisplayEmpty compact illustration="report" title="还没有运行记录" description="还没有运行记录" />
+                          )}
+                        </div>
                         {runs.length > 0 ? (
                           <div className="research-run-timeline-block">
                             <div className="research-run-section-title">运行时间线</div>
