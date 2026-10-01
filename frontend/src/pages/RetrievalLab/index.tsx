@@ -1,4 +1,4 @@
-import { Button, Card, Drawer, Form, Input, InputNumber, Select, Table, Tag, message } from 'antd'
+import { Alert, Button, Card, Drawer, Form, Input, InputNumber, Select, Table, Tag } from 'antd'
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -36,7 +36,8 @@ const strategyOptions = [
 
 export function RetrievalLabPage({ knowledgeBases, initialKnowledgeBaseId }: RetrievalLabPageProps) {
   const [form] = Form.useForm<RetrievalLabForm>()
-  const [messageApi, contextHolder] = message.useMessage()
+  const [lastRequest, setLastRequest] = useState<RetrievalLabForm | null>(null)
+  const [lastResult, setLastResult] = useState<RetrievalDebugResponse | null>(null)
 
   const debugMutation = useMutation({
     mutationFn: (values: RetrievalLabForm) => {
@@ -55,8 +56,8 @@ export function RetrievalLabPage({ knowledgeBases, initialKnowledgeBaseId }: Ret
         top_k: values.top_k,
       })
     },
-    onError: (error: Error) => {
-      messageApi.error(error.message || '检索测试失败')
+    onSuccess: (response) => {
+      setLastResult(response)
     },
   })
 
@@ -81,11 +82,10 @@ export function RetrievalLabPage({ knowledgeBases, initialKnowledgeBaseId }: Ret
     }
   }, [form, initialKnowledgeBase])
 
-  const result = debugMutation.data
+  const result = lastResult
 
   return (
     <div className="page-stack">
-      {contextHolder}
       <Card title="检索测试" className="section-card">
         <Form
           form={form}
@@ -95,7 +95,10 @@ export function RetrievalLabPage({ knowledgeBases, initialKnowledgeBaseId }: Ret
             strategy: initialKnowledgeBase?.default_retrieval_strategy ?? 'hybrid_rrf_no_rerank',
             top_k: initialKnowledgeBase?.default_top_k ?? 8,
           }}
-          onFinish={(values) => debugMutation.mutate(values)}
+          onFinish={(values) => {
+            setLastRequest(values)
+            debugMutation.mutate(values)
+          }}
         >
           <div className="retrieval-policy-note">
             推荐默认使用 Hybrid RRF · fast default；Multi query 适合复杂跨库问题但较慢；Vector only 主要用于诊断 embedding 质量。
@@ -139,6 +142,27 @@ export function RetrievalLabPage({ knowledgeBases, initialKnowledgeBaseId }: Ret
       </Card>
 
       <Card title="候选结果" className="section-card">
+        {debugMutation.error ? (
+          <Alert
+            type="error"
+            showIcon
+            message="本次检索测试失败，已保留上一次成功结果"
+            description={debugMutation.error instanceof Error ? debugMutation.error.message : '请检查知识库和后端连接后重试。'}
+            action={(
+              <Button
+                size="small"
+                loading={debugMutation.isPending}
+                disabled={!lastRequest}
+                onClick={() => {
+                  if (lastRequest) debugMutation.mutate(lastRequest)
+                }}
+              >
+                重试上次检索
+              </Button>
+            )}
+            style={{ marginBottom: 12 }}
+          />
+        ) : null}
         {!result ? (
           <DisplayEmpty
             compact
