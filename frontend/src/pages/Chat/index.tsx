@@ -60,6 +60,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
   const [streamingContent, setStreamingContent] = useState('')
   const [streamError, setStreamError] = useState('')
   const [retryQuestion, setRetryQuestion] = useState('')
+  const [retryAttachment, setRetryAttachment] = useState<AttachedFile | null>(null)
   const [agentSteps, setAgentSteps] = useState<AgentStepItem[]>([])
   const [agentLiveStatus, setAgentLiveStatus] = useState('')
   const [agentElapsedMs, setAgentElapsedMs] = useState(0)
@@ -229,6 +230,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     clearStreamingBuffer()
     setStreamError('')
     setRetryQuestion('')
+    setRetryAttachment(null)
     setIsStreaming(false)
     setAgentSteps([])
     setAgentLiveStatus('')
@@ -262,6 +264,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     clearStreamingBuffer()
     setStreamError('')
     setRetryQuestion('')
+    setRetryAttachment(null)
     setIsStreaming(false)
     setAgentSteps([])
     setAgentLiveStatus('')
@@ -290,6 +293,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       clearStreamingBuffer()
       setStreamError('')
       setRetryQuestion('')
+      setRetryAttachment(null)
       setIsStreaming(false)
       const restoredTrace = extractPersistedAgentTrace(fullMessages)
       setAgentSteps(restoredTrace.steps)
@@ -376,7 +380,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     return false
   }
 
-  const handleSubmit = (questionOverride?: string) => {
+  const handleSubmit = (questionOverride?: string, attachmentOverride?: AttachedFile | null) => {
     const question = (questionOverride ?? inputValue).trim()
     if (!question) return
     if (isStreaming || submitLockRef.current) return
@@ -394,10 +398,11 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
 
     submitLockRef.current = true
 
+    const activeAttachment = attachmentOverride === undefined ? attachedFile : attachmentOverride
     const userMessage: ChatMessage = {
       id: Date.now(),
       role: 'user',
-      content: question + (attachedFile ? ` [附带文件: ${attachedFile.name}]` : ''),
+      content: question + (activeAttachment ? ` [附带文件: ${activeAttachment.name}]` : ''),
       citations: [],
       artifacts: [],
       created_at: new Date().toISOString(),
@@ -429,7 +434,8 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       setFixTarget(null)
     }
     setRetryQuestion(actualQuestion)
-    const fileContent = attachedFile?.content || null
+    setRetryAttachment(activeAttachment)
+    const fileContent = activeAttachment?.content || null
     setAttachedFile(null)
 
     if (chatMode === 'agent') {
@@ -517,6 +523,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             if (streamTerminalRef.current || streamRequestIdRef.current !== requestId) return
             streamTerminalRef.current = true
             setRetryQuestion('')
+            setRetryAttachment(null)
             // 先移除临时流，再加载已落盘消息，避免同一答案短暂出现两次。
             // Agent 步骤保留在当前页面，方便用户在最终回答后继续查看运行追踪。
             finishStream()
@@ -590,6 +597,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             streamTerminalRef.current = true
             const newSessionId = event.session_id
             setRetryQuestion('')
+            setRetryAttachment(null)
             // Mark completion before clearing the transient stream. While the
             // persisted assistant message is fetched, suppress the trace-only
             // bubble so a completed answer never looks like a second response.
@@ -1032,7 +1040,7 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
             streamingContent={streamingContent}
             streamError={streamError}
             retryQuestion={retryQuestion}
-            onRetry={() => handleSubmit(retryQuestion)}
+            onRetry={() => handleSubmit(retryQuestion, retryAttachment)}
             messagesEndRef={messagesEndRef}
             onDownloadArtifact={downloadArtifact}
             onStartFix={startFixMode}
