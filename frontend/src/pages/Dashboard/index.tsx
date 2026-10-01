@@ -50,8 +50,8 @@ export function DashboardPage({ summary, loading }: DashboardPageProps) {
       {summary?.embedding_fallback_active ? (
         <Alert
           type="warning"
-          message="Embedding 服务不可用，已保护性降级"
-          description={summary.embedding_last_error ?? '部分文档或最近一次向量化使用了 hash fallback；默认 hybrid 会使用 FTS + 规则排序，vector_only 仅用于诊断。'}
+          message="Embedding 未配置或不可用（不影响 Chat / Agent）"
+          description={formatEmbeddingNotice(summary.embedding_last_error)}
           showIcon={false}
         />
       ) : null}
@@ -126,4 +126,17 @@ function formatMs(value: number | null | undefined): string {
 
 function formatPercent(value: number | null | undefined): string {
   return typeof value === 'number' ? `${(value * 100).toFixed(1)}%` : '-'
+}
+
+function formatEmbeddingNotice(error: string | null): string {
+  const normalized = (error ?? '').toLowerCase()
+  let detail = '当前文档或最近一次向量化使用了 hash fallback。'
+  if (normalized.includes('404') || normalized.includes('not found')) {
+    detail = '当前聊天网关没有提供 /embeddings 接口。'
+  } else if (normalized.includes('401') || normalized.includes('403') || normalized.includes('unauthorized')) {
+    detail = 'Embedding 接口拒绝了请求，请检查独立的 Embedding API Key。'
+  } else if (error && !normalized.includes('http://') && !normalized.includes('https://')) {
+    detail = error.slice(0, 180)
+  }
+  return `${detail} 默认 hybrid 会使用 FTS + 规则排序；vector_only 仅用于诊断。聊天模型和 Agent 仍可正常使用。`
 }

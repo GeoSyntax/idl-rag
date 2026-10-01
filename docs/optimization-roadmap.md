@@ -183,6 +183,7 @@
 - [x] 每次流式请求落盘 `stream_id`、终态（`completed` / `failed` / `cancelled`）、服务端耗时、首 token 耗时、引用/产物数量、Agent 步数和受限错误摘要；旧数据库会在启动时兼容补列。
 - [x] 新增 `GET /api/chat/sessions/{session_id}/runs?limit=20`，只返回当前用户拥有会话的安全运行元数据，不返回 prompt、原始模型输出或凭据。
 - [x] 历史会话加载后在同一个聊天区域展示运行记录，失败/取消请求不会伪装为成功；旧记录没有 stream ID 的字段会保守显示为“已完成/失败”，不影响原有消息恢复。
+- [x] 概览页将 Embedding 降级与 Chat/Agent 模型状态分开表达，不再把网关 404、URL 和 httpx 原始错误直接展示给用户；有运行记录的历史会话即使只有一次成功请求也会显示可核对的运行条目。
 - [x] 回归证据：后端全量 `163 passed, 1 skipped`；Ruff、Python 编译检查和前端生产构建均通过；本地 Gemini2API 实时 Agent 回放收到 `run_started → step × 8 → token → done`，并在 session 87 的运行接口中读取到 `completed`、`agent_step_count=8`、`error_message=null`。
 
 下一步仍需把这份运行记录与“从历史失败记录一键重试”以及浏览器自动化验收串起来；当前已经可以用于人工核对一次请求是否真的开始、如何结束和是否写入安全审计元数据。

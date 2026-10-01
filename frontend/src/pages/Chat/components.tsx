@@ -33,7 +33,7 @@ export function KnowledgeStatusBar({
           {status.active > 0 ? <span>索引中 {status.active}</span> : null}
           {status.stale > 0 ? <span>stale {status.stale}</span> : null}
           {status.failed > 0 ? <span>失败 {status.failed}</span> : null}
-          {status.fallback > 0 ? <span>fallback embedding {status.fallback} · 默认 hybrid 已切换 FTS（vector_only 仅用于诊断）</span> : null}
+          {status.fallback > 0 ? <span>fallback embedding {status.fallback} · 仅影响语义检索，默认 hybrid 使用 FTS；Chat / Agent 仍可用</span> : null}
           {retrievalConfig ? (
             <span>{retrievalConfig.strategy} · top_k {retrievalConfig.topK} · {retrievalConfig.rerank ? 'rerank on' : 'rerank off'}{retrievalConfig.note ? ` · ${retrievalConfig.note}` : ''}</span>
           ) : null}
@@ -168,7 +168,7 @@ export function MessageList({
           runningArtifactId={runningArtifactId}
         />
       ))}
-      {agentRunHistory.length > 1 || agentRunHistory.some((run) => run.terminal_status !== 'completed') ? (
+      {agentRunHistory.length > 0 ? (
         <AgentRunHistory runs={agentRunHistory} />
       ) : null}
       {(isStreaming || (agentSteps.length > 0 && !traceAttachedToMessage && !agentRunComplete) || Boolean(streamError)) && (
