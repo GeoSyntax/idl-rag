@@ -558,10 +558,12 @@ function ArtifactImagePreview({
   const [objectUrl, setObjectUrl] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
     let nextObjectUrl = ''
+    setObjectUrl('')
     setLoadError('')
     api.fetchChatArtifactBlob(artifact.download_url)
       .then((blob) => {
@@ -576,7 +578,7 @@ function ArtifactImagePreview({
       active = false
       if (nextObjectUrl) window.URL.revokeObjectURL(nextObjectUrl)
     }
-  }, [artifact.download_url])
+  }, [artifact.download_url, loadAttempt])
 
   return (
     <div className="chat-artifact-image-card">
@@ -589,6 +591,13 @@ function ArtifactImagePreview({
         <button className="chat-artifact-image-button" type="button" onClick={() => setPreviewOpen(true)}>
           <img className="chat-artifact-image-thumb" src={objectUrl} alt={artifact.file_name} />
         </button>
+      ) : loadError ? (
+        <div className="chat-artifact-image-placeholder chat-artifact-image-load-error" role="alert">
+          <span>{loadError}</span>
+          <Button size="small" type="link" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+            重试加载
+          </Button>
+        </div>
       ) : (
         <DisplayPlaceholder kind="image" text={loadError || '正在加载图片...'} />
       )}

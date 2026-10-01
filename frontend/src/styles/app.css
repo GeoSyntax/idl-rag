@@ -1647,6 +1647,14 @@ body { min-height: 100dvh; }
   background: var(--surface);
 }
 
+.chat-artifact-image-load-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  color: var(--error);
+}
+
 .chat-artifact-image-full {
   display: block;
   max-width: 100%;
