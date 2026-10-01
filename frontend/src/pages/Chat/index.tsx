@@ -573,7 +573,6 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     if (activeRunSessionIdRef.current !== null) {
       void refreshChatRuns(activeRunSessionIdRef.current)
     }
-    messageApi.error(errorMsg)
     finishStream()
   }
 
@@ -589,7 +588,6 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
       if (activeRunSessionIdRef.current !== null) {
         void refreshChatRuns(activeRunSessionIdRef.current)
       }
-      messageApi.error(message)
     }
     finishStream()
   }
