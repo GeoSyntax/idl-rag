@@ -771,7 +771,7 @@ class AgentService:
         def record_trace(event: dict) -> None:
             if len(trace_steps) >= _AGENT_TRACE_MAX_STEPS:
                 return
-            if event.get("step") not in {"tool_call", "tool_result", "error"}:
+            if event.get("step") not in {"plan", "tool_call", "tool_result", "error"}:
                 return
             trace_steps.append(self._compact_agent_trace_step(event, len(trace_steps) + 1))
 
@@ -829,6 +829,25 @@ class AgentService:
             return result
 
         yield {"type": "step", "step": "thinking", "content": "正在分析问题并规划步骤..."}
+
+        if cancel_event is not None and cancel_event.is_set():
+            return
+
+        plan_items = self._build_agent_plan(payload, kb_ids, fix_intent)
+        plan_event = {
+            "type": "step",
+            "step": "plan",
+            "content": "已生成任务计划，接下来按授权和资料状态执行。",
+            "metadata": {
+                "items": plan_items,
+                "knowledge_base_selected": bool(kb_ids),
+                "external_research_allowed": bool(payload.allow_external_research),
+                "research_execution_allowed": bool(payload.allow_research_execution),
+                "gee_fetch_allowed": bool(payload.allow_gee_fetch),
+            },
+        }
+        record_trace(plan_event)
+        yield plan_event
 
         # A selected knowledge base is an explicit request to ground the
         # answer in the user's materials. Do one bounded retrieval before the
@@ -1840,6 +1859,34 @@ class AgentService:
         if len(question) < 50:
             return _MAX_ROUNDS_SIMPLE
         return 3
+
+    @staticmethod
+    def _build_agent_plan(payload: ChatRequest, kb_ids: list[int], fix_intent: bool) -> list[str]:
+        """Build a bounded, factual plan for the user-facing Agent trace."""
+        items: list[str] = []
+        if payload.research_project_id is not None:
+            items.append("读取当前研究项目上下文与协议状态")
+            items.append("检索项目绑定资料，并核对数据与运行证据")
+            if payload.allow_external_research:
+                items.append("按本次授权补充公开文献候选")
+            if payload.allow_gee_fetch:
+                items.append("仅在明确确认后登记 GEE 数据资产")
+            if payload.allow_research_execution:
+                items.append("仅在明确确认后创建或排队 Python preview")
+        else:
+            if kb_ids:
+                items.append("检索已选择的知识库资料")
+            if payload.input_artifact_ids or payload.attached_file_content:
+                items.append("读取用户提供的输入资料")
+            if fix_intent or payload.generate_pro_file:
+                items.append("分析现有代码并准备可验证的修改")
+            elif AgentService._detect_code_intent(payload.question):
+                items.append("根据资料分析代码、函数或处理脚本")
+            if payload.allow_external_research:
+                items.append("按本次授权补充公开文献候选")
+
+        items.append("基于实际检索结果生成回答，并标注可核查来源")
+        return items[:6]
 
     @staticmethod
     def _select_agent_tool_names(

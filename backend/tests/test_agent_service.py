@@ -672,6 +672,8 @@ def test_agent_prefetches_selected_knowledge_base_before_final_answer(monkeypatc
         )
 
         tool_events = [event for event in events if event.get("step") in {"tool_call", "tool_result"}]
+        plan_event = next(event for event in events if event.get("step") == "plan")
+        assert plan_event["metadata"]["items"][0] == "检索已选择的知识库资料"
         assert [event["step"] for event in tool_events[:2]] == ["tool_call", "tool_result"]
         assert tool_events[0]["tool"] == "kb_search"
         assert tool_events[1]["tool"] == "kb_search"
@@ -682,7 +684,8 @@ def test_agent_prefetches_selected_knowledge_base_before_final_answer(monkeypatc
         )
         assert "kb_search" not in captured["tool_names"]
         assistant = db.query(ChatMessage).filter(ChatMessage.role == "assistant").one()
-        assert assistant.agent_trace_json["steps"][0]["tool"] == "kb_search"
+        assert assistant.agent_trace_json["steps"][0]["step"] == "plan"
+        assert assistant.agent_trace_json["steps"][1]["tool"] == "kb_search"
         assert assistant.citations_json[0]["title"] == "MNDWI 公式"
     finally:
         db.close()

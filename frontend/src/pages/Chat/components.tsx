@@ -159,7 +159,7 @@ export function MessageList({
   // messages. Rendering them as a second assistant bubble makes a completed
   // answer look duplicated. Attach the inspectable tool trace to the final
   // persisted answer; only an in-flight request gets a temporary trace bubble.
-  const traceSteps = agentSteps.filter((step) => ['tool_call', 'tool_result'].includes(step.step))
+  const traceSteps = agentSteps.filter((step) => ['plan', 'tool_call', 'tool_result'].includes(step.step))
   const lastAssistantMessageId = agentRunComplete && !isStreaming
     ? [...messages].reverse().find((message) => message.role === 'assistant')?.id
     : undefined
@@ -647,6 +647,7 @@ function formatElapsed(elapsedMs: number): string {
 }
 
 function getStepLabel(step: AgentStepItem): string {
+  if (step.step === 'plan') return '任务计划'
   if (step.step === 'thinking') return '思考中...'
   if (step.step === 'tool_call') return `调用工具: ${step.tool}`
   if (step.step === 'tool_result') return `工具结果: ${step.tool}`
@@ -656,6 +657,21 @@ function getStepLabel(step: AgentStepItem): string {
 }
 
 function StepContent({ step, showResearchSummary = false }: { step: AgentStepItem; showResearchSummary?: boolean }) {
+  if (step.step === 'plan') {
+    const items = Array.isArray(step.metadata?.items)
+      ? step.metadata.items.filter((item): item is string => typeof item === 'string')
+      : []
+    return (
+      <div className="chat-agent-plan">
+        <p className="chat-agent-plan-intro">{step.content || 'Agent 将按以下计划处理本次请求。'}</p>
+        {items.length > 0 ? (
+          <ol>
+            {items.map((item) => <li key={item}>{item}</li>)}
+          </ol>
+        ) : null}
+      </div>
+    )
+  }
   if (step.step === 'thinking' || step.step === 'answer' || step.step === 'error') {
     return <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{step.content}</p>
   }

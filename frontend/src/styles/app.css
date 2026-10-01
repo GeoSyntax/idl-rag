@@ -1791,6 +1791,24 @@ body { min-height: 100dvh; }
   min-width: 0;
 }
 
+.chat-agent-plan-intro {
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.chat-agent-plan ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.chat-agent-plan li {
+  padding-left: 2px;
+  overflow-wrap: anywhere;
+}
+
 .chat-agent-trace-attached {
   margin-top: 10px;
   padding-top: 10px;
