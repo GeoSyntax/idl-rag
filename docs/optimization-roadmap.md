@@ -286,3 +286,4 @@
 - [x] 上传 Artifact 后才开放 `read_artifact`、`analyze_code`、`lint_code` 等本地代码工具；没有检索资料时，任务计划明确写成“基于模型知识生成回答，并明确未使用检索来源”。
 - [x] 真实 Gemini2API 回放：IDL GeoTIFF 请求从此前 7 次空检索/21 秒兜底，变为 0 次工具调用、正常输出完整 IDL 示例；SSE 只有 1 条助手回答、0 个错误气泡、0 个引用，页面 500px 无横向溢出。
 - [x] 无资料 Agent 现在直接进入一次无工具流式回答，不再先请求一份草稿再二次改写；实测单次 `POST /api/chat/agent-stream` 返回 `run_started → thinking → plan → waiting → token* → answer → done`，`done` 携带模型总耗时与首 token 耗时，避免把上游两次调用误显示成两条回答。
+- [x] 无工具路径改用精简的 IDL 系统提示，不再把完整研究工具协议发送给 Gemini2API；同一 IDL GeoTIFF 回放从约 19.3 秒降至约 11.8 秒，模型首 token 从约 16.1 秒降至约 8.7 秒，仍保持 1 条回答、0 个引用和 0 个错误。

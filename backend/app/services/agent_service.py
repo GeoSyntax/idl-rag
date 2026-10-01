@@ -200,6 +200,19 @@ _IDL_SYSTEM_PROMPT = (
     "12. public_literature_search 只有在用户明确要求外部文献搜索且已打开外部搜索开关时才可使用；它不需要项目绑定，但只返回公开候选，不创建审计、证据卡或 RAG 文档。\n"
 )
 
+# Keep the no-tool path small.  The full prompt contains the research tool
+# contract, permission rules, and continuation policy; sending all of that for
+# a standalone IDL explanation makes a local Gemini2API gateway spend time
+# processing instructions that cannot be used in this request.
+_IDL_NO_TOOL_SYSTEM_PROMPT = (
+    "你是一个专业的 ENVI/IDL 代码助手。当前请求没有知识库、研究项目、上传文件或可用工具。\n"
+    "请直接回答用户问题，不要输出 JSON、工具调用、隐藏分析过程或虚构检索来源。\n"
+    "IDL 代码必须遵守：每个 pro/function 以 compile_opt idl2 开头；"
+    "方法调用使用 ->；遥感大图处理后释放对象资源；不要混入 Python 语法。\n"
+    "如果无法确认具体 ENVI/IDL 版本的 API，请写明假设和待验证项，不要声称代码已经编译通过。\n"
+    "如果回答基于模型自身知识，请明确说明本轮未使用外部检索来源；不要添加 [1]、[2] 等引用标记。"
+)
+
 
 class AgentService:
     def __init__(self) -> None:
@@ -717,16 +730,23 @@ class AgentService:
             # rediscovering the same fixed plan.
             max_rounds = 2
 
-        # 构建 LLM 消息序列
-        system_prompt = _IDL_SYSTEM_PROMPT
-        if payload.allow_external_research:
+        # 构建 LLM 消息序列。无资料请求不需要携带完整的研究工具协议，
+        # 这样可以减少 Gemini2API 首 token 前的提示词处理量；有任何资料、
+        # 项目或工具时仍使用完整 Agent 规则。
+        compact_no_tool_prompt = (
+            agent_tool_names == set()
+            and not payload.research_project_id
+            and not payload.attached_file_content
+        )
+        system_prompt = _IDL_NO_TOOL_SYSTEM_PROMPT if compact_no_tool_prompt else _IDL_SYSTEM_PROMPT
+        if not compact_no_tool_prompt and payload.allow_external_research:
             system_prompt += (
                 "\n\n本次已允许外部公开文献搜索：只有在用户明确询问论文、方法依据或外部资料时才调用 "
                 "public_literature_search；只发送经过整理的公开查询词，不发送上传文件、私有路径、项目资产或凭据。\n"
             )
-        else:
+        elif not compact_no_tool_prompt:
             system_prompt += "\n\n本次未允许外部文献搜索；不要调用 public_literature_search。\n"
-        if payload.research_project_id is not None:
+        if not compact_no_tool_prompt and payload.research_project_id is not None:
             external_policy = (
                 "用户已明确允许本次外部文献搜索；只有确实需要时才调用 research_literature_search。"
                 if payload.allow_external_research
@@ -756,7 +776,7 @@ class AgentService:
                 "如果缺少某些候选运行或指标，必须明确说‘当前无法排名’，把候选交回研究页 parameter sweep，不能用常识补齐数字或顺序。"
             )
 
-        if agent_tool_names == set():
+        if agent_tool_names == set() and not compact_no_tool_prompt:
             system_prompt += (
                 "\n\n本次请求没有绑定知识库、项目资料或可用检索工具。"
                 "请直接基于模型知识回答；不要尝试调用 kb_search、grep_search 或其他未声明工具，"
@@ -990,6 +1010,7 @@ class AgentService:
             and not research_status_fast_path
             and not payload.generate_pro_file
             and not fix_intent
+            and not payload.attached_file_content
         )
         fast_path_final = no_tool_final_path
 
