@@ -849,7 +849,6 @@ export function ChatPage({ knowledgeBases, initialKnowledgeBaseId, initialResear
     setAgentRunMeta(null)
     setStreamError('生成已停止，未保存完整回答。')
     finishStream()
-    messageApi.info('已停止生成')
   }
 
   const downloadArtifact = async (artifact: ChatArtifact) => {

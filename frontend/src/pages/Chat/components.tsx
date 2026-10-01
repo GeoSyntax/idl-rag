@@ -238,7 +238,7 @@ export function MessageList({
               </div>
             ) : null}
             {streamError ? (
-              <div className="chat-stream-error">
+              <div className="chat-stream-error" role="status" aria-live="polite">
                 <CloseCircleOutlined />
                 <span className="chat-stream-error-message">{streamError}</span>
                 {streamId ? <span className="chat-stream-error-id">流 {streamId}</span> : null}
