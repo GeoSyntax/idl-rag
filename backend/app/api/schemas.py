@@ -422,6 +422,11 @@ class DashboardSummaryResponse(BaseModel):
     stale_document_count: int = 0
     failed_document_count: int
     fallback_document_count: int = 0
+    embedding_mismatch_count: int = 0
+    unresolved_failed_job_count: int = 0
+    expected_embedding_model: str | None = None
+    expected_embedding_dimensions: int | None = None
+    expected_index_table: str | None = None
     chunk_count: int = 0
     avg_chunks_per_document: float | None = None
     avg_index_job_seconds: float | None = None

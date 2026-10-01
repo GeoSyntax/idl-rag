@@ -24,6 +24,9 @@ def test_runtime_backup_snapshots_database_and_verifies_hashes(tmp_path: Path) -
     assert result["file_count"] == 2
     assert verify_backup(archive)["status"] == "pass"
 
-    with zipfile.ZipFile(archive, "a") as handle:
-        handle.writestr("sources/manifest.txt", "tampered")
+    tampered = tmp_path / "tampered.zip"
+    with zipfile.ZipFile(archive) as source, zipfile.ZipFile(tampered, "w") as target:
+        for item in source.infolist():
+            target.writestr(item, "tampered" if item.filename == "sources/manifest.txt" else source.read(item.filename))
+    tampered.replace(archive)
     assert verify_backup(archive)["status"] == "fail"

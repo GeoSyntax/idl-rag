@@ -10,10 +10,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Chunk, Document, EvaluationReport, KnowledgeBase
+from app.db.models import Chunk, Document, EvaluationReport, IndexJob, KnowledgeBase
+from app.services.embedding_service import EmbeddingService
+from app.services.settings_service import get_runtime_settings
 
 PRODUCTION_REQUIREMENTS = [
     "所有资料必须完成索引（ready），不能有 queued、processing、stale 或 failed 文档",
@@ -49,6 +51,44 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
                 )
             ).scalar_one()
         )
+        runtime_settings = get_runtime_settings(db)
+        embedding_service = EmbeddingService()
+        expected_embedding_model = runtime_settings.embedding_model
+        expected_embedding_dimensions = embedding_service.get_dimensions()
+        expected_index_table = embedding_service.get_table_name(db)
+        embedding_mismatch_count = int(
+            db.execute(
+                select(func.count(Document.id)).where(
+                    Document.knowledge_base_id == knowledge_base.id,
+                    or_(
+                        Document.embedding_model.is_(None),
+                        Document.embedding_model != expected_embedding_model,
+                        Document.embedding_dimensions.is_(None),
+                        Document.embedding_dimensions != expected_embedding_dimensions,
+                        Document.index_table.is_(None),
+                        Document.index_table != expected_index_table,
+                    ),
+                )
+            ).scalar_one()
+        )
+        unresolved_failed_job_count = 0
+        failed_jobs = (
+            db.query(IndexJob)
+            .filter(IndexJob.knowledge_base_id == knowledge_base.id, IndexJob.status == "failed")
+            .all()
+        )
+        for failed_job in failed_jobs:
+            completed_after = db.execute(
+                select(IndexJob.id)
+                .where(
+                    IndexJob.document_id == failed_job.document_id,
+                    IndexJob.status == "completed",
+                    IndexJob.id > failed_job.id,
+                )
+                .limit(1)
+            ).scalar_one_or_none()
+            if completed_after is None:
+                unresolved_failed_job_count += 1
         chunk_count = int(
             db.execute(
                 select(func.count(Chunk.id)).where(Chunk.knowledge_base_id == knowledge_base.id)
@@ -87,6 +127,10 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
             blockers.append(f"{non_ready_count} 份资料尚未完成索引")
         if fallback_count:
             blockers.append(f"{fallback_count} 份资料使用 fallback embedding")
+        if embedding_mismatch_count:
+            blockers.append(f"{embedding_mismatch_count} 份资料的 embedding 模型、维度或索引签名不一致")
+        if unresolved_failed_job_count:
+            blockers.append(f"{unresolved_failed_job_count} 个索引任务失败且尚未被后续成功任务覆盖")
         if evaluation_stale:
             blockers.append("索引在最近一次评测后发生变化，需要重新评测")
         elif not has_eval:
@@ -105,6 +149,11 @@ def build_corpus_readiness(db: Session, owner_user_id: int) -> dict[str, object]
                 "queued_document_count": int(status_counts.get("queued", 0)),
                 "processing_document_count": int(status_counts.get("processing", 0)),
                 "fallback_document_count": fallback_count,
+                "embedding_mismatch_count": embedding_mismatch_count,
+                "unresolved_failed_job_count": unresolved_failed_job_count,
+                "expected_embedding_model": expected_embedding_model,
+                "expected_embedding_dimensions": expected_embedding_dimensions,
+                "expected_index_table": expected_index_table,
                 "chunk_count": chunk_count,
                 "evaluation_completed": has_eval,
                 "evaluation_stale": evaluation_stale,
