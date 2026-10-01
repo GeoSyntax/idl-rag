@@ -375,6 +375,15 @@ def test_python_runner_generates_rasters_previews_and_reproducible_manifest(monk
             assert "poyang_scene.tif" not in names
             package_manifest = json.loads(archive.read("package_manifest.json"))
             assert package_manifest["privacy"]["raw_data_included"] is False
+            execution_provenance = package_manifest["execution_provenance"]
+            assert execution_provenance["runner"] == "python"
+            assert isinstance(execution_provenance["environment"], dict)
+            assert execution_provenance["script"] is None
+            assert execution_provenance["data_snapshot"] == {
+                "id": snapshot["id"],
+                "sha256": snapshot["snapshot_hash"],
+            }
+            assert execution_provenance["formula"] == {"id": formula["id"], "version": 1}
             assert package_manifest["project_protocol"]["revision_id"] == experiment["project_protocol_revision_id"]
             assert package_manifest["project_protocol"]["sha256"] == experiment["project_protocol_hash"]
             assert json.loads(archive.read("project_protocol.json")) == {

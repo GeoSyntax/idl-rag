@@ -296,3 +296,4 @@
 - [x] SSE 在 `done` 前异常断开时，前端按本次 `run_started` 的 session/message 关联句柄短暂读取已落盘消息；若服务器已保存完整 assistant answer，则直接恢复同一条回答，不再显示错误后让用户重复提交；未落盘时才保留原有可重试错误。
 - [x] IDL 运行结果绑定源码 provenance：运行消息记录 `.pro` 的 revision、文件名和 SHA-256 摘要，输出 artifact 复用同一份 metadata，前端结果卡显示源码版本与摘要，老师可以核对结果对应的具体代码快照。
 - [x] 研究运行时间线同步显示执行 provenance：IDL Run 显示脚本资产编号、文件名和 SHA-256 摘要；Python/IDL Run 同时显示数据快照编号与摘要，时间线与运行详情使用同一份 manifest 字段，不暴露私有路径。
+- [x] Evidence Package 的 `package_manifest.json` 增加顶层 `execution_provenance`：导出的 ZIP 可直接核对 runner、执行环境摘要、脚本指纹、数据快照摘要和公式版本，不必先解析内部 runner manifest。

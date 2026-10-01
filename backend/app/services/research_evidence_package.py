@@ -308,6 +308,19 @@ class ResearchEvidencePackageService:
                 "validation_plan": experiment.validation_plan_json,
                 "visualization_contract": experiment.visualization_contract_json,
             },
+            "execution_provenance": {
+                "runner": experiment.runner_type,
+                "environment": run_manifest.get("runner") if isinstance(run_manifest.get("runner"), dict) else None,
+                "script": run_manifest.get("script_provenance"),
+                "data_snapshot": {
+                    "id": snapshot.id,
+                    "sha256": snapshot.snapshot_hash,
+                },
+                "formula": {
+                    "id": formula_spec.id,
+                    "version": formula_spec.version,
+                },
+            },
             "runner_manifest_digest": self._sha256_json(run_manifest),
             "generated_outputs": [
                 {
@@ -390,7 +403,7 @@ class ResearchEvidencePackageService:
 
     @staticmethod
     def _readme() -> str:
-        return """# Research Evidence Package\n\nThis ZIP is an auditable record for one completed **formal** research run.\n\n- `package_manifest.json` describes the project, frozen snapshot, formula, evidence cards, experiment, privacy boundary, and output digests.\n- `project_protocol.json`, `formula_spec.json`, `experiment.json`, and `run_manifest.json` preserve the registered execution context.\n- `outputs/` contains only runner-generated visual and analysis products, never uploaded raw input data.\n- `checksums.sha256` verifies every other file in this package.\n\nUse the original protected project store to access the referenced input data. Scientific conclusions must remain within the registered validation plan and conclusion boundary.\n"""
+        return """# Research Evidence Package\n\nThis ZIP is an auditable record for one completed **formal** research run.\n\n- `package_manifest.json` describes the project, frozen snapshot, formula, evidence cards, execution provenance, privacy boundary, and output digests.\n- `execution_provenance` records the runner, immutable script fingerprint when applicable, data snapshot hash, and formula version.\n- `project_protocol.json`, `formula_spec.json`, `experiment.json`, and `run_manifest.json` preserve the registered execution context.\n- `outputs/` contains only runner-generated visual and analysis products, never uploaded raw input data.\n- `checksums.sha256` verifies every other file in this package.\n\nUse the original protected project store to access the referenced input data. Scientific conclusions must remain within the registered validation plan and conclusion boundary.\n"""
 
     @staticmethod
     def _data_access_note() -> str:
