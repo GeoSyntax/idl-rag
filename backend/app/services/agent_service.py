@@ -980,7 +980,18 @@ class AgentService:
                 agent_tool_names.discard("kb_search")
 
         fast_path_pending = research_status_fast_path
-        fast_path_final = False
+        # A no-tool request should use the ordinary streaming endpoint once.
+        # Calling agent_generate first and then converting its draft through a
+        # second tools-free request doubled Gemini2API latency for code
+        # questions that had no knowledge base to search.
+        no_tool_final_path = (
+            agent_tool_names == set()
+            and not kb_ids
+            and not research_status_fast_path
+            and not payload.generate_pro_file
+            and not fix_intent
+        )
+        fast_path_final = no_tool_final_path
 
         for round_num in range(max_rounds):
             if cancel_event is not None and cancel_event.is_set():
@@ -1057,23 +1068,37 @@ class AgentService:
             if fast_path_final:
                 marker_filter = _CitationMarkerStreamFilter(len(all_citations))
                 streamed_fast_answer = False
+                final_stream_started_at = time.perf_counter()
 
                 def emit_fast_content(content: str) -> None:
-                    nonlocal streamed_fast_answer
+                    nonlocal streamed_fast_answer, llm_first_token_ms
                     safe_content = marker_filter.feed(content)
                     if safe_content:
                         streamed_fast_answer = True
+                        if llm_first_token_ms is None:
+                            llm_first_token_ms = (time.perf_counter() - final_stream_started_at) * 1000
                         if token_callback is not None:
                             token_callback(safe_content)
 
                 try:
-                    draft = "请基于刚才的项目状态、协议就绪检查和运行摘要，给出面向研究者的简洁下一步建议。"
+                    draft = (
+                        "请直接回答用户问题；当前没有可用的检索工具或项目资料，"
+                        "不要输出 JSON、工具调用或分析过程，并明确说明没有使用检索来源。"
+                        if no_tool_final_path
+                        else "请基于刚才的项目状态、协议就绪检查和运行摘要，给出面向研究者的简洁下一步建议。"
+                    )
                     answer = self.llm_service.agent_final_answer_stream(
                         db,
                         llm_messages,
                         draft,
                         emit_fast_content,
                     )
+                    phase_timing["llm_total_ms"] = phase_timing.get("llm_total_ms", 0.0) + (
+                        time.perf_counter() - final_stream_started_at
+                    ) * 1000
+                    provider_first_token_ms = getattr(self.llm_service, "last_timing", {}).get("first_token_ms")
+                    if llm_first_token_ms is None and isinstance(provider_first_token_ms, (int, float)):
+                        llm_first_token_ms = float(provider_first_token_ms)
                     tail = marker_filter.finish()
                     if tail and token_callback is not None:
                         token_callback(tail)
@@ -1987,7 +2012,12 @@ class AgentService:
             if fix_intent or payload.generate_pro_file:
                 add_item("code_review", "分析现有代码并准备可验证的修改", "code")
             elif AgentService._detect_code_intent(payload.question):
-                add_item("code_analysis", "根据资料分析代码、函数或处理脚本", "code")
+                code_label = (
+                    "根据已绑定资料分析代码、函数或处理脚本"
+                    if kb_ids or payload.input_artifact_ids or payload.attached_file_content
+                    else "分析代码、函数或处理脚本"
+                )
+                add_item("code_analysis", code_label, "code")
             literature_requested = any(keyword in question for keyword in ("论文", "文献", "literature", "paper"))
             if payload.allow_external_research or literature_requested:
                 add_item(
