@@ -48,3 +48,25 @@ def test_license_report_preserves_explicit_reviewer_evidence(tmp_path: Path) -> 
         "evidence_sha256": "abc123",
         "notes": "article page",
     }
+
+
+def test_license_report_merges_non_clearing_metadata_candidate(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.jsonl"
+    candidates = tmp_path / "candidates.jsonl"
+    manifest.write_text(
+        '{"file_name":"a.pdf","title":"A","doi":"https://doi.org/1",'
+        '"license_status":"openalex_oa_flag__redistribution_terms_must_be_verified"}\n',
+        encoding="utf-8",
+    )
+    candidates.write_text(
+        '{"file_name":"a.pdf","candidate_status":"metadata_license_found",'
+        '"license_candidates":[{"url":"https://creativecommons.org/licenses/by/4.0/"}],'
+        '"crossref_url":"https://api.crossref.org/works/1","error":""}\n',
+        encoding="utf-8",
+    )
+
+    report = build_review_report(manifest, candidates)
+
+    assert report["pending_records"] == 1
+    assert report["metadata_license_candidate_records"] == 1
+    assert report["records"][0]["metadata_candidate"]["license_candidates"][0]["url"].endswith("by/4.0/")

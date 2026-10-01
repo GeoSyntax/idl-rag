@@ -21,6 +21,18 @@
 
 307 篇本地 OA PDF 当前全部进入许可人工复核队列，尚未自动标记为可再分发。可用 `backend/scripts/license_review_report.py` 生成 JSON/Markdown 队列；审核人可以在 JSONL 记录中填写 `review_evidence`（许可证 URL、许可证名称、是否允许再分发、审核人、日期、证据 SHA-256 和备注），只有同时明确填写证据并将状态设为 `cleared_*` 后，公开资料包的 `--require-cleared-licenses` 闸门才会通过。报告会保留这些字段，不会把 OpenAlex 的 OA 标记推断成许可。内部受控部署可以检索这些资料，但教师/企业跨组织共享前仍需完成这一步。
 
+当前还生成了独立的 Crossref 许可证候选队列：
+
+```powershell
+python backend/scripts/collect_license_candidates.py `
+  --output data/logs/license_candidates.jsonl `
+  --timeout-seconds 8 --retries 1 --workers 8
+python backend/scripts/license_review_report.py `
+  --candidates data/logs/license_candidates.jsonl
+```
+
+最近一次采集覆盖 307 篇论文，其中 183 条返回了 Crossref license URL，124 条没有许可证元数据，123 条因 TLS/429 等外部请求错误需要重试。这个队列只提供发现证据，不改变 `license_status`；审核人仍必须打开文章或许可证页面，确认当前版本的再分发条款，并把证据写回原始 manifest。
+
 注意：43 条混合 golden question 不能直接用于评价每个知识库的整体质量；知识库 5 若混入 IDL 符号题会得到误导性的低命中率。因此评测必须按知识库/资料域分组，报告中同时保留快速检索评测和可选的 Gemini2API 端到端慢评测。
 
 ## Embedding 选择

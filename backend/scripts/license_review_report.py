@@ -66,12 +66,25 @@ def _review_evidence(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_review_report(manifest: Path) -> dict[str, Any]:
+def _load_candidates(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None or not path.exists():
+        return {}
+    candidates: dict[str, dict[str, Any]] = {}
+    for item in _load_jsonl(path):
+        file_name = str(item.get("file_name") or "")
+        if file_name:
+            candidates[file_name] = item
+    return candidates
+
+
+def build_review_report(manifest: Path, candidates_path: Path | None = None) -> dict[str, Any]:
     records = _load_jsonl(manifest)
+    candidates = _load_candidates(candidates_path)
     queue: list[dict[str, Any]] = []
     for record in records:
         license_status = str(record.get("license_status") or "")
         cleared = license_status.startswith("cleared_")
+        candidate = candidates.get(str(record.get("file_name") or ""), {})
         queue.append(
             {
                 "file_name": record.get("file_name") or "",
@@ -86,6 +99,13 @@ def build_review_report(manifest: Path) -> dict[str, Any]:
                 "license_status": license_status,
                 "review_state": "cleared" if cleared else "needs_manual_review",
                 "review_evidence": _review_evidence(record),
+                "metadata_candidate": {
+                    "status": candidate.get("candidate_status", "not_collected"),
+                    "license_candidates": candidate.get("license_candidates", []),
+                    "crossref_url": candidate.get("crossref_url", ""),
+                    "retrieved_at": candidate.get("retrieved_at", ""),
+                    "error": candidate.get("error", ""),
+                },
             }
         )
 
@@ -96,6 +116,14 @@ def build_review_report(manifest: Path) -> dict[str, Any]:
         "total_records": len(queue),
         "cleared_records": len(queue) - len(pending),
         "pending_records": len(pending),
+        "metadata_candidate_records": sum(bool(candidates.get(str(item.get("file_name") or ""))) for item in queue),
+        "metadata_license_candidate_records": sum(
+            bool(item["metadata_candidate"]["license_candidates"]) for item in queue
+        ),
+        "metadata_error_records": sum(bool(item["metadata_candidate"]["error"]) for item in queue),
+        "metadata_without_license_records": sum(
+            item["metadata_candidate"]["status"] == "no_license_metadata" for item in queue
+        ),
         "by_source_host": dict(sorted(Counter(item["source_host"] for item in pending).items())),
         "by_publisher": dict(sorted(Counter(item["publisher"] or "unknown" for item in pending).items())),
         "review_policy": {
@@ -122,6 +150,8 @@ def _markdown(report: dict[str, Any]) -> str:
         f"- Total records: {report['total_records']}",
         f"- Cleared records: {report['cleared_records']}",
         f"- Pending manual review: {report['pending_records']}",
+        f"- Crossref metadata candidates: {report.get('metadata_license_candidate_records', 0)}",
+        f"- Crossref metadata errors: {report.get('metadata_error_records', 0)}",
         "",
         "This queue deliberately does not infer permission from an OpenAlex OA flag, publisher, or domain.",
         "A reviewer must record the license page, license name, redistribution decision, identity/date and evidence hash.",
@@ -152,8 +182,9 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path, default=Path("data/sources/open_access_papers/open_access_papers_manifest.jsonl"))
     parser.add_argument("--output", type=Path, default=Path("data/logs/license_review_report.json"))
     parser.add_argument("--markdown", type=Path, default=Path("data/logs/license_review_report.md"))
+    parser.add_argument("--candidates", type=Path, default=Path("data/logs/license_candidates.jsonl"))
     args = parser.parse_args()
-    report = build_review_report(args.manifest)
+    report = build_review_report(args.manifest, args.candidates)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     args.markdown.parent.mkdir(parents=True, exist_ok=True)
