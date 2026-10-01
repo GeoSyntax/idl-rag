@@ -1360,6 +1360,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                       dataSource={researchRagSources}
                       loading={researchRagSourcesQuery.isLoading}
                       pagination={false}
+                      scroll={{ x: 720 }}
                       locale={{ emptyText: '尚未绑定项目文本 RAG。' }}
                       columns={[
                         { title: '分类', dataIndex: 'category', width: 130 },
@@ -1401,6 +1402,7 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                           size="small"
                           dataSource={researchRagResult.citations}
                           pagination={false}
+                          scroll={{ x: 860 }}
                           locale={{ emptyText: '没有检索到可引用的片段。' }}
                           columns={[
                             { title: '来源', dataIndex: 'file_name', width: 210 },
@@ -1431,11 +1433,13 @@ export function ResearchPage({ currentUserId, initialProjectId, onOpenAgent }: {
                     description="此步骤只在本地把你的问题整理为研究区、数据、方法、验证、图件和结论边界的结构化草案；不会发送项目资料到 RAG、外部检索或模型服务。生成后请人工补全并点击“保存协议”。"
                   />
                   <Input.TextArea
+                    aria-label="研究问题"
                     value={protocolDraftQuestion}
                     onChange={(event) => setProtocolDraftQuestion(event.target.value)}
                     rows={3}
                     placeholder="例如：比较 Sentinel-1、Sentinel-2 及可解释融合方法在 2018–2025 年鄱阳湖丰水、枯水和云遮挡情景下的水体制图稳定性。"
                   />
+                  {protocolDraftQuestion.trim().length < 8 ? <p className="research-form-hint research-protocol-hint">输入至少 8 个字符后才能生成协议草案。</p> : null}
                   <Button
                     className="research-protocol-draft-button"
                     onClick={() => draftProtocol.mutate()}
