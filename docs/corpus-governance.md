@@ -28,6 +28,25 @@
 
 “OpenAlex `is_open_access=true`”只说明 OpenAlex 判断存在开放访问位置，不自动等于允许再分发。下载器因此只把论文存放在本地研究资料目录，manifest 记录 `license_status`，默认值为 `redistribution_terms_must_be_verified`。只有确认 CC、政府公共领域或期刊明确许可后，才可以进入面向其他用户的下载包。
 
+许可复核队列由脚本生成，避免把 OpenAlex 的发现信号误当成再分发授权：
+
+```powershell
+python backend/scripts/license_review_report.py `
+  --manifest data/sources/open_access_papers/open_access_papers_manifest.jsonl `
+  --output data/logs/license_review_report.json `
+  --markdown data/logs/license_review_report.md
+```
+
+报告会为每篇全文保留 DOI、原始下载地址、来源站点、出版方、SHA-256 和当前 `license_status`，并要求人工填写 `license_url`、`license_name`、`redistribution_allowed`、`reviewer`、`reviewed_at` 与 `evidence_sha256`。只有将状态明确改为 `cleared_*` 的记录才会计入已清理数量；脚本不会根据域名、出版方或“开放获取”标签自动放行。内部私有部署可以继续使用待复核全文，但公开下载包和跨组织共享必须先通过：
+
+```powershell
+python backend/scripts/release_readiness.py `
+  --source-root data/sources `
+  --backup data/backups/idl-rag-current.zip `
+  --owner-id 1 `
+  --require-cleared-licenses
+```
+
 ## 版本和刷新
 
 - 官方产品目录：每月检查一次页面变更和数据集状态。
