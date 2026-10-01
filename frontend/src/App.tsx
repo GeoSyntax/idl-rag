@@ -56,6 +56,7 @@ export default function App() {
   const [initialResearchProjectId, setInitialResearchProjectId] = useState<number>()
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [navigationNotice, setNavigationNotice] = useState<string | null>(null)
 
   const isAuthenticated = currentUser !== null
   const isAdmin = currentUser?.role === 'admin'
@@ -109,6 +110,7 @@ export default function App() {
       setCurrentUser(null)
       setSelectedKnowledgeBaseId(undefined)
       setInitialResearchProjectId(undefined)
+      setNavigationNotice(null)
       setActivePage('dashboard')
       setAuthLoading(false)
     })
@@ -121,6 +123,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isAdmin && (activePage === 'settings' || activePage === 'users')) {
+      setNavigationNotice('设置和用户管理由管理员维护；模型状态会在对话页显示，资料、研究和 Agent 功能仍可正常使用。')
       setActivePage('dashboard')
     }
   }, [activePage, isAdmin])
@@ -210,6 +213,7 @@ export default function App() {
     setCurrentUser(value.user)
     setSelectedKnowledgeBaseId(undefined)
     setInitialResearchProjectId(undefined)
+    setNavigationNotice(null)
     setActivePage('dashboard')
     setAuthLoading(false)
   }
@@ -220,6 +224,7 @@ export default function App() {
     setCurrentUser(null)
     setSelectedKnowledgeBaseId(undefined)
     setInitialResearchProjectId(undefined)
+    setNavigationNotice(null)
     setActivePage('dashboard')
     setAuthLoading(false)
   }
@@ -283,7 +288,7 @@ export default function App() {
   const content = (() => {
     switch (activePage) {
       case 'dashboard':
-        return <DashboardPage summary={dashboardQuery.data} loading={dashboardQuery.isLoading} />
+        return <DashboardPage summary={dashboardQuery.data} loading={dashboardQuery.isLoading} accessNotice={navigationNotice ?? undefined} />
       case 'research':
         return (
           <ResearchPage
@@ -359,7 +364,10 @@ export default function App() {
         <AppLayout
           title={pageTitles[activePage]}
           activeKey={activePage}
-          onNavigate={(key) => setActivePage(key as PageKey)}
+          onNavigate={(key) => {
+            setNavigationNotice(null)
+            setActivePage(key as PageKey)
+          }}
           onLogout={handleLogout}
           currentUser={currentUser}
           showUsers={isAdmin}

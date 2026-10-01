@@ -6,6 +6,7 @@ import { DisplayEmpty, MetricSummary } from '../../components/DisplayPrimitives'
 type DashboardPageProps = {
   summary?: DashboardSummary
   loading: boolean
+  accessNotice?: string
 }
 
 type OverviewRow = {
@@ -14,10 +15,11 @@ type OverviewRow = {
   note?: string
 }
 
-export function DashboardPage({ summary, loading }: DashboardPageProps) {
+export function DashboardPage({ summary, loading, accessNotice }: DashboardPageProps) {
   if (!summary && !loading) {
     return (
       <div className="page-stack dashboard-page">
+        {accessNotice ? <Alert type="info" message={accessNotice} showIcon /> : null}
         <DisplayEmpty illustration="report" title="暂无统计数据" description="导入知识库和文档后，这里会显示资料、索引和使用情况。" />
       </div>
     )
@@ -44,6 +46,7 @@ export function DashboardPage({ summary, loading }: DashboardPageProps) {
 
   return (
     <div className="page-stack dashboard-page">
+      {accessNotice ? <Alert type="info" message={accessNotice} showIcon /> : null}
       {summary?.worker_last_error ? (
         <Alert type="error" message="索引 worker 最近发生错误" description={summary.worker_last_error} showIcon={false} />
       ) : null}
