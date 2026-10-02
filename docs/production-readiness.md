@@ -10,10 +10,10 @@
 | --- | --- | --- | --- |
 | ENVI/IDL 官方资料 | 415 份已索引文档 | 查找语法、API、处理流程 | 不能替代具体版本的本地 ENVI/IDL 编译验收 |
 | IDL/ENVI 方法资料 | 18 份方法与代码资料 | 支撑常见读写、指数和处理样例 | 不能覆盖全部传感器、投影、质量控制与异常数据 |
-| 遥感算法知识库 | 1,919 份文档、19,182 个 chunk：1,500 条 OpenAlex 候选记录、305 篇当前可访问的本地 OA PDF、50 条理论资料、61 个官方来源清单文件（47 份 PDF、11 份官方说明/笔记及可复核 manifest；新增 OPERA DSWx-HLS、Landsat C2 U.S. ARD DFCB、Sentinel-2 PSD 15.1、Aquatic Reflectance Product Guide v7、Actual Evapotranspiration Product Guide v4 与 Algorithm Description v2），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率和蒸散发/水分通量验证 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
+| 遥感算法知识库 | 1,919 份文档、19,217 个 chunk：1,500 条 OpenAlex 候选记录、305 篇当前可访问的本地 OA PDF、50 条理论资料、61 个官方来源清单文件（47 份 PDF、11 份官方说明/笔记及可复核 manifest；新增 OPERA DSWx-HLS、Landsat C2 U.S. ARD DFCB、Sentinel-2 PSD 15.1、Aquatic Reflectance Product Guide v7、Actual Evapotranspiration Product Guide v4 与 Algorithm Description v2），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率和蒸散发/水分通量验证 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
 | 扫描版 IDL 实验资料 | 1 份文档，已用 `pdf-ocr-v1` 完成 OCR 和索引 | 可按 OCR 文本检索并引用 | OCR 仍需人工抽查公式、表格和代码，不能自动视为无误 |
 
-当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,354 份资料、21,844 个 chunk 全部为 `ready`，2,354 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 的 10 条遥感产品/工具 golden cases 在新增 Actual Evapotranspiration 产品指南与算法描述后重新评测，命中率 1.0、recall 1.0、MRR 0.883、Precision@6 0.617、答案相关性 0.900、faithfulness 1.000，平均延迟约 5.9 秒。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
+当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,354 份资料、21,879 个 chunk 全部为 `ready`，2,354 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 的 10 条遥感产品/工具 golden cases 在新增 Actual Evapotranspiration 产品指南与算法描述后重新评测，命中率 1.0、recall 1.0、MRR 0.883、Precision@6 0.617、答案相关性 0.900、faithfulness 1.000，平均延迟约 5.9 秒。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
 本次一致性审计还验证了 owner=1 的全部 2,354 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并同步清理 SQLite FTS、LanceDB 向量、chunk 和索引任务，避免“ready 但无法打开来源”的生产数据问题。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
 
