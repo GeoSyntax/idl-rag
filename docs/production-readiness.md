@@ -13,7 +13,7 @@
 | 遥感算法知识库 | 1,949 份文档、20,339 个 chunk：1,500 条 OpenAlex 候选记录、307 篇当前可访问的本地 OA PDF、50 条理论资料、92 个官方来源文件（66 份 PDF、22 份说明/工作流笔记、1 份原始 XLSX、1 份 HTML、2 份 JSON/可复核 manifest；新增 OGC GeoTIFF/STAC/COG、OGC API Records/Features/Tiles 和 NASA/USGS GEDI L2A/L2B/波形/生物量 ATBD），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率、蒸散发/水分通量、土壤水分、LAI/FPAR、CARD4L 产品验收、LPV 验证分级、生物量样地验证、GEDI 冠层/垂直剖面/地上生物量、植被指数稳定性、LST/发射率验证、验证参考数据选择、DIRECT LAI/FPAR 参考、Sentinel-1 RTC 几何/辐射 QA，以及 GeoTIFF、COG HTTP Range、STAC 资产和 OGC API 目录验收 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
 | 扫描版 IDL 实验资料 | 1 份文档，已用 `pdf-ocr-v1` 完成 OCR 和索引 | 可按 OCR 文本检索并引用 | OCR 仍需人工抽查公式、表格和代码，不能自动视为无误 |
 
-当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,384 份资料、23,001 个 chunk 全部为 `ready`，2,384 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在加入 OGC GeoTIFF/STAC/COG、OGC API Records/Features/Tiles 和 NASA/USGS GEDI 工作流、保留 CEOS LPV DIRECT V2.1 原始参考表及检索派生文件、并再次清理重复来源后以正式评测服务登记了 43 条混合检索 Golden QA（报告 id=42），命中率 0.372、recall 0.372、MRR 0.302、Precision@6 0.171、答案相关性 0.621、faithfulness 0.419，平均延迟约 5.3 秒。`remote_product` 题集保持完整命中；GEDI 波形/冠层/生物量定向查询可优先召回新增官方 ATBD。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
+当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,384 份资料、23,001 个 chunk 全部为 `ready`，2,384 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在加入 OGC GeoTIFF/STAC/COG、OGC API Records/Features/Tiles 和 NASA/USGS GEDI 工作流、保留 CEOS LPV DIRECT V2.1 原始参考表及检索派生文件、并再次清理重复来源后，以正式评测服务登记了 47 条混合检索 Golden QA（报告 id=43），命中率 0.426、recall 0.426、MRR 0.340、Precision@6 0.206、答案相关性 0.643、faithfulness 0.447，平均延迟约 5.4 秒。新增 GEDI 题集的 `remote_product` 命中率为 1.0，新增 OGC 目录题也命中目标工作流；GEDI 波形/冠层/生物量定向查询可优先召回新增官方 ATBD。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
 本次一致性审计还验证了 owner=1 的全部 2,384 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并清理了本轮发现的重复 README 文档及其 FTS/LanceDB 向量，避免“ready 但无法打开来源”或同一来源重复计分的生产数据问题。DIRECT 原始 XLSX 与 Markdown 派生文件分别保留，派生文本不能替代原始数值文件。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
 
@@ -33,7 +33,7 @@ python backend/scripts/license_review_report.py `
 
 最近一次采集覆盖 307 篇论文，其中 183 条返回了 Crossref license URL，124 条没有许可证元数据，123 条因 TLS/429 等外部请求错误需要重试。这个队列只提供发现证据，不改变 `license_status`；审核人仍必须打开文章或许可证页面，确认当前版本的再分发条款，并把证据写回原始 manifest。
 
-注意：43 条混合 golden question 不能直接用于评价每个知识库的整体质量；知识库 5 若混入 IDL 符号题会得到误导性的低命中率。因此评测必须按知识库/资料域分组，报告中同时保留快速检索评测和可选的 Gemini2API 端到端慢评测。
+注意：47 条混合 golden question 不能直接用于评价每个知识库的整体质量；知识库 5 若混入 IDL 符号题会得到误导性的低命中率。因此评测必须按知识库/资料域分组，报告中同时保留快速检索评测和可选的 Gemini2API 端到端慢评测。
 
 ## Embedding 选择
 

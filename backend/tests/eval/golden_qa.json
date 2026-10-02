@@ -395,6 +395,36 @@
       "tags": ["modis", "ndvi", "evi", "qa"]
     },
     {
+      "id": "remote_product_07",
+      "category": "remote_product",
+      "question": "GEDI L2A 和 L2B 分别提供哪些冠层和高度指标？使用前应检查哪些质量信息？",
+      "expected_keywords": ["GEDI", "L2A", "L2B", "height", "canopy", "quality"],
+      "expected_answer_contains": "L2A",
+      "expected_files": ["GEDI02_UserGuide_V2.pdf"],
+      "difficulty": "medium",
+      "tags": ["gedi", "lidar", "canopy", "quality"]
+    },
+    {
+      "id": "remote_product_08",
+      "category": "remote_product",
+      "question": "GEDI 波形如何经过发射/接收处理形成高度、能量和敏感度指标？",
+      "expected_keywords": ["waveform", "transmit", "receive", "geolocation", "height", "sensitivity"],
+      "expected_answer_contains": "waveform",
+      "expected_files": ["GEDI_WF_ATBD_v1.0.pdf"],
+      "difficulty": "hard",
+      "tags": ["gedi", "waveform", "atbd"]
+    },
+    {
+      "id": "remote_product_09",
+      "category": "remote_product",
+      "question": "GEDI 地上生物量产品 L4A/L4B 的空间粒度、输入关系和不确定度边界是什么？",
+      "expected_keywords": ["GEDI", "L4A", "L4B", "biomass", "uncertainty", "footprint"],
+      "expected_answer_contains": "biomass",
+      "expected_files": ["GEDI_FCCVPM_ATBD_v1.0.pdf"],
+      "difficulty": "hard",
+      "tags": ["gedi", "biomass", "uncertainty", "validation"]
+    },
+    {
       "id": "tooling_01",
       "category": "tooling",
       "question": "什么是 COG，为什么不能随意更新已有的 COG 文件？",
@@ -433,6 +463,16 @@
       "expected_files": ["geotiff_validation_checklist.md"],
       "difficulty": "easy",
       "tags": ["validation", "geotiff", "provenance"]
+    },
+    {
+      "id": "tooling_05",
+      "category": "tooling",
+      "question": "OGC API Records、Features 和 Tiles 在企业遥感平台中分别解决什么问题？",
+      "expected_keywords": ["Records", "Features", "Tiles", "catalog", "discovery"],
+      "expected_answer_contains": "Records",
+      "expected_files": ["ogc_api_catalog_conformance_workflow.md"],
+      "difficulty": "medium",
+      "tags": ["ogc", "catalog", "api", "stac"]
     }
   ]
 }
