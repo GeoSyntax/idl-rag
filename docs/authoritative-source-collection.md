@@ -163,5 +163,9 @@ data/sources/remote_sensing_official/
 - NASA/USGS GEDI L2A/L2B User Guide、full-waveform ATBD 和 footprint canopy/biomass ATBD：补齐激光雷达、冠层结构、垂直剖面和生物量产品的算法与质量字段，来源分别为 <https://lpdaac.usgs.gov/documents/986/GEDI02_UserGuide_V2.pdf>、<https://lpdaac.usgs.gov/documents/581/GEDI_WF_ATBD_v1.0.pdf>、<https://lpdaac.usgs.gov/documents/588/GEDI_FCCVPM_ATBD_v1.0.pdf>。
 - NASA/JPL EMIT L2A/L2B 与 GHG ATBD：补齐高光谱表面反射率、大气校正、矿物光谱特征匹配、甲烷/二氧化碳点源和不确定度资料，来源为 <https://lpdaac.usgs.gov/documents/1571/EMITL2A_ATBD_v1.pdf>、<https://lpdaac.usgs.gov/documents/1659/EMITL2B_ATBD_v1.pdf>、<https://lpdaac.usgs.gov/documents/1660/EMITL2BMIN_User_Guide_V1.pdf>、<https://lpdaac.usgs.gov/documents/1696/EMIT_GHG_ATBD_V1.pdf>。
 - DLR/EnMAP 产品与 CARD4L 元数据说明：<https://elib.dlr.de/142268/1/CARD4L_EnMAP_MBachmann_fin.pdf>；补充 EnMAP L2A 的投影、重采样、空间覆盖、元数据字段和高光谱产品与 ARD 规范的对应关系。PRISMA 资料暂保留 ASI 官方入口 <https://www.asi.it/en/earth-science/prisma/>，未将无法稳定下载的 403 文件误登记为本地全文。
+- NASA MODIS/VIIRS 生产力与反射率补充：MOD17 GPP/NPP ATBD 和 User Guide（<https://lpdaac.usgs.gov/documents/95/MOD17_ATBD.pdf>、<https://lpdaac.usgs.gov/documents/212/mod17_v5_user_guide.pdf>）、VNP15 LAI/FPAR ATBD（<https://lpdaac.usgs.gov/documents/125/VNP15_ATBD.pdf>）和 MOD09 Surface Reflectance User Guide（<https://lpdaac.usgs.gov/documents/445/MOD09_User_Guide_V5.pdf>）。这些资料补齐了从表面反射率到 FPAR/LAI 再到 GPP/NPP 的可追溯输入链，而不是只检索指数名称。
+- NASA/JPL ECOSTRESS ESI ALEXI User Guide（<https://lpdaac.usgs.gov/documents/1325/ECO4ESIALEXI_User_Guide_V1.pdf>）：补齐热红外蒸散发胁迫、ALEXI/ET 解释边界、时空聚合和灌溉/干旱应用限制。
+- GEDI waveform geolocation ATBD（<https://lpdaac.usgs.gov/documents/579/GEDI__WFGEO_ATBD_v1.0.pdf>）：补齐 L1B 波形地理定位与 L2 冠层高度/剖面产品之间的输入关系。
+- NASA/JPL SWOT User Handbook（<https://earthdata.nasa.gov/s3fs-public/2024-06/D-109532_SWOT_UserHandbook_20240502.pdf>）：补充宽幅 KaRIn 水面高程、水体产品层级、坐标约定、文件结构和算法文档入口，为动态水体研究提供不同于光学/常规 SAR 的水文观测资料。
 
 收集时要把资料分成“官方产品规范、开放全文论文、论文候选元数据、代码示例、内部资料”五类，并为每类记录来源、许可、版本、获取时间和 SHA-256。不能把搜索摘要或论文元数据直接升级为已核验全文。

@@ -10,12 +10,12 @@
 | --- | --- | --- | --- |
 | ENVI/IDL 官方资料 | 415 份已索引文档 | 查找语法、API、处理流程 | 不能替代具体版本的本地 ENVI/IDL 编译验收 |
 | IDL/ENVI 方法资料 | 18 份方法与代码资料 | 支撑常见读写、指数和处理样例 | 不能覆盖全部传感器、投影、质量控制与异常数据 |
-| 遥感算法知识库 | 1,954 份文档、20,400 个 chunk：1,500 条 OpenAlex 候选记录、307 篇当前可访问的本地 OA PDF、50 条理论资料、97 个官方来源文件（71 份 PDF、22 份说明/工作流笔记、1 份原始 XLSX、1 份 HTML、2 份 JSON/可复核 manifest；新增 OGC GeoTIFF/STAC/COG、OGC API Records/Features/Tiles、NASA/USGS GEDI L2A/L2B/波形/生物量 ATBD、NASA/JPL EMIT L2A/L2B/矿物和温室气体 ATBD，以及 DLR EnMAP CARD4L 产品规范），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率、蒸散发/水分通量、土壤水分、LAI/FPAR、CARD4L 产品验收、LPV 验证分级、生物量样地验证、GEDI 冠层/垂直剖面/地上生物量、高光谱表面反射率、矿物光谱匹配、甲烷/二氧化碳点源、植被指数稳定性、LST/发射率验证、验证参考数据选择、DIRECT LAI/FPAR 参考、Sentinel-1 RTC 几何/辐射 QA，以及 GeoTIFF、COG HTTP Range、STAC 资产和 OGC API 目录验收 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
+| 遥感算法知识库 | 1,962 份文档、20,895 个 chunk：1,500 条 OpenAlex 候选记录、307 篇当前可访问的本地 OA PDF、50 条理论资料、104 个官方来源文件（78 份 PDF、22 份说明/工作流笔记、1 份原始 XLSX、1 份 HTML、2 份 JSON/可复核 manifest；新增 OGC GeoTIFF/STAC/COG、OGC API Records/Features/Tiles、NASA/USGS GEDI L1B/L2A/L2B/波形/生物量 ATBD、NASA/JPL EMIT L2A/L2B/矿物和温室气体 ATBD、DLR EnMAP CARD4L 产品规范，以及 NASA MODIS/VIIRS MOD17/MOD09/VNP15、ECOSTRESS ESI ALEXI 和 SWOT User Handbook），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率、蒸散发/水分通量、土壤水分、LAI/FPAR、GPP/NPP、MODIS/VIIRS 表面反射率、CARD4L 产品验收、LPV 验证分级、生物量样地验证、GEDI 冠层/垂直剖面/地上生物量、高光谱表面反射率、矿物光谱匹配、甲烷/二氧化碳点源、植被指数稳定性、LST/发射率验证、ECOSTRESS 胁迫、SWOT 水文产品、验证参考数据选择、DIRECT LAI/FPAR 参考、Sentinel-1 RTC 几何/辐射 QA，以及 GeoTIFF、COG HTTP Range、STAC 资产和 OGC API 目录验收 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
 | 扫描版 IDL 实验资料 | 1 份文档，已用 `pdf-ocr-v1` 完成 OCR 和索引 | 可按 OCR 文本检索并引用 | OCR 仍需人工抽查公式、表格和代码，不能自动视为无误 |
 
-当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,389 份资料、23,062 个 chunk 全部为 `ready`，2,389 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在加入 OGC GeoTIFF/STAC/COG、OGC API Records/Features/Tiles、NASA/USGS GEDI、NASA/JPL EMIT 和 DLR EnMAP 工作流、修复 PDF 孤立 surrogate 字符并完成重试、保留 CEOS LPV DIRECT V2.1 原始参考表及检索派生文件、并再次清理重复来源后，以正式评测服务登记了 51 条混合检索 Golden QA（报告 id=46），命中率 0.471、recall 0.471、MRR 0.382、Precision@6 0.222、答案相关性 0.603、faithfulness 0.491，平均延迟约 5.8 秒。当前 `remote_product` 题集命中率为 1.0，`tooling` 题集命中率也为 1.0；新增 EnMAP 题可优先召回 CARD4L 产品规范，EMIT 高光谱、矿物和温室气体定向查询可优先召回对应官方 ATBD。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
+当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,397 份资料、23,557 个 chunk 全部为 `ready`，2,397 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在加入 OGC GeoTIFF/STAC/COG、OGC API Records/Features/Tiles、NASA/USGS GEDI、NASA/JPL EMIT、DLR EnMAP、MODIS/VIIRS 生产力与反射率、ECOSTRESS ESI 和 SWOT 工作流、修复 PDF 孤立 surrogate 字符并完成重试、保留 CEOS LPV DIRECT V2.1 原始参考表及检索派生文件、并再次清理重复来源后，以正式评测服务登记了 56 条混合检索 Golden QA（报告 id=47），命中率 0.518、recall 0.518、MRR 0.438、Precision@6 0.264、答案相关性 0.642、faithfulness 0.536，平均延迟约 5.9 秒。当前 `remote_product` 题集命中率为 1.0（18/18 命中目标文件），`tooling` 题集命中率也为 1.0；新增 MOD17、VNP15、MOD09、ECOSTRESS ESI 和 SWOT 题目全部命中目标资料。这个结果说明资料覆盖和检索质量继续提升，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
-本次一致性审计还验证了 owner=1 的全部 2,389 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并清理了本轮发现的重复 README 文档及其 FTS/LanceDB 向量，避免“ready 但无法打开来源”或同一来源重复计分的生产数据问题。DIRECT 原始 XLSX 与 Markdown 派生文件分别保留，派生文本不能替代原始数值文件。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
+本次一致性审计还验证了 owner=1 的全部 2,397 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并清理了本轮发现的重复 README 文档及其 FTS/LanceDB 向量，避免“ready 但无法打开来源”或同一来源重复计分的生产数据问题。DIRECT 原始 XLSX 与 Markdown 派生文件分别保留，派生文本不能替代原始数值文件。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
 
 本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Ollama `gemma3:4b` 的 OpenAI-compatible Chat 请求也已成功。当前运行时默认使用 Ollama：聊天为 `gemma3:4b`，Embedding 为 `bge-m3`；Gemini2API 仍保留在设置中，可作为需要更强长文本能力时的可选远程 provider。两者职责分离，不能把聊天网关误当成 embedding 服务。
 
@@ -33,7 +33,7 @@ python backend/scripts/license_review_report.py `
 
 最近一次采集覆盖 307 篇论文，其中 183 条返回了 Crossref license URL，124 条没有许可证元数据，123 条因 TLS/429 等外部请求错误需要重试。这个队列只提供发现证据，不改变 `license_status`；审核人仍必须打开文章或许可证页面，确认当前版本的再分发条款，并把证据写回原始 manifest。
 
-注意：51 条混合 golden question 不能直接用于评价每个知识库的整体质量；知识库 5 若混入 IDL 符号题会得到误导性的低命中率。因此评测必须按知识库/资料域分组，报告中同时保留快速检索评测和可选的 Gemini2API 端到端慢评测。
+注意：56 条混合 golden question 不能直接用于评价每个知识库的整体质量；知识库 5 若混入 IDL 符号题会得到误导性的低命中率。因此评测必须按知识库/资料域分组，报告中同时保留快速检索评测和可选的 Gemini2API 端到端慢评测。
 
 ## Embedding 选择
 

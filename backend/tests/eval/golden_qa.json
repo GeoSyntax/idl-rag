@@ -465,6 +465,56 @@
       "tags": ["enmap", "hyperspectral", "card4l", "metadata"]
     },
     {
+      "id": "remote_product_14",
+      "category": "remote_product",
+      "question": "MOD17 GPP/NPP 算法如何把 APAR、FPAR、辐射利用效率和气象约束组合起来？",
+      "expected_keywords": ["MOD17", "GPP", "NPP", "APAR", "FPAR", "radiation use efficiency"],
+      "expected_answer_contains": "APAR",
+      "expected_files": ["MOD17_ATBD.pdf"],
+      "difficulty": "hard",
+      "tags": ["modis", "productivity", "gpp", "npp"]
+    },
+    {
+      "id": "remote_product_15",
+      "category": "remote_product",
+      "question": "VNP15 LAI/FPAR 产品的 VIIRS 检索如何处理 LUT、植被类型和饱和条件？",
+      "expected_keywords": ["VNP15", "LAI", "FPAR", "LUT", "biome", "saturation"],
+      "expected_answer_contains": "LAI",
+      "expected_files": ["VNP15_ATBD.pdf"],
+      "difficulty": "hard",
+      "tags": ["viirs", "lai", "fpar", "retrieval"]
+    },
+    {
+      "id": "remote_product_16",
+      "category": "remote_product",
+      "question": "MOD09 表面反射率产品的处理级别、七个波段、大气校正和 L2G/L3 合成之间是什么关系？",
+      "expected_keywords": ["MOD09", "surface reflectance", "atmospheric", "L2G", "L3", "seven-band"],
+      "expected_answer_contains": "surface reflectance",
+      "expected_files": ["MOD09_User_Guide_V5.pdf"],
+      "difficulty": "medium",
+      "tags": ["modis", "surface_reflectance", "product_levels"]
+    },
+    {
+      "id": "remote_product_17",
+      "category": "remote_product",
+      "question": "ECOSTRESS L4 ESI ALEXI 产品如何表达蒸散发胁迫、时空聚合和灌溉/干旱应用限制？",
+      "expected_keywords": ["ECOSTRESS", "ESI", "ALEXI", "evapotranspiration", "70 m", "uncertainty"],
+      "expected_answer_contains": "ALEXI",
+      "expected_files": ["ECO4_ESI_ALEXI_User_Guide_V1.pdf"],
+      "difficulty": "hard",
+      "tags": ["ecostress", "evapotranspiration", "drought", "alexi"]
+    },
+    {
+      "id": "remote_product_18",
+      "category": "remote_product",
+      "question": "SWOT User Handbook 中如何区分 KaRIn 测量原理、标准产品层级、坐标约定和产品算法文档？",
+      "expected_keywords": ["SWOT", "KaRIn", "standard data products", "coordinate", "algorithm"],
+      "expected_answer_contains": "KaRIn",
+      "expected_files": ["SWOT_User_Handbook_20240502.pdf"],
+      "difficulty": "hard",
+      "tags": ["swot", "karin", "hydrology", "product_levels"]
+    },
+    {
       "id": "tooling_01",
       "category": "tooling",
       "question": "什么是 COG，为什么不能随意更新已有的 COG 文件？",
