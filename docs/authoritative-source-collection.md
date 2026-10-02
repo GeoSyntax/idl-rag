@@ -46,6 +46,10 @@
 - USGS Landsat 8–9 Collection 2 Level-2 Provisional Aquatic Reflectance Product Guide v7（2025 产品结构、波段/掩膜、缩放、元数据和 provisional 限制）：`https://www.usgs.gov/landsat-missions/landsat-project-documents`
 - USGS Landsat 4–9 Collection 2 Level-3 Provisional Actual Evapotranspiration Product Guide v4（ETa/ETf/ETUN 产品字段、缩放、单位、QA、SSEBop 输入与 provisional 限制）：`https://www.usgs.gov/media/files/landsat-4-9-collection-2-level-3-provisional-actual-evapotranspiration-product-guide`
 - USGS Landsat 4–9 Collection 2 Level-3 Provisional Actual Evapotranspiration Algorithm Description v2（SSEBop 地表能量平衡、Landsat C2 ST 与辅助数据、ETf/ETr 关系和初步验证）：`https://www.usgs.gov/media/files/landsat-4-9-collection-2-level-3-provisional-actual-evapotranspiration-algorithm`
+- USGS *Actual Evapotranspiration Modeling Using the Operational Simplified Surface Energy Balance (SSEBop) Approach*（SIR 2013–5126，区域 ETa、参考 ET 强迫和验证）：`https://pubs.usgs.gov/sir/2013/5126/`
+- USGS *A Review of Surface Energy Balance Models for Estimating Actual Evapotranspiration with Remote Sensing at High Spatiotemporal Resolution over Large Extents*（SIR 2017–5087，SEBAL/METRIC/SSEBop/SEBS 对比）：`https://pubs.usgs.gov/sir/2017/5087/`
+- NASA NTRS *Remote Sensing of Evaporation*（2018，蒸发遥感方法族、能量平衡与可操作实现）：`https://ntrs.nasa.gov/citations/20190029634`
+- `et_workflow_ssebop_energy_balance.md`（本地可执行笔记）：把 SSEBop、SEBAL/METRIC、SEBS 的输入、公式、敏感性实验、分层验证和证据包契约整理为平台任务入口；它不是原始规范替代品。
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 
@@ -80,6 +84,7 @@ Sentinel-2 PSD 15.1 共 488 页，原文保留在 `data/sources/remote_sensing_o
 - MODIS LST 的缩放因子、QC 位掩码、产品级别和广义分裂窗/昼夜算法入口
 - WorldCover 的 v100/v200 算法差异、11 类编码、独立验证精度和产品限制
 - 开放获取论文中的公式、实验条件、验证指标和跨传感器比较结果
+- SSEBop/SEBAL/METRIC/SEBS 的蒸散发、能量平衡、参考 ET、热端/冷端边界和验证设计
 - COG、窗口化处理、重投影、STAC 资产元数据和 GEE 导出的工程化约束
 
 本地文件位于：
