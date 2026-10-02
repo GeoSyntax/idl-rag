@@ -76,6 +76,12 @@
 - CEOS/WGCV Land Surface Temperature Product Validation Best Practice Protocol v1.1.0（LST/发射率、地面与辐射亮度参考、不确定度和验证报告）：`https://lpvs.gsfc.nasa.gov/PDF/CEOS_LST_PROTOCOL_Feb2018_v1.1.0_light.pdf`
 - CEOS LPV LST&E focus area（LST 定义、Stage 3、地面/辐射亮度验证和参考站点）：`https://lpvs.gsfc.nasa.gov/LSTE/LSTE_home.html`
 - `lst_validation_workflow.md`（本地可执行笔记）：把 Kelvin/发射率语义、时空匹配、分层指标和热红外证据包映射到研究任务。
+- CEOS Cal/Val Sites（校准验证站点目录，含 SURFRAD、KIT、HYPERNETS、NEON、ICOS 等网络）：`https://calvalportal.ceos.org/calvalsites`
+- CEOS LPV Supersites V2（长期、多变量、具有代表性和可追溯性的验证站点）：`https://lpvs.gsfc.nasa.gov/LPV_Supersites/LPVsites.html`
+- CEOS LPV DIRECT V2.1（3 km × 3 km LAI/FAPAR/FCOVER 上推参考数据）：`https://calvalportal.ceos.org/lpv-direct-v2.1`
+- NOAA SURFRAD（地表辐射、长波/短波和气象辅助数据）：`https://www.gml.noaa.gov/grad/surfrad/`
+- NASA/JPL ECOSTRESS Spectral Library（ASTER 光谱库后继版本，材料光谱与发射率参考）：`https://speclib.jpl.nasa.gov/download`
+- `calval_reference_data_sources.md`（本地可执行笔记）：把参考站点、数据版本、许可、哈希和样本冻结映射到验证证据包。
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 
