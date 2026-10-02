@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.services.ingest_service import IngestService
+from app.services.ingest_service import IngestService, _sanitize_unicode_text
 
 
 class _FakePdfPage:
@@ -27,3 +27,14 @@ def test_extract_text_uses_ocr_fallback_for_scanned_pdf(monkeypatch, tmp_path: P
     service = IngestService()
 
     assert service._extract_text(pdf_path).startswith("实验一 IDL 基本运算")
+
+
+def test_sanitize_unicode_text_replaces_lone_surrogates() -> None:
+    value = "reflectance " + chr(0xD835) + chr(0xDC9C) + " and valid 中文"
+
+    sanitized = _sanitize_unicode_text(value)
+
+    assert chr(0xD835) not in sanitized
+    assert chr(0xDC9C) not in sanitized
+    assert "reflectance" in sanitized
+    assert "中文" in sanitized

@@ -161,5 +161,6 @@ data/sources/remote_sensing_official/
 - OGC API Records/Features/Tiles：<https://docs.ogc.org/is/20-004r1/20-004r1.html>、<https://docs.ogc.org/is/17-069r3/17-069r3.pdf>、<https://docs.ogc.org/is/20-057/20-057.html>
 - `ogc_api_catalog_conformance_workflow.md`：目录发现、权限、分页/空间/时间过滤和目录记录到 STAC/GeoTIFF asset 的一致性验收。
 - NASA/USGS GEDI L2A/L2B User Guide、full-waveform ATBD 和 footprint canopy/biomass ATBD：补齐激光雷达、冠层结构、垂直剖面和生物量产品的算法与质量字段，来源分别为 <https://lpdaac.usgs.gov/documents/986/GEDI02_UserGuide_V2.pdf>、<https://lpdaac.usgs.gov/documents/581/GEDI_WF_ATBD_v1.0.pdf>、<https://lpdaac.usgs.gov/documents/588/GEDI_FCCVPM_ATBD_v1.0.pdf>。
+- NASA/JPL EMIT L2A/L2B 与 GHG ATBD：补齐高光谱表面反射率、大气校正、矿物光谱特征匹配、甲烷/二氧化碳点源和不确定度资料，来源为 <https://lpdaac.usgs.gov/documents/1571/EMITL2A_ATBD_v1.pdf>、<https://lpdaac.usgs.gov/documents/1659/EMITL2B_ATBD_v1.pdf>、<https://lpdaac.usgs.gov/documents/1660/EMITL2BMIN_User_Guide_V1.pdf>、<https://lpdaac.usgs.gov/documents/1696/EMIT_GHG_ATBD_V1.pdf>。
 
 收集时要把资料分成“官方产品规范、开放全文论文、论文候选元数据、代码示例、内部资料”五类，并为每类记录来源、许可、版本、获取时间和 SHA-256。不能把搜索摘要或论文元数据直接升级为已核验全文。

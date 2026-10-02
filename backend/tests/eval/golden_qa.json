@@ -425,6 +425,36 @@
       "tags": ["gedi", "biomass", "uncertainty", "validation"]
     },
     {
+      "id": "remote_product_10",
+      "category": "remote_product",
+      "question": "EMIT L2A 如何从高光谱观测得到表面反射率？大气校正和不确定度需要记录什么？",
+      "expected_keywords": ["EMIT", "L2A", "surface reflectance", "atmospheric correction", "uncertainty"],
+      "expected_answer_contains": "reflectance",
+      "expected_files": ["EMITL2A_ATBD_v1.pdf"],
+      "difficulty": "hard",
+      "tags": ["emit", "hyperspectral", "atmospheric_correction"]
+    },
+    {
+      "id": "remote_product_11",
+      "category": "remote_product",
+      "question": "EMIT L2BMIN 的矿物识别为什么依赖参考光谱和特征匹配？输出和不确定度如何解释？",
+      "expected_keywords": ["EMIT", "L2BMIN", "mineral", "spectral", "feature matching", "uncertainty"],
+      "expected_answer_contains": "mineral",
+      "expected_files": ["EMITL2B_ATBD_v1.pdf", "EMITL2BMIN_User_Guide_V1.pdf"],
+      "difficulty": "hard",
+      "tags": ["emit", "hyperspectral", "mineral", "spectral_library"]
+    },
+    {
+      "id": "remote_product_12",
+      "category": "remote_product",
+      "question": "EMIT 温室气体产品如何进行甲烷和二氧化碳点源识别？哪些结果不能直接当作精确排放量？",
+      "expected_keywords": ["EMIT", "methane", "carbon dioxide", "point source", "plume", "uncertainty"],
+      "expected_answer_contains": "methane",
+      "expected_files": ["EMIT_GHG_ATBD_V1.pdf"],
+      "difficulty": "hard",
+      "tags": ["emit", "ghg", "methane", "co2", "uncertainty"]
+    },
+    {
       "id": "tooling_01",
       "category": "tooling",
       "question": "什么是 COG，为什么不能随意更新已有的 COG 文件？",

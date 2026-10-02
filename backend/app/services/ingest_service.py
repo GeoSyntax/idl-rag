@@ -31,7 +31,7 @@ SUPPORTED_SUFFIXES = {
 }
 
 PARSER_VERSION_TEXT = "text-reader-v1"
-PARSER_VERSION_PDF = "pdf-ocr-v1"
+PARSER_VERSION_PDF = "pdf-ocr-v2"
 CHUNKER_VERSION_TEXT = "plain-text-v1"
 CHUNKER_VERSION_IDL = IDL_CHUNKER_VERSION
 
@@ -59,6 +59,18 @@ def _get_rapid_ocr_engine():
 
 # 模块级标记：OCR 引擎不可用时跳过后续尝试
 _OCR_AVAILABLE: bool | None = None
+
+
+def _sanitize_unicode_text(value: str) -> str:
+    """Remove lone UTF-16 surrogate code points emitted by malformed PDFs.
+
+    Some scientific PDFs contain mathematical glyph mappings that pypdf exposes
+    as lone surrogates. SQLite, JSON and embedding clients require valid UTF-8;
+    replacing only those invalid code points keeps the rest of the extracted
+    formula/text available instead of failing the entire indexing job.
+    """
+
+    return "".join("\uFFFD" if 0xD800 <= ord(char) <= 0xDFFF else char for char in value)
 
 
 class IngestService:
@@ -519,12 +531,12 @@ class IngestService:
     def _extract_text(self, file_path: Path, file_hash: str | None = None) -> str:
         suffix = file_path.suffix.lower()
         if suffix == ".pdf":
-            text_content = self._extract_pdf_text(file_path)
+            text_content = _sanitize_unicode_text(self._extract_pdf_text(file_path))
             if self._has_meaningful_text(text_content):
                 return text_content
             ocr_text = self._extract_pdf_text_with_ocr(file_path, file_hash)
-            return ocr_text.strip()
-        return file_path.read_text(encoding="utf-8", errors="ignore").strip()
+            return _sanitize_unicode_text(ocr_text).strip()
+        return _sanitize_unicode_text(file_path.read_text(encoding="utf-8", errors="ignore")).strip()
 
     def _extract_pdf_text(self, file_path: Path) -> str:
         reader = PdfReader(file_path)
