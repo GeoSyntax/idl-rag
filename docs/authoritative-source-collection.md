@@ -63,8 +63,12 @@
 - CEOS/WGCV Land Cover and Change Map Accuracy Assessment and Area Estimation Good Practices Protocol（2025，分类精度、面积估计和参考样本设计）：`https://lpvs.gsfc.nasa.gov/PDF/CEOS_WGCV_LPV_Land_Cover_protocol_Nov2025_V1.1.pdf`
 - CEOS/WGCV Global LAI Product Validation Good Practices v2.0.1（LAI/FAPAR 参考数据、尺度上推和不确定度）：`https://lpvs.gsfc.nasa.gov/PDF/CEOS_LAI_PROTOCOL_Aug2014_v2.0.1.pdf`
 - CEOS/WGCV Global Surface Albedo Product Validation Best Practices v1.0（地表反照率匹配、参考测量和不确定度）：`https://lpvs.gsfc.nasa.gov/PDF/CEOS_ALBEDO_Protocol_20190307_v1.pdf`
+- CEOS/WGCV Biomass Product Validation Good Practices Protocol v1.0（地上木质生物量参考样地、抽样、不确定度和报告边界）：`https://lpvs.gsfc.nasa.gov/PDF/CEOS_WGCV_LPV_Biomass_Protocol_2021_V1.0.pdf`
+- CEOS LPV biomass focus area（参考样地、GEO-TREES 与验证活动入口）：`https://lpvs.gsfc.nasa.gov/AGB/AGB_home.html`
+- CEOS LPV vegetation-index focus area（质量控制、真实植被响应、时间序列稳定性和产品间比较）：`https://lpvs.gsfc.nasa.gov/NDVI/NDVI_home.html`
 - CEOS LPV LST&E focus area（LST 验证方法、参考网络和 Stage 3 解释边界）：`https://lpvs.gsfc.nasa.gov/LSTE/LSTE_home.html`
 - `lpv_validation_protocol_workflow.md`（本地可执行笔记）：把 Stage 0–4、独立参考数据、抽样设计、误差指标和版本回归映射到研究证据包。
+- `biomass_vi_validation_workflow.md`（本地可执行笔记）：把 AGB 样地到像元匹配、VI 质量控制、公式变体对照和证据包输出映射到研究任务。
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 
