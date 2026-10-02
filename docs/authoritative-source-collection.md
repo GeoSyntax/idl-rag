@@ -54,6 +54,11 @@
 - NASA SMAP Handbook（L1–L4 产品族、校准验证与应用边界）：`https://www.earthdata.nasa.gov/s3fs-public/2024-10/ASF-SAR-SMAP-User-Guide.pdf?VersionId=9Bo5LjNix4wZkaBhvCHDQVHZICClfLZK`
 - NASA/USGS MODIS MOD15 LAI/FPAR User Guide V6（LUT/备选算法、反射率输入、不确定度和 QA）：`https://lpdaac.usgs.gov/documents/624/MOD15_User_Guide_V6.pdf`
 - `soil_moisture_lai_validation_workflow.md`（本地可执行笔记）：把 SMAP/Sentinel-1 土壤水分融合、MOD15 与 Sentinel-2 red-edge LAI/FPAR 对比、尺度匹配和分层验证整理为实验入口。
+- CEOS CARD4L Surface Reflectance PFS v5.0（光学地表反射率的校正、QA、几何和元数据要求）：`https://ceos.org/ard/files/PFS/SR/v5.0/CARD4L_Product_Family_Specification_Surface_Reflectance-v5.0.pdf`
+- CEOS CARD4L Surface Temperature PFS v5.0（地表温度单位、修正、不确定度和产品元数据）：`https://ceos.org/ard/files/PFS/ST/v5.0/CARD4L_Product_Family_Specification_Surface_Temperature-v5.0.pdf`
+- CEOS CARD4L Normalised Radar Backscatter PFS v5.5（SAR 辐射定标、地形/入射角归一化、极化和地理编码）：`https://ceos.org/ard/files/PFS/NRB/v5.5/CARD4L-PFS_NRB_v5.5.pdf`
+- CEOS CARD4L Aquatic Reflectance PFS v2.0（水体/海洋反射率、大气校正、SI 可追溯性和不确定度）：`https://ceos.org/ard/files/PFS/AR/v2.0/CEOS-ARD_Product_Family_Specification_Aquatic_Reflectance-v2.0.pdf`
+- `card4l_validation_workflow.md`（本地可执行笔记）：把 PFS 版本、资产哈希、QA、处理链、自评估和验证结果映射到 DataSnapshot、FormulaSpec、Runner 和证据包。
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 

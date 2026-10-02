@@ -10,12 +10,12 @@
 | --- | --- | --- | --- |
 | ENVI/IDL 官方资料 | 415 份已索引文档 | 查找语法、API、处理流程 | 不能替代具体版本的本地 ENVI/IDL 编译验收 |
 | IDL/ENVI 方法资料 | 18 份方法与代码资料 | 支撑常见读写、指数和处理样例 | 不能覆盖全部传感器、投影、质量控制与异常数据 |
-| 遥感算法知识库 | 1,929 份文档、19,384 个 chunk：1,500 条 OpenAlex 候选记录、307 篇当前可访问的本地 OA PDF、50 条理论资料、69 个官方来源文件（53 份 PDF、13 份说明/工作流笔记及可复核 manifest；新增 USGS SSEBop、SMAP L3 Passive、SMAP Handbook、MOD15 LAI/FPAR 和土壤水分/植被结构验证工作流），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率、蒸散发/水分通量、土壤水分和 LAI/FPAR 验证 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
+| 遥感算法知识库 | 1,935 份文档、19,458 个 chunk：1,500 条 OpenAlex 候选记录、307 篇当前可访问的本地 OA PDF、50 条理论资料、74 个官方来源文件（57 份 PDF、14 份说明/工作流笔记及可复核 manifest；新增 USGS SSEBop、SMAP L3 Passive、SMAP Handbook、MOD15 LAI/FPAR 和四类 CEOS CARD4L PFS），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率、蒸散发/水分通量、土壤水分、LAI/FPAR 和 CARD4L 产品验收 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
 | 扫描版 IDL 实验资料 | 1 份文档，已用 `pdf-ocr-v1` 完成 OCR 和索引 | 可按 OCR 文本检索并引用 | OCR 仍需人工抽查公式、表格和代码，不能自动视为无误 |
 
-当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,364 份资料、22,046 个 chunk 全部为 `ready`，2,364 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在新增 SMAP/LAI 官方资料后以正式评测服务登记了 43 条混合检索 Golden QA（报告 id=32），命中率 0.372、recall 0.372、MRR 0.333、Precision@6 0.190、答案相关性 0.663、faithfulness 0.417，平均延迟约 5.3 秒。其中 `remote_product` 6/6 命中、`tooling` 4/4 命中；SMAP 和 MOD15 定向查询均能优先召回新增官方规范。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
+当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,370 份资料、22,120 个 chunk 全部为 `ready`，2,370 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在新增 CARD4L 官方规范后以正式评测服务登记了 43 条混合检索 Golden QA（报告 id=33），命中率 0.372、recall 0.372、MRR 0.329、Precision@6 0.186、答案相关性 0.686、faithfulness 0.417，平均延迟约 5.4 秒。其中 `remote_product` 与 `tooling` 题集仍保持完整命中；SMAP、MOD15 和 CARD4L 定向查询均能优先召回新增官方规范。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
-本次一致性审计还验证了 owner=1 的全部 2,364 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并同步清理 SQLite FTS、LanceDB 向量、chunk 和索引任务，避免“ready 但无法打开来源”的生产数据问题。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
+本次一致性审计还验证了 owner=1 的全部 2,370 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并同步清理 SQLite FTS、LanceDB 向量、chunk 和索引任务，避免“ready 但无法打开来源”的生产数据问题。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
 
 本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Ollama `gemma3:4b` 的 OpenAI-compatible Chat 请求也已成功。当前运行时默认使用 Ollama：聊天为 `gemma3:4b`，Embedding 为 `bge-m3`；Gemini2API 仍保留在设置中，可作为需要更强长文本能力时的可选远程 provider。两者职责分离，不能把聊天网关误当成 embedding 服务。
 
