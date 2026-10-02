@@ -160,5 +160,6 @@ data/sources/remote_sensing_official/
 - `ogc_geotiff_stac_conformance_workflow.md`：本地验收流程，明确 GeoTIFF、COG HTTP Range 和 STAC 元数据必须分别通过检查；不把 COG 社区 profile 误写成 GeoTIFF 标准。
 - OGC API Records/Features/Tiles：<https://docs.ogc.org/is/20-004r1/20-004r1.html>、<https://docs.ogc.org/is/17-069r3/17-069r3.pdf>、<https://docs.ogc.org/is/20-057/20-057.html>
 - `ogc_api_catalog_conformance_workflow.md`：目录发现、权限、分页/空间/时间过滤和目录记录到 STAC/GeoTIFF asset 的一致性验收。
+- NASA/USGS GEDI L2A/L2B User Guide、full-waveform ATBD 和 footprint canopy/biomass ATBD：补齐激光雷达、冠层结构、垂直剖面和生物量产品的算法与质量字段，来源分别为 <https://lpdaac.usgs.gov/documents/986/GEDI02_UserGuide_V2.pdf>、<https://lpdaac.usgs.gov/documents/581/GEDI_WF_ATBD_v1.0.pdf>、<https://lpdaac.usgs.gov/documents/588/GEDI_FCCVPM_ATBD_v1.0.pdf>。
 
 收集时要把资料分成“官方产品规范、开放全文论文、论文候选元数据、代码示例、内部资料”五类，并为每类记录来源、许可、版本、获取时间和 SHA-256。不能把搜索摘要或论文元数据直接升级为已核验全文。
