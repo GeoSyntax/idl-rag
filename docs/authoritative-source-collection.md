@@ -152,4 +152,11 @@ data/sources/remote_sensing_official/
 - Sentinel Hub/Planetary Computer/STAC API 的数据访问和许可说明
 - IDL/ENVI 版本对应的 API 手册、示例代码和批处理约定
 
+### 数据交换与资产一致性标准
+
+- OGC GeoTIFF 1.1：<https://docs.ogc.org/is/19-008r4/19-008r4.html>
+- OGC STAC Core/API：<https://docs.ogc.org/cs/25-004/25-004.html>、<https://docs.ogc.org/cs/25-005/25-005.html>
+- OGC COG Engineering Report：<https://docs.ogc.org/per/21-025.html>
+- `ogc_geotiff_stac_conformance_workflow.md`：本地验收流程，明确 GeoTIFF、COG HTTP Range 和 STAC 元数据必须分别通过检查；不把 COG 社区 profile 误写成 GeoTIFF 标准。
+
 收集时要把资料分成“官方产品规范、开放全文论文、论文候选元数据、代码示例、内部资料”五类，并为每类记录来源、许可、版本、获取时间和 SHA-256。不能把搜索摘要或论文元数据直接升级为已核验全文。
