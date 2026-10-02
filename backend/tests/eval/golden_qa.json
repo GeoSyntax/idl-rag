@@ -515,6 +515,56 @@
       "tags": ["swot", "karin", "hydrology", "product_levels"]
     },
     {
+      "id": "remote_product_19",
+      "category": "remote_product",
+      "question": "NISAR L1 RSLC 产品的 zero-Doppler、slant-range 网格、complex DN 和 radiometric LUT 应该如何解释？",
+      "expected_keywords": ["RSLC", "zero-Doppler", "slant range", "complex", "radiometric", "LUT"],
+      "expected_answer_contains": "RSLC",
+      "expected_files": ["NISAR_D-102268_RevE_NASA_SDS_Product_Specification_L1_RSLC_clean_w-sigs.pdf"],
+      "difficulty": "hard",
+      "tags": ["nisar", "sar", "rslc", "radiometry"]
+    },
+    {
+      "id": "remote_product_20",
+      "category": "remote_product",
+      "question": "NISAR L2 GSLC 如何把 L1 SLC 转换为地理编码地图网格，并组织极化、频率和 HDF5 元数据？",
+      "expected_keywords": ["GSLC", "geocoded", "map grid", "polarization", "frequency", "HDF5"],
+      "expected_answer_contains": "GSLC",
+      "expected_files": ["NISAR_D-102269_RevE_NASA_SDS_Product_Specification_L2_GSLC_Nov8_2024_w-sigs.pdf"],
+      "difficulty": "hard",
+      "tags": ["nisar", "sar", "gslc", "geocoding"]
+    },
+    {
+      "id": "remote_product_21",
+      "category": "remote_product",
+      "question": "NISAR L2 GCOV 产品的 polarimetric covariance layers、calibration 和 map grid 字段如何使用？",
+      "expected_keywords": ["GCOV", "polarimetric covariance", "calibration", "map grid", "HDF5"],
+      "expected_answer_contains": "GCOV",
+      "expected_files": ["NISAR_D-102274_RevE_NASA_SDS_Product_Specification_L2_GCOV_Nov8_2024_w-sigs.pdf"],
+      "difficulty": "hard",
+      "tags": ["nisar", "sar", "gcov", "polarimetry"]
+    },
+    {
+      "id": "remote_product_22",
+      "category": "remote_product",
+      "question": "NISAR RIFG、RUNW 和 GUNW 产品分别表示什么干涉相位层级，应该如何关联 coherence、geolocation 和 displacement？",
+      "expected_keywords": ["RIFG", "RUNW", "GUNW", "interferogram", "coherence", "geolocation"],
+      "expected_answer_contains": "RIFG",
+      "expected_files": ["NISAR_D-102270_RevD_NASA_SDS_Product_Specification_L1_RIFG_w-sigs.pdf", "NISAR_D-102271_RevE_NASA_SDS_Product_Specification_L1_RUNW_Nov8_2024_w-sigs.pdf", "NISAR_D-102272_RevE_NASA_SDS_Product_Specification_L2_GUNW_Nov8_2024_w-sigs.pdf"],
+      "difficulty": "hard",
+      "tags": ["nisar", "insar", "interferogram", "displacement"]
+    },
+    {
+      "id": "remote_product_23",
+      "category": "remote_product",
+      "question": "NISAR L3 SME2 soil-moisture 产品的地球物理单位、质量层和水文应用边界应在哪里确认？",
+      "expected_keywords": ["L3_SME2", "soil moisture", "200 米", "质量标志", "水文应用边界"],
+      "expected_answer_contains": "soil moisture",
+      "expected_files": ["NISAR_D-107677_RevC_NASA_SDS_Product_Specification_L3_SME2_Nov8_2024_w-sigs.pdf"],
+      "difficulty": "hard",
+      "tags": ["nisar", "soil_moisture", "hydrology", "product_specification"]
+    },
+    {
       "id": "tooling_01",
       "category": "tooling",
       "question": "什么是 COG，为什么不能随意更新已有的 COG 文件？",

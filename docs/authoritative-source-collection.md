@@ -167,5 +167,6 @@ data/sources/remote_sensing_official/
 - NASA/JPL ECOSTRESS ESI ALEXI User Guide（<https://lpdaac.usgs.gov/documents/1325/ECO4ESIALEXI_User_Guide_V1.pdf>）：补齐热红外蒸散发胁迫、ALEXI/ET 解释边界、时空聚合和灌溉/干旱应用限制。
 - GEDI waveform geolocation ATBD（<https://lpdaac.usgs.gov/documents/579/GEDI__WFGEO_ATBD_v1.0.pdf>）：补齐 L1B 波形地理定位与 L2 冠层高度/剖面产品之间的输入关系。
 - NASA/JPL SWOT User Handbook（<https://earthdata.nasa.gov/s3fs-public/2024-06/D-109532_SWOT_UserHandbook_20240502.pdf>）：补充宽幅 KaRIn 水面高程、水体产品层级、坐标约定、文件结构和算法文档入口，为动态水体研究提供不同于光学/常规 SAR 的水文观测资料。
+- NASA/ISRO NISAR Product Specifications（ASF Earthdata Cloud）：补充 L0B 原始雷达、L1 RSLC、L2 GSLC/GCOV、RIFG/RUNW/GUNW 和 L3 soil-moisture 产品的 HDF5 层级、零多普勒/斜距约定、复数 DN 与辐射 LUT、干涉相位/相干性、极化协方差和地球物理质量字段。官方文档索引为 <https://nisar-docs-test.asf.alaska.edu/product-specification>，各 PDF 保留在 `remote_sensing_official/` 并记录产品规格版本。
 
 收集时要把资料分成“官方产品规范、开放全文论文、论文候选元数据、代码示例、内部资料”五类，并为每类记录来源、许可、版本、获取时间和 SHA-256。不能把搜索摘要或论文元数据直接升级为已核验全文。
