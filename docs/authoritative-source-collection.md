@@ -50,6 +50,10 @@
 - USGS *A Review of Surface Energy Balance Models for Estimating Actual Evapotranspiration with Remote Sensing at High Spatiotemporal Resolution over Large Extents*（SIR 2017–5087，SEBAL/METRIC/SSEBop/SEBS 对比）：`https://pubs.usgs.gov/sir/2017/5087/`
 - NASA NTRS *Remote Sensing of Evaporation*（2018，蒸发遥感方法族、能量平衡与可操作实现）：`https://ntrs.nasa.gov/citations/20190029634`
 - `et_workflow_ssebop_energy_balance.md`（本地可执行笔记）：把 SSEBop、SEBAL/METRIC、SEBS 的输入、公式、敏感性实验、分层验证和证据包契约整理为平台任务入口；它不是原始规范替代品。
+- NASA/NSIDC SMAP L3 Passive Soil Moisture Product Specification v2.0（产品字段、EASE-Grid、质量标记和处理要求）：`https://nsidc.org/sites/default/files/d7255120smap20l3_sm_p20psd_version2080_final.pdf`
+- NASA SMAP Handbook（L1–L4 产品族、校准验证与应用边界）：`https://www.earthdata.nasa.gov/s3fs-public/2024-10/ASF-SAR-SMAP-User-Guide.pdf?VersionId=9Bo5LjNix4wZkaBhvCHDQVHZICClfLZK`
+- NASA/USGS MODIS MOD15 LAI/FPAR User Guide V6（LUT/备选算法、反射率输入、不确定度和 QA）：`https://lpdaac.usgs.gov/documents/624/MOD15_User_Guide_V6.pdf`
+- `soil_moisture_lai_validation_workflow.md`（本地可执行笔记）：把 SMAP/Sentinel-1 土壤水分融合、MOD15 与 Sentinel-2 red-edge LAI/FPAR 对比、尺度匹配和分层验证整理为实验入口。
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 
