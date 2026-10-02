@@ -82,6 +82,8 @@
 - NOAA SURFRAD（地表辐射、长波/短波和气象辅助数据）：`https://www.gml.noaa.gov/grad/surfrad/`
 - NASA/JPL ECOSTRESS Spectral Library（ASTER 光谱库后继版本，材料光谱与发射率参考）：`https://speclib.jpl.nasa.gov/download`
 - `calval_reference_data_sources.md`（本地可执行笔记）：把参考站点、数据版本、许可、哈希和样本冻结映射到验证证据包。
+- CEOS LPV DIRECT V2.1 原始 XLSX（176 个站点，3 km × 3 km LAI/LAIeff/FAPAR/FCOVER/不确定度参考值）：`https://calvalportal.ceos.org/documents/10136/844617/CEOS_LPV_OLIVE_DIRECTV2.1.xlsx/75245750-5496-44f1-b723-8544090ea809`
+- `CEOS_LPV_DIRECT_V2.1_data.md`（原始 XLSX 的本地检索派生文件）：只用于检索定位；计算时必须回读原始 XLSX 并校验哈希。
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 
