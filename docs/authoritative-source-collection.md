@@ -69,6 +69,10 @@
 - CEOS LPV LST&E focus area（LST 验证方法、参考网络和 Stage 3 解释边界）：`https://lpvs.gsfc.nasa.gov/LSTE/LSTE_home.html`
 - `lpv_validation_protocol_workflow.md`（本地可执行笔记）：把 Stage 0–4、独立参考数据、抽样设计、误差指标和版本回归映射到研究证据包。
 - `biomass_vi_validation_workflow.md`（本地可执行笔记）：把 AGB 样地到像元匹配、VI 质量控制、公式变体对照和证据包输出映射到研究任务。
+- ASF HyP3 Sentinel-1 RTC Product Guide（DEM、gamma0/sigma0、功率/幅度/dB、RTC 输出与时序注意事项）：`https://hyp3-docs.asf.alaska.edu/guides/rtc_product_guide/`
+- NASA/JPL OPERA RTC-S1 Product Guide（OPERA/ISCE3、GLO-30、burst、30 m COG、极化和 Earthdata/ASF 访问）：`https://hyp3-docs.asf.alaska.edu/guides/opera_rtc_product_guide/`
+- OPERA RTC-S1-STATIC Product Specification v1.0.2（静态层、mask、入射角、number of looks、ANF 和 COG 元数据）：`https://asf.alaska.edu/wp-content/uploads/2023/11/OPERA-RTC-S1-STATIC-ProductSpec-v1.0.2-D-108764-Initial-2023-11-06-URS321268.pdf`
+- `sentinel1_rtc_opera_workflow.md`（本地可执行笔记）：把 SAR 产品选择、辐射尺度、地形/几何 QA、网格一致性和浏览图输出映射到研究证据包。
 
 本地 OPERA 资料对应 GEE 集合 `OPERA/DSWX/L3_V1/HLS`，覆盖 Landsat-8 与 Sentinel-2A/B/C 的 HLS 输入、30 m WTR/BWTR/CONF/DIAG 等层。GEE 官方目录说明该数据集从 2023-04 起提供验证后的 Level-3 水体观测，并给出开放共享条款和 DOI `10.5067/OPDSW-PL3V1`；生产任务仍需在实验 manifest 中保存集合 ID、产品版本、传感器、云/雪/海洋掩膜和置信度阈值，而不能只记录“用了 DSWx”。
 

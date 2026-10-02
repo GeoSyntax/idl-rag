@@ -10,12 +10,12 @@
 | --- | --- | --- | --- |
 | ENVI/IDL 官方资料 | 415 份已索引文档 | 查找语法、API、处理流程 | 不能替代具体版本的本地 ENVI/IDL 编译验收 |
 | IDL/ENVI 方法资料 | 18 份方法与代码资料 | 支撑常见读写、指数和处理样例 | 不能覆盖全部传感器、投影、质量控制与异常数据 |
-| 遥感算法知识库 | 1,944 份文档、20,152 个 chunk：1,500 条 OpenAlex 候选记录、307 篇当前可访问的本地 OA PDF、50 条理论资料、81 个官方来源文件（62 份 PDF、16 份说明/工作流笔记及可复核 manifest；新增 USGS SSEBop、SMAP L3 Passive、SMAP Handbook、MOD15 LAI/FPAR、四类 CEOS CARD4L PFS、土壤水分/土地覆盖/LAI/反照率/生物量 LPV 验证协议），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率、蒸散发/水分通量、土壤水分、LAI/FPAR、CARD4L 产品验收、LPV 验证分级、生物量样地验证和植被指数稳定性检查 | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
+| 遥感算法知识库 | 1,940 份文档、20,143 个 chunk：1,500 条 OpenAlex 候选记录、307 篇当前可访问的本地 OA PDF、50 条理论资料、82 个官方来源文件（62 份 PDF、17 份说明/工作流笔记及可复核 manifest；新增 USGS SSEBop、SMAP L3 Passive、SMAP Handbook、MOD15 LAI/FPAR、四类 CEOS CARD4L PFS、土壤水分/土地覆盖/LAI/反照率/生物量 LPV 验证协议、Sentinel-1 RTC/OPERA 工作流），5 份工具规范，以及本地论文解析资料 | 支撑产品约定、指数/温度/分类/变化检测、动态水体、火烧迹地、积雪覆盖、跨传感器 HLS、ARD/COG、Sentinel-2 产品基线、水体反射率、蒸散发/水分通量、土壤水分、LAI/FPAR、CARD4L 产品验收、LPV 验证分级、生物量样地验证、植被指数稳定性和 Sentinel-1 RTC 几何/辐射 QA | OpenAlex 候选记录主要是元数据/摘要；OA PDF 仍需逐条核对再分发许可 |
 | 扫描版 IDL 实验资料 | 1 份文档，已用 `pdf-ocr-v1` 完成 OCR 和索引 | 可按 OCR 文本检索并引用 | OCR 仍需人工抽查公式、表格和代码，不能自动视为无误 |
 
-当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,379 份资料、22,814 个 chunk 全部为 `ready`，2,379 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在新增生物量/植被指数验证资料后以正式评测服务登记了 43 条混合检索 Golden QA（报告 id=35），命中率 0.372、recall 0.372、MRR 0.304、Precision@6 0.182、答案相关性 0.678、faithfulness 0.409，平均延迟约 5.4 秒。其中 `remote_product` 与 `tooling` 题集仍保持完整命中；SMAP、MOD15、CARD4L、LPV 和生物量定向查询均能优先召回新增官方规范。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
+当前本地工作区已经完成一次生产门禁：owner=1 的 5 个知识库共 2,375 份资料、22,805 个 chunk 全部为 `ready`，2,375 份资料均使用 `bge-m3 / 1024` 真实向量，fallback 为 0；知识库 5 在清理重复来源并新增 Sentinel-1 RTC/OPERA 工作流后以正式评测服务登记了 43 条混合检索 Golden QA（报告 id=36），命中率 0.372、recall 0.372、MRR 0.318、Precision@6 0.171、答案相关性 0.640、faithfulness 0.405，平均延迟约 5.3 秒。其中 `remote_product` 与 `tooling` 题集仍保持完整命中；SMAP、MOD15、CARD4L、LPV、生物量和 Sentinel-1 RTC 定向查询均能优先召回新增官方规范。这个结果说明本地资料链路可投入受控试用，但不等于所有研究问题都已覆盖，也不替代论文许可、真实数据运行和教师复核。
 
-本次一致性审计还验证了 owner=1 的全部 2,379 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并同步清理 SQLite FTS、LanceDB 向量、chunk 和索引任务，避免“ready 但无法打开来源”的生产数据问题。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
+本次一致性审计还验证了 owner=1 的全部 2,375 条记录都能回溯到当前源文件，缺失源文件为 0；同时移除了 995 条历史失效路径记录、6 条重复 README 版本和 1 个仅剩失效样本的历史 benchmark 知识库，并清理了本轮发现的 6 条重复 README 文档及其 FTS/LanceDB 向量，避免“ready 但无法打开来源”或同一来源重复计分的生产数据问题。测试题仍保留在 `backend/tests/eval/golden_qa.json`，不会随知识库清理删除。
 
 本次本地运行时复核也已通过：Ollama `bge-m3` 返回 1024 维向量，并在 RTX 4060 笔记本上显示为 GPU 推理；Ollama `gemma3:4b` 的 OpenAI-compatible Chat 请求也已成功。当前运行时默认使用 Ollama：聊天为 `gemma3:4b`，Embedding 为 `bge-m3`；Gemini2API 仍保留在设置中，可作为需要更强长文本能力时的可选远程 provider。两者职责分离，不能把聊天网关误当成 embedding 服务。
 
