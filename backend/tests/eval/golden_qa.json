@@ -455,6 +455,16 @@
       "tags": ["emit", "ghg", "methane", "co2", "uncertainty"]
     },
     {
+      "id": "remote_product_13",
+      "category": "remote_product",
+      "question": "EnMAP L2A 高光谱产品中，投影、重采样、空间覆盖和 CARD4L 元数据应该如何记录？",
+      "expected_keywords": ["EnMAP", "L2A", "projection", "resampling", "spatial coverage", "CARD4L"],
+      "expected_answer_contains": "EnMAP",
+      "expected_files": ["EnMAP_CARD4L_Product_Specifications.pdf"],
+      "difficulty": "hard",
+      "tags": ["enmap", "hyperspectral", "card4l", "metadata"]
+    },
+    {
       "id": "tooling_01",
       "category": "tooling",
       "question": "什么是 COG，为什么不能随意更新已有的 COG 文件？",
